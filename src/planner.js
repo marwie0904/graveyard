@@ -136,7 +136,8 @@ export function deriveState(profile, logs, now, ph) {
     (l) => l.value.status === "skipped" && l.value.category === "movement"
   ).length;
 
-  const wake = of("wake")[0] || null;
+  /* last wins, so a corrected entry replaces the first, matching sleepQuality */
+  const wake = of("wake").slice(-1)[0] || null;
   const quality = of("sleepQuality").slice(-1)[0] || null;
 
   const endShift = of("endShift").length > 0;

@@ -14,7 +14,7 @@ import {
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements } from "./stats.js";
-import { Card, Btn, Pill, Badge, Display, Eyebrow } from "./ui/index.jsx";
+import { Card, Btn, Pill, Badge, Display, Eyebrow, Select } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 
 /* ============================================================================
@@ -1591,7 +1591,8 @@ export default function App() {
 
   /* ---------------------------------- log --------------------------------- */
   const LOG_TYPES = [
-    { v: "wake", l: "Woke up", cat: "sleep", val: "earlier" },
+    { v: "wake", l: "Woke up", cat: "sleep", val: "ontime",
+      details: ["Earlier", "On time", "Later"] },
     { v: "sleepQuality", l: "Slept poorly", cat: "sleep", val: "poor" },
     { v: "caffeine", l: "Caffeine", cat: "caffeine", val: 1,
       details: ["Coffee", "Tea", "Energy drink", "Other"] },
@@ -1621,7 +1622,10 @@ export default function App() {
     const note = logDraft.note || undefined;
     let value = t.val;
     if (t.v === "meal" && note === "Heavy meal") value = "heavy";
-    if (t.v === "nap") value = note === "Woke groggy" ? "groggy" : note === "Quiet rest" ? "couldnt" : "ok";
+    /* "Quiet rest" is a rest the user chose, not a nap they failed to take.
+       It used to map to "couldnt", which told the plan the nap had failed. */
+    if (t.v === "nap") value = note === "Woke groggy" ? "groggy" : note === "Quiet rest" ? "quiet" : "ok";
+    if (t.v === "wake") value = note === "Earlier" ? "earlier" : note === "Later" ? "later" : "ontime";
     const id = `m${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     if (t.v === "move" || t.v === "skip") {
       setLogs((L) => [...L, { id, t: at, type: "item", note,
@@ -1680,20 +1684,20 @@ export default function App() {
 
         <Eyebrow T={T}>Add with your own time</Eyebrow>
         <Card T={T} style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
-            {LOG_TYPES.map((x) => (
-              <Pill key={x.v} T={T} hue={DOMAIN[x.cat].hue} active={logDraft.type === x.v}
-                onClick={() => setLogDraft({ ...logDraft, type: x.v, note: "" })}>{x.l}</Pill>
-            ))}
-          </div>
+          {/* thirteen pills wrapped to five rows before the time picker was even
+              visible; one select keeps the whole control above the fold */}
+          <Select T={T} label="What are you logging?" placeholder="Choose a type"
+            value={t ? t.l : null}
+            options={LOG_TYPES.map((x) => x.l)}
+            onChange={(label) => {
+              const found = LOG_TYPES.find((x) => x.l === label);
+              setLogDraft({ ...logDraft, type: found ? found.v : logDraft.type, note: "" });
+            }} />
 
-          {t.details && (
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 14 }}>
-              {t.details.map((d) => (
-                <Pill key={d} T={T} hue={DOMAIN[t.cat].hue} active={logDraft.note === d}
-                  onClick={() => setLogDraft({ ...logDraft, note: logDraft.note === d ? "" : d })}>{d}</Pill>
-              ))}
-            </div>
+          {t && t.details && (
+            <Select T={T} label="Detail" placeholder="Optional"
+              value={logDraft.note || null} options={t.details}
+              onChange={(note) => setLogDraft({ ...logDraft, note: note || "" })} />
           )}
 
           <div style={{
@@ -1866,18 +1870,13 @@ export default function App() {
 
   const ReflectionBlock = () => (
     <div>
+      {/* selects rather than pill rows: seven questions of four options each ran
+          to about five screens of scrolling, and an unanswered question now
+          reads as unanswered instead of blending into the grid */}
       {REFLECT_QS.map((x) => (
-        <div key={x.k} style={{ marginBottom: 18 }}>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 9 }}>
-            {x.q}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {x.o.map((o) => (
-              <Pill key={o} T={T} hue={DOMAIN.recovery.hue} active={reflection[x.k] === o}
-                onClick={() => setReflection({ ...reflection, [x.k]: o })}>{o}</Pill>
-            ))}
-          </div>
-        </div>
+        <Select key={x.k} T={T} label={x.q} options={x.o}
+          value={reflection[x.k] ?? null}
+          onChange={(v) => setReflection({ ...reflection, [x.k]: v })} />
       ))}
       <Btn T={T} full onClick={() => {
         if (reflection.slept === "Under 5h" || reflection.rested === "Not at all") push("sleepQuality", "poor");
