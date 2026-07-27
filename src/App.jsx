@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
-  Moon, Coffee, Droplets, Activity, Sun, Utensils, Heart, Clock, Check,
+  Moon, Coffee, Activity, Heart, Clock, Check,
   ChevronRight, ChevronLeft, Plus, Wind, Eye, Bed, Car, ArrowRight, ArrowLeft,
   X, ListChecks, Info, Zap, Sunrise, Footprints, Sparkles, RotateCcw, Pencil,
   User, Download, Bell, Trophy, Target, BarChart3, FileText, Palette,
@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, Cell, CartesianGrid,
 } from "recharts";
 import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick } from "./time.js";
+import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 
 /* ============================================================================
    GRAVEYARD — a planner for the night shift
@@ -21,59 +22,6 @@ import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick } from "
    (profile, logs, now) and is recomputed on every render. Nothing is stored
    and mutated, so undo is free and every adaptation is traceable.
 ============================================================================ */
-
-/* ---------------------------------- tokens -------------------------------- */
-
-const FONT_DISPLAY =
-  '-apple-system, "SF Pro Display", BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif';
-const FONT_TEXT =
-  '-apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif';
-
-const DOMAIN = {
-  sleep:    { hue: "#5E5CE6", label: "Sleep",    Icon: Moon },
-  caffeine: { hue: "#C2683A", label: "Caffeine", Icon: Coffee },
-  water:    { hue: "#2C9FD4", label: "Water",    Icon: Droplets },
-  movement: { hue: "#2FA96B", label: "Movement", Icon: Activity },
-  light:    { hue: "#DDA02B", label: "Light",    Icon: Sun },
-  food:     { hue: "#DC6A55", label: "Food",     Icon: Utensils },
-  recovery: { hue: "#9A5FD0", label: "Recovery", Icon: Heart },
-  shift:    { hue: "#6E7685", label: "Shift",    Icon: Clock },
-};
-
-const WARM = {
-  key: "warm",
-  bg: "#F2F0EA",
-  card: "#FFFFFF",
-  sunken: "#EAE7DF",
-  ink: "#16150F",
-  muted: "#78736A",
-  faint: "#A9A398",
-  hair: "rgba(0,0,0,0.07)",
-  hero: "#191813",
-  heroInk: "#F7F5F0",
-  heroMuted: "rgba(247,245,240,0.62)",
-  tintA: 0.12,
-};
-
-const DARK = {
-  key: "dark",
-  bg: "#121218",
-  card: "#1E1E26",
-  sunken: "#191921",
-  ink: "#EFEDE8",
-  muted: "#96939E",
-  faint: "#6E6B76",
-  hair: "rgba(255,255,255,0.09)",
-  hero: "#2A2A5A",
-  heroInk: "#F3F1FA",
-  heroMuted: "rgba(243,241,250,0.62)",
-  tintA: 0.2,
-};
-
-const tint = (hex, a) => {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-};
 
 /* ----------------------------- planner functions -------------------------- */
 
