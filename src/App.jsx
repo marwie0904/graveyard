@@ -966,10 +966,6 @@ const REST_STRATEGY = {
   none: "Quiet rest, eye rest, and breathing instead of naps.",
 };
 
-const CAFFEINE_DESC = {
-  none: "no caffeine during shifts", low: "light caffeine use",
-  moderate: "moderate caffeine use", high: "heavy caffeine use",
-};
 const REMINDERS = [
   { k: "preMeal", l: "Pre-shift meal", cat: "food" },
   { k: "hydration", l: "Hydration checks", cat: "water" },
@@ -988,11 +984,6 @@ const REMINDERS = [
   { k: "wake", l: "Log your wake-up", cat: "sleep" },
   { k: "reflection", l: "Daily reflection", cat: "recovery" },
 ];
-
-const REST_DESC = {
-  before: "a pre-shift rest option", during: "an in-shift rest option",
-  both: "rest options before and during", none: "no nap access",
-};
 
 /* timings the app may move are shown as a range, not a fixed number */
 const gapRange = (g) => (g <= 45 ? `${g}` : `${g - 30}\u2013${g}`);
@@ -1156,6 +1147,43 @@ function Row({ T, k, v }) {
   );
 }
 
+/* A real slice of tonight's generated timeline, not a hand-written summary, so
+   what the user previews is literally what the Plan tab will show. Movement
+   resets repeat every couple of hours, so they collapse to one row. */
+function TimelinePreview({ T, profile, ph }) {
+  const { items } = generateTimeline(profile, [], ph.start);
+  const seenMove = { n: 0 };
+  const rows = items.filter((it) => {
+    if (it.id.startsWith("move-")) { seenMove.n += 1; return seenMove.n === 1; }
+    return true;
+  }).slice(0, 8);
+
+  return (
+    <Card T={T} style={{ padding: "4px 16px", marginBottom: 10 }}>
+      {rows.map((it, k) => {
+        const d = DOMAIN[it.category] || DOMAIN.shift;
+        const repeats = it.id.startsWith("move-");
+        return (
+          <div key={it.id} style={{
+            display: "flex", alignItems: "center", gap: 11, padding: "11px 2px",
+            borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: 4, background: d.hue, flexShrink: 0 }} />
+            <span style={{
+              flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{it.title}{repeats ? ", repeating" : ""}</span>
+            <span style={{
+              fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 600, color: T.faint,
+              fontVariantNumeric: "tabular-nums", flexShrink: 0,
+            }}>{fmt(it.at)}</span>
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
 function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
   const ph = calculateShiftPhases(profile);
   const r = buildRecommendation(profile, ph);
@@ -1164,62 +1192,41 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
     <div style={{ padding: "44px 20px 40px" }}>
       <Eyebrow T={T}>{revisit ? "Your plan, explained" : "Your starting plan"}</Eyebrow>
       <Display T={T} size={32}>Your night-shift plan is ready.</Display>
-      <p style={{ fontFamily: FONT_TEXT, fontSize: 15.5, lineHeight: 1.5, color: T.muted, margin: "10px 0 18px" }}>
-        Built from your answers: a {fmt(ph.start)} to {fmt(ph.end)} shift, a planned{" "}
-        {fmt(ph.sleepStart)} sleep window, {CAFFEINE_DESC[profile.caffeine]}, and{" "}
-        {REST_DESC[profile.nap]}.
+      <p style={{ fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.5, color: T.muted, margin: "10px 0 20px" }}>
+        {fmt(ph.start)} to {fmt(ph.end)}, sleep protected from {fmt(ph.sleepStart)}.
       </p>
 
-      <Card T={T} style={{ padding: "6px 18px 14px", marginBottom: 12 }}>
+      <Eyebrow T={T}>Tonight's timeline</Eyebrow>
+      <TimelinePreview T={T} profile={profile} ph={ph} />
+      <p style={{
+        fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "0 4px 22px",
+      }}>
+        The full timeline lives in the Plan tab and adjusts as you log.
+      </p>
+
+      {/* three groups, not seven: sleep and caffeine are one decision, rest and
+          movement are one, light and food are one */}
+      <Eyebrow T={T}>Why these choices</Eyebrow>
+      <Section T={T} onAdjust={onAdjust} cat="sleep" adjustable={0}
+        title="Sleep and caffeine"
+        body={`${r.sleepAnchor} ${r.caffeine.b}`}
+        items={r.caffeine.items} />
+      <Section T={T} onAdjust={onAdjust} cat="recovery" adjustable={3}
+        title="Rest and movement"
+        body={`${r.rest.b} ${r.movement.b}`}
+        items={r.rest.items} />
+      <Section T={T} onAdjust={onAdjust} cat="light" adjustable={4}
+        title="Light and food"
+        body={`${r.light.b} ${r.food.b}`} />
+
+      <Eyebrow T={T}>Plan details</Eyebrow>
+      <Card T={T} style={{ padding: "6px 18px 14px", marginBottom: 18 }}>
         <Row T={T} k="Plan type" v={r.p.type} />
         <Row T={T} k="Main focus" v={r.p.focus} />
         <Row T={T} k="Sleep" v={r.p.sleep} />
         <Row T={T} k="Caffeine" v={CAFFEINE_STRATEGY[profile.caffeine]} />
         <Row T={T} k="Rest" v={REST_STRATEGY[profile.nap]} />
       </Card>
-
-      <div style={{
-        padding: "16px 18px", borderRadius: 20, marginBottom: 22,
-        background: tint(DOMAIN.sleep.hue, T.tintA),
-      }}>
-        <div style={{
-          fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
-          textTransform: "uppercase", color: DOMAIN.sleep.hue, marginBottom: 8,
-        }}>Start here</div>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
-          {r.startHere}
-        </p>
-      </div>
-
-      <Eyebrow T={T}>Why these choices</Eyebrow>
-      <Section T={T} onAdjust={onAdjust} cat="sleep" title="Your sleep window is the anchor." adjustable={0}
-        body={`Your planned sleep time is ${fmt(ph.sleepStart)}. Caffeine, light, food, and wind-down are timed backward from that sleep window. ${r.sleepAnchor}`} />
-      <Section T={T} onAdjust={onAdjust} cat="recovery" title={r.fatigue.t} body={r.fatigue.b} />
-      <Section T={T} onAdjust={onAdjust} cat="caffeine" title={r.caffeine.t} body={r.caffeine.b} items={r.caffeine.items} adjustable={1} />
-      <Section T={T} onAdjust={onAdjust} cat="sleep" title={r.rest.t} body={r.rest.b} items={r.rest.items} />
-      <Section T={T} onAdjust={onAdjust} cat="movement" title={r.movement.t} body={r.movement.b} adjustable={3} />
-      <Section T={T} onAdjust={onAdjust} cat="light" title={r.light.t} body={r.light.b} adjustable={4} />
-      <Section T={T} onAdjust={onAdjust} cat="food" title={r.food.t} body={`${r.food.b} ${r.water}`} adjustable={5} />
-
-      <Eyebrow T={T}>Tonight, in short</Eyebrow>
-      <Card T={T} style={{ padding: "10px 18px", marginBottom: 18 }}>
-        {r.checklist.map((c, k) => (
-          <div key={c} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "11px 0",
-            borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: 3, background: T.faint, flexShrink: 0 }} />
-            <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink }}>{c}</span>
-          </div>
-        ))}
-      </Card>
-
-      <p style={{
-        fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.faint,
-        margin: "0 4px 24px",
-      }}>
-        A starting plan, not a fixed rule. It adjusts as you log.
-      </p>
 
       <Btn T={T} full onClick={onDone}>
         {revisit ? "Back to my plan" : "Start my plan"} <ArrowRight size={18} />
