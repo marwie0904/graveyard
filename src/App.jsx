@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
-  Moon, Coffee, Activity, Heart, Clock, Check,
-  ChevronRight, ChevronLeft, Plus, Wind, Eye, Bed, Car, ArrowRight, ArrowLeft,
-  X, ListChecks, Info, Zap, Sunrise, Footprints, Sparkles, RotateCcw, Pencil,
-  User, Download, Bell, Trophy, Target, BarChart3, FileText, Palette,
-  HelpCircle, Lock, Smile, ChevronDown, Play,
-} from "lucide-react";
+  Moon, Coffee, Pulse, Heart, Clock, Check,
+  CaretRight, Plus, Wind, Eye, Bed, Car, ArrowRight, ArrowLeft,
+  X, ListChecks, Info, Lightning, Footprints, ArrowCounterClockwise, Pencil,
+  User, DownloadSimple, Bell, Trophy, Target, ChartBar, FileText, Palette,
+  Question, Lock, CaretDown, Play,
+} from "./icons.jsx";
 import {
   BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis,
   ResponsiveContainer, Cell, CartesianGrid,
@@ -923,7 +923,7 @@ function achievements(profile, logs, history) {
     { key: "early", Icon: Coffee, hue: DOMAIN.caffeine.hue, l: "Stopped early",
       d: "Three nights where every cup landed before your cutoff.",
       got: cleanNights >= 3 },
-    { key: "hard", Icon: Zap, hue: DOMAIN.light.hue, l: "Hard night",
+    { key: "hard", Icon: Lightning, hue: DOMAIN.light.hue, l: "Hard night",
       d: "You worked a night on under five hours of sleep and came back.",
       got: history.some((h) => h.sleepHours < 5) },
     { key: "rest", Icon: Bed, hue: DOMAIN.sleep.hue, l: "Took the rest",
@@ -932,7 +932,7 @@ function achievements(profile, logs, history) {
     { key: "home", Icon: Car, hue: DOMAIN.recovery.hue, l: "Home safe",
       d: "You ran the end-of-shift check before heading home.",
       got: count("endShift") > 0 },
-    { key: "reset", Icon: Activity, hue: DOMAIN.movement.hue, l: "Reset habit",
+    { key: "reset", Icon: Pulse, hue: DOMAIN.movement.hue, l: "Reset habit",
       d: "Five movement resets completed. Small ones count.",
       got: movesDone >= 5 },
   ];
@@ -961,7 +961,7 @@ const CARE = [
   },
   {
     k: "neck", l: "Neck and shoulders", sub: "Release desk tension",
-    mins: 3, cat: "movement", Icon: Activity, logsAs: "move",
+    mins: 3, cat: "movement", Icon: Pulse, logsAs: "move",
     steps: [
       { l: "Roll your shoulders back, slowly", s: 30 },
       { l: "Right ear toward right shoulder", s: 30 },
@@ -2297,7 +2297,7 @@ function TimelineItem({ item, T, status, onAct, now, showRail = true }) {
                 display: "flex", alignItems: "flex-start", gap: 7, marginTop: 10,
                 padding: "9px 11px", borderRadius: 12, background: tint(d.hue, 0.11),
               }}>
-                <RotateCcw size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
+                <ArrowCounterClockwise size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
                 <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.hue, fontWeight: 500 }}>
                   {item.changed}
                 </span>
@@ -2793,7 +2793,7 @@ export default function App() {
               {planSummary(profile).type}
             </div>
           </div>
-          <ChevronRight size={17} color={T.faint} />
+          <CaretRight size={17} color={T.faint} />
         </Card>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
@@ -3018,7 +3018,7 @@ export default function App() {
                     fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: T.faint,
                     fontVariantNumeric: "tabular-nums",
                   }}>{fmt(l.t)}</span>
-                  <ChevronRight size={15} color={T.faint}
+                  <CaretRight size={15} color={T.faint}
                     style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
                 </div>
 
@@ -3100,7 +3100,7 @@ export default function App() {
                   display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
                   borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
                 }}>
-                  <RotateCcw size={13} color={DOMAIN.recovery.hue} style={{ flexShrink: 0, marginTop: 4 }} />
+                  <ArrowCounterClockwise size={13} color={DOMAIN.recovery.hue} style={{ flexShrink: 0, marginTop: 4 }} />
                   <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{c}</span>
                 </div>
               ))}
@@ -3247,7 +3247,7 @@ export default function App() {
           <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>{l}</div>
           {sub && <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>{sub}</div>}
         </div>
-        {onClick && <ChevronRight size={17} color={T.faint} />}
+        {onClick && <CaretRight size={17} color={T.faint} />}
       </button>
     );
 
@@ -3456,7 +3456,7 @@ export default function App() {
 
         <div style={{ height: 12 }} />
         <Eyebrow T={T}>Your data</Eyebrow>
-        <Row Icon={Download} hue={DOMAIN.water.hue} l="Export data"
+        <Row Icon={DownloadSimple} hue={DOMAIN.water.hue} l="Export data"
           sub="Everything logged, as a JSON file" onClick={exportData} />
         {exportText && (
           <textarea readOnly value={exportText} style={{
@@ -3482,7 +3482,7 @@ export default function App() {
             marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.hair}`,
             display: "flex", gap: 9, alignItems: "flex-start",
           }}>
-            <HelpCircle size={15} color={T.faint} style={{ flexShrink: 0, marginTop: 2 }} />
+            <Question size={15} color={T.faint} style={{ flexShrink: 0, marginTop: 2 }} />
             <p style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.5, color: T.faint, margin: 0 }}>
               General wellness and scheduling support based on research-informed principles.
               Not medical advice, diagnosis, or treatment. For health conditions, medications,
@@ -3604,7 +3604,7 @@ export default function App() {
                   setLogs((L) => L.filter((l) => l.id !== done.id));
                   close();
                   say("Undone.");
-                }}><RotateCcw size={14} /> Undo</Btn>
+                }}><ArrowCounterClockwise size={14} /> Undo</Btn>
                 <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14 }} onClick={() => {
                   setEditingLog(done.id);
                   close();
@@ -3727,7 +3727,7 @@ export default function App() {
                 setProfile({ ...profile, overrides: next });
                 close();
                 say("Back to the default timing.");
-              }}><RotateCcw size={15} /> Reset</Btn>
+              }}><ArrowCounterClockwise size={15} /> Reset</Btn>
             )}
             <Btn T={T} style={{ flex: 1.6 }} onClick={() => {
               if (dirty) {
@@ -3754,7 +3754,7 @@ export default function App() {
 
   /* -------------------------------- chrome -------------------------------- */
   const TABS = [
-    { k: "dashboard", l: "Dashboard", Icon: BarChart3 },
+    { k: "dashboard", l: "Dashboard", Icon: ChartBar },
     { k: "plan", l: "Plan", Icon: ListChecks },
     { k: "log", l: "Reflection", Icon: FileText },
     { k: "live", l: "Care", Icon: Heart },
@@ -3931,7 +3931,7 @@ function RecurringCard({ item, T, gap, onExpand, onAdjust }) {
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <Btn T={T} kind="tinted" hue={d.hue} onClick={onExpand}
                 style={{ fontSize: 13.5, padding: "8px 15px" }}>
-                Show all {n} <ChevronDown size={14} />
+                Show all {n} <CaretDown size={14} />
               </Btn>
               <Btn T={T} kind="quiet" onClick={onAdjust}
                 style={{ fontSize: 13.5, padding: "8px 15px" }}>Adjust</Btn>

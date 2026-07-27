@@ -1,6 +1,6 @@
 import {
-  Moon, Coffee, Droplets, Activity, Sun, Utensils, Heart, Clock,
-} from "lucide-react";
+  Moon, Coffee, Drop, Pulse, Sun, ForkKnife, Heart, Clock,
+} from "./icons.jsx";
 
 export const FONT_DISPLAY =
   '-apple-system, "SF Pro Display", BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif';
@@ -10,10 +10,10 @@ export const FONT_TEXT =
 export const DOMAIN = {
   sleep:    { hue: "#5E5CE6", label: "Sleep",    Icon: Moon },
   caffeine: { hue: "#C2683A", label: "Caffeine", Icon: Coffee },
-  water:    { hue: "#2C9FD4", label: "Water",    Icon: Droplets },
-  movement: { hue: "#2FA96B", label: "Movement", Icon: Activity },
+  water:    { hue: "#2C9FD4", label: "Water",    Icon: Drop },
+  movement: { hue: "#2FA96B", label: "Movement", Icon: Pulse },
   light:    { hue: "#DDA02B", label: "Light",    Icon: Sun },
-  food:     { hue: "#DC6A55", label: "Food",     Icon: Utensils },
+  food:     { hue: "#DC6A55", label: "Food",     Icon: ForkKnife },
   recovery: { hue: "#9A5FD0", label: "Recovery", Icon: Heart },
   shift:    { hue: "#6E7685", label: "Shift",    Icon: Clock },
 };
