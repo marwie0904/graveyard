@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Moon, Coffee, Pulse, Heart, Clock, Check,
-  CaretRight, Plus, Wind, Eye, Bed, Car, ArrowRight, ArrowLeft,
-  X, ListChecks, Info, Lightning, Footprints, ArrowCounterClockwise, Pencil,
-  User, DownloadSimple, Bell, Trophy, Target, ChartBar, FileText, Palette,
+  CaretRight, Plus, Wind, Eye, Bed, ArrowRight, ArrowLeft,
+  X, ListChecks, Info, Footprints, ArrowCounterClockwise, Pencil,
+  User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
 import {
@@ -13,9 +13,13 @@ import {
 import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
-  calculateShiftPhases, determineCurrentPhase, caffeineHours, calculateCaffeineCutoff,
+  calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
   movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE,
 } from "./planner.js";
+import { materializeNights } from "./mockNights.js";
+import {
+  RANGES, SLEEPY_LABEL, foldNight, rangeStats, readPatterns, achievements,
+} from "./stats.js";
 
 /* ============================================================================
    GRAVEYARD — a planner for the night shift
@@ -26,285 +30,6 @@ import {
    (profile, logs, now) and is recomputed on every render. Nothing is stored
    and mutated, so undo is free and every adaptation is traceable.
 ============================================================================ */
-
-/* ---------------------- sample history for the dashboard ------------------
-   Deterministic so the same profile always produces the same past. Late
-   caffeine is correlated with shorter sleep on purpose, because that is the
-   pattern the dashboard is meant to be able to surface. */
-
-const RANGES = [
-  { key: "7", l: "7 nights", n: 7 },
-  { key: "14", l: "14 nights", n: 14 },
-  { key: "28", l: "4 weeks", n: 28 },
-  { key: "56", l: "8 weeks", n: 56 },
-];
-
-const rnd = (i, k) => {
-  const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
-  return x - Math.floor(x);
-};
-
-function seedHistory(profile, nights = 56) {
-  const ph = calculateShiftPhases(profile);
-  const cutoffClock = ((calculateCaffeineCutoff(profile, ph) ?? ph.end) % DAY + DAY) % DAY;
-  const sleepClock = (ph.sleepStart % DAY + DAY) % DAY;
-  const startClock = (ph.start % DAY + DAY) % DAY;
-  const gap = movementInterval(profile);
-  const plannedResets = Math.max(1, Math.floor(ph.length / gap));
-  const canNap = profile.nap === "during" || profile.nap === "both";
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  return Array.from({ length: nights }, (_, k) => {
-    const i = nights - 1 - k; // 0 = most recent
-    const drift = Math.round((rnd(i, 1) - 0.4) * 150);
-    const lateShots = rnd(i, 2) < 0.3 ? 1 : 0;
-    const shots = 1 + Math.floor(rnd(i, 3) * (profile.caffeine === "high" ? 4 : profile.caffeine === "moderate" ? 3 : 1));
-    const caffeine = [];
-    for (let c = 0; c < shots; c++) {
-      caffeine.push((startClock + 30 + Math.floor(rnd(i, 10 + c) * (ph.length - 120))) % DAY);
-    }
-    if (lateShots) caffeine.push((cutoffClock + 20 + Math.floor(rnd(i, 20) * 90)) % DAY);
-
-    // the correlation: late caffeine costs sleep
-    const base = Math.max(3.6, Math.min(9.6, profile.sleepGoalHours + (rnd(i, 4) - 0.5) * 2.2));
-    const sleepHours = Math.round((lateShots ? base - 1.2 : base) * 10) / 10;
-
-    const sleepStart = (sleepClock + drift + DAY) % DAY;
-    const restRoll = rnd(i, 5);
-    const restKind = !canNap ? (restRoll < 0.45 ? "quiet" : "none")
-      : restRoll < 0.5 ? "nap" : restRoll < 0.75 ? "quiet" : "none";
-    const sleepyRoll = rnd(i, 6);
-    const sleepyWindow = sleepyRoll < 0.18 ? "early" : sleepyRoll < 0.4 ? "mid"
-      : sleepyRoll < 0.78 ? "deep" : "late";
-
-    return {
-      label: days[i % 7], idx: i,
-      sleepStart, sleepEnd: (sleepStart + sleepHours * 60) % DAY,
-      sleepHours, wake: (sleepStart + sleepHours * 60) % DAY,
-      cutoff: cutoffClock, caffeine,
-      restMin: restKind === "nap" ? 20 : restKind === "quiet" ? 10 : 0,
-      restKind, groggy: restKind === "nap" && rnd(i, 7) < 0.25,
-      moveTotal: plannedResets,
-      moveDone: Math.round(plannedResets * (0.35 + rnd(i, 8) * 0.6)),
-      water: Math.floor(rnd(i, 9) * 5),
-      preShiftMeal: rnd(i, 11) < (profile.mealPattern === "before" ? 0.85 : 0.35),
-      deepHeavyMeal: rnd(i, 12) < 0.22,
-      skippedMeal: rnd(i, 13) < (profile.mealPattern === "skip" ? 0.6 : 0.18),
-      lateSnack: rnd(i, 14) < 0.3,
-      screenStrain: rnd(i, 15) < (profile.lightEnv === "screens" ? 0.5 : 0.2) ? 1 : 0,
-      eyeBreaks: Math.floor(rnd(i, 16) * 4),
-      lateLightDone: rnd(i, 17) < 0.55,
-    };
-  });
-}
-
-/* ------------------------------ pattern reading ---------------------------
-   Descriptive, never accusatory. Nothing here says a behaviour caused an
-   outcome; it says a pattern showed up and what the plan will do about it. */
-
-function rangeStats(profile, hist) {
-  const n = hist.length || 1;
-  const avgSleep = hist.reduce((a, h) => a + h.sleepHours, 0) / n;
-  const lateNights = hist.filter((h) => h.caffeine.some((c) => nightAxis(c) >= nightAxis(h.cutoff)));
-  const cleanNights = hist.filter((h) => !lateNights.includes(h));
-  const avgClean = cleanNights.length
-    ? cleanNights.reduce((a, h) => a + h.sleepHours, 0) / cleanNights.length : null;
-  const avgLate = lateNights.length
-    ? lateNights.reduce((a, h) => a + h.sleepHours, 0) / lateNights.length : null;
-
-  const starts = hist.map((h) => nightAxis(h.sleepStart));
-  const spread = (Math.max(...starts) - Math.min(...starts)) / 60;
-  const wakes = hist.map((h) => nightAxis(h.wake));
-  const wakeDrift = (Math.max(...wakes) - Math.min(...wakes)) / 60;
-
-  const moveDone = hist.reduce((a, h) => a + h.moveDone, 0);
-  const moveTotal = hist.reduce((a, h) => a + h.moveTotal, 0) || 1;
-  const movePct = Math.round((moveDone / moveTotal) * 100);
-
-  const naps = hist.filter((h) => h.restKind === "nap").length;
-  const quiets = hist.filter((h) => h.restKind === "quiet").length;
-  const missed = hist.filter((h) => h.restKind === "none").length;
-  const groggy = hist.filter((h) => h.groggy).length;
-
-  const windows = ["early", "mid", "deep", "late"];
-  const counts = windows.map((w) => hist.filter((h) => h.sleepyWindow === w).length);
-  const sleepyWindow = windows[counts.indexOf(Math.max(...counts))];
-
-  const waterAvg = hist.reduce((a, h) => a + h.water, 0) / n;
-  const caffeineAvg = hist.reduce((a, h) => a + h.caffeine.length, 0) / n;
-
-  return {
-    n, avgSleep, lateCount: lateNights.length, avgClean, avgLate,
-    spread, wakeDrift, movePct, moveDone, moveTotal,
-    naps, quiets, missed, groggy, sleepyWindow, waterAvg, caffeineAvg,
-    preShiftMeals: hist.filter((h) => h.preShiftMeal).length,
-    deepHeavy: hist.filter((h) => h.deepHeavyMeal).length,
-    skippedMeals: hist.filter((h) => h.skippedMeal).length,
-    lateSnacks: hist.filter((h) => h.lateSnack).length,
-    strain: hist.reduce((a, h) => a + h.screenStrain, 0),
-    lateLightDone: hist.filter((h) => h.lateLightDone).length,
-  };
-}
-
-const SLEEPY_LABEL = { early: "Early shift", mid: "Mid-shift", deep: "Deep night", late: "Last hours" };
-
-function readPatterns(profile, st) {
-  const sleepAvgLine =
-    st.avgSleep < 5 ? "Your recent sleep average is in a high-fatigue range. The plan will prioritise rest, an earlier caffeine cutoff, and sleep protection."
-    : st.avgSleep < 7 ? "Your sleep average suggests some sleep pressure may be building. The plan will add extra rest and fatigue checks."
-    : st.avgSleep <= 9 ? "Your sleep average is holding. The plan will focus on protecting what is working."
-    : "Your sleep average is long. This may reflect recovery sleep. The plan will track consistency and how rested you feel.";
-
-  const sleepTiming =
-    st.spread < 2 ? "Your sleep window stayed fairly consistent this period."
-    : st.spread < 4 ? "Your sleep window drifted across the period. The plan will help protect a more stable sleep start."
-    : "Sleep often started later than planned. Late caffeine, light, meals, or wind-down may be affecting this.";
-
-  const wakeDrift =
-    st.wakeDrift < 1.5 ? "Your wake times are fairly steady. That helps the planner keep your routine predictable."
-    : st.wakeDrift < 3.5 ? "Your wake time is drifting. The plan will watch for late caffeine, delayed meals, and skipped wind-down."
-    : "Your wake time moved a lot across this period. The plan may need flexible sleep protection rather than a rigid schedule.";
-
-  const caffeine =
-    profile.caffeine === "none" ? "No caffeine prompts are part of your plan, so this chart stays empty unless you log some."
-    : st.lateCount === 0 ? "Caffeine stayed inside your planned window. Keep using the cutoff as your sleep boundary."
-    : st.lateCount <= st.n * 0.25 ? `Caffeine crossed your cutoff on ${st.lateCount} nights. The plan will add earlier reminders and water swaps.`
-    : "Caffeine crossed your cutoff often. This may be one reason your sleep window is harder to protect.";
-
-  const movement =
-    profile.breakControl === "low" || profile.breakControl === "unpredictable"
-      ? `${st.movePct}% completed. Since breaks are hard to control, the plan uses 30 to 60 second micro-resets.`
-    : st.movePct >= 70 ? "You completed most movement resets. The plan will keep the current reset frequency."
-    : st.movePct >= 40 ? "You completed some resets. The plan may group them around natural break times."
-    : "Resets were often skipped. The plan will make the next ones shorter and more desk-friendly.";
-
-  const rest =
-    st.groggy >= 3 ? "You felt groggy after some rests. The plan will add a wake-up buffer or shorten them."
-    : st.quiets > st.naps ? "Quiet rest is your main recovery tool. The plan will keep rest blocks short and easy to finish."
-    : st.missed > st.n * 0.5 ? "Rest blocks were often skipped. The plan can switch some naps to shorter quiet resets."
-    : "Your rest blocks were used consistently. The plan will keep them in the same window.";
-
-  const fatigue = {
-    early: "Sleepiness often started early. The plan will check pre-shift sleep, food, and caffeine timing.",
-    mid: "Sleepiness often appeared mid-shift. The plan will add movement, water, and rest before this window.",
-    deep: "Sleepiness clustered in the deep-night window. The plan will protect your rest block.",
-    late: "Sleepiness often appeared near the end of the shift. The plan will keep caffeine away from your sleep window and focus on safety, movement, and wind-down.",
-  }[st.sleepyWindow];
-
-  const foodHydration =
-    st.deepHeavy > st.n * 0.3 ? "Heavy meals often landed in the deep-night window. The plan will move food prompts earlier where possible."
-    : st.skippedMeals > st.n * 0.35 ? "Meals were skipped on several nights. The plan will add a planned snack before the hardest part of the shift."
-    : st.waterAvg < st.caffeineAvg ? "Caffeine was logged more often than water. The plan will add water swaps after caffeine."
-    : "Food and water stayed roughly on plan. The plan will keep reminders light.";
-
-  const light =
-    st.strain > st.n * 0.35 ? "Screen strain showed up often. The plan will add more eye breaks and screen comfort checks."
-    : st.lateLightDone < st.n * 0.4 ? "Late-light reminders were often skipped. The plan will simplify them: lower brightness, warmer display, fewer unnecessary screens."
-    : "You often completed the late-light reminders. The plan will keep protecting your sleep window this way.";
-
-  /* main pattern: prefer a relationship over a bare number */
-  let mainPattern;
-  if (st.avgClean !== null && st.avgLate !== null && st.avgClean - st.avgLate > 0.4) {
-    mainPattern = `Your sleep was shorter on nights when caffeine crossed the cutoff — ${st.avgLate.toFixed(1)}h against ${st.avgClean.toFixed(1)}h.`;
-  } else if (st.wakeDrift >= 3.5) {
-    mainPattern = "Your wake time moved across this period, which usually shows up before you feel it.";
-  } else if (st.movePct < 40) {
-    mainPattern = "Movement resets dropped off through this period, most often later in the shift.";
-  } else {
-    mainPattern = `Sleepiness clustered in the ${SLEEPY_LABEL[st.sleepyWindow].toLowerCase()} window.`;
-  }
-
-  /* two or three noticed items, strongest first, never more */
-  const noticed = [];
-  if (st.avgClean !== null && st.avgLate !== null && st.avgClean - st.avgLate > 0.4) {
-    noticed.push("You slept longer on nights when caffeine stayed before the cutoff.");
-  }
-  if (st.movePct < 60) noticed.push("Movement resets were skipped most often in the second half of the shift.");
-  if (st.sleepyWindow === "deep") noticed.push("Sleepiness was most common during the deep night, so the plan will protect your rest block.");
-  if (st.sleepyWindow === "late") noticed.push("Sleepiness clustered near the end of your shifts, where the commute also sits.");
-  if (st.wakeDrift >= 3) noticed.push("Your wake time drifted later across the period. The plan will strengthen wind-down reminders.");
-  if (st.deepHeavy > st.n * 0.3) noticed.push("Heavy meals were logged close to sleep on several nights. The plan will move food prompts earlier.");
-  if (!noticed.length) noticed.push("Nothing stood out this period. The plan will keep its current shape.");
-
-  /* one concrete adjustment the user can accept or decline */
-  let adjustment;
-  if (st.lateCount > st.n * 0.2 && profile.caffeine !== "none") {
-    adjustment = {
-      text: "The next plan will move your final caffeine reminder an hour earlier and add a water swap after your last planned drink.",
-      apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), caffeineHours: caffeineHours(pr) + 1 } }),
-      done: "Caffeine cutoff moved an hour earlier.",
-    };
-  } else if (st.avgSleep < 6) {
-    adjustment = {
-      text: "The next plan will start wind-down earlier and keep late-shift stimulation lower.",
-      apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), windDownLead: ov(pr, "windDownLead", 30) + 15 } }),
-      done: "Wind-down starts 15 minutes earlier.",
-    };
-  } else if (st.movePct < 50) {
-    adjustment = {
-      text: "The next plan will use shorter, desk-friendly resets so they are easier to finish.",
-      apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), moveLength: 2 } }),
-      done: "Resets shortened to two minutes.",
-    };
-  } else if (st.sleepyWindow === "late") {
-    adjustment = {
-      text: "The next plan will move your fatigue check-in to the last part of the shift and add a late safety check.",
-      apply: (pr) => ({ ...pr, sleepiestTime: "end" }),
-      done: "Fatigue check-in moved to the late shift.",
-    };
-  } else if (st.strain > st.n * 0.35) {
-    adjustment = {
-      text: "The next plan will start light reduction earlier and add more eye breaks.",
-      apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), lightDownLead: ov(pr, "lightDownLead", 90) + 30 } }),
-      done: "Light reduction starts 30 minutes earlier.",
-    };
-  } else {
-    adjustment = {
-      text: "Nothing needs changing yet. The plan will keep its current timing and keep watching.",
-      apply: null, done: null,
-    };
-  }
-
-  return { sleepAvgLine, sleepTiming, wakeDrift, caffeine, movement, rest, fatigue, foodHydration, light, mainPattern, noticed: noticed.slice(0, 3), adjustment };
-}
-
-/* ------------------------------- achievements ----------------------------- */
-
-/** Earn-only. Nothing here can be lost, and nothing shows a streak count —
-    a counter that resets is a punishment mechanic, and this app does not have one. */
-function achievements(profile, logs, history) {
-  const count = (t) => logs.filter((l) => l.type === t).length;
-  const movesDone = logs.filter(
-    (l) => l.type === "item" && l.value.status === "done" && l.value.category === "movement"
-  ).length;
-  const cleanNights = history.filter((h) =>
-    h.caffeine.every((c) => nightAxis(c) < nightAxis(h.cutoff))
-  ).length;
-
-  return [
-    { key: "first", Icon: Moon, hue: DOMAIN.sleep.hue, l: "First night",
-      d: "You logged a night. That is the part most people skip.",
-      got: history.length > 0 },
-    { key: "week", Icon: Trophy, hue: DOMAIN.recovery.hue, l: "A full week",
-      d: "Seven nights on record. Patterns need this much to show up.",
-      got: history.length >= 7 },
-    { key: "early", Icon: Coffee, hue: DOMAIN.caffeine.hue, l: "Stopped early",
-      d: "Three nights where every cup landed before your cutoff.",
-      got: cleanNights >= 3 },
-    { key: "hard", Icon: Lightning, hue: DOMAIN.light.hue, l: "Hard night",
-      d: "You worked a night on under five hours of sleep and came back.",
-      got: history.some((h) => h.sleepHours < 5) },
-    { key: "rest", Icon: Bed, hue: DOMAIN.sleep.hue, l: "Took the rest",
-      d: "You used a planned rest instead of pushing through.",
-      got: count("nap") > 0 || history.some((h) => h.restMin > 0) },
-    { key: "home", Icon: Car, hue: DOMAIN.recovery.hue, l: "Home safe",
-      d: "You ran the end-of-shift check before heading home.",
-      got: count("endShift") > 0 },
-    { key: "reset", Icon: Pulse, hue: DOMAIN.movement.hue, l: "Reset habit",
-      d: "Five movement resets completed. Small ones count.",
-      got: movesDone >= 5 },
-  ];
-}
 
 /* --------------------------------- micro-care -----------------------------
    Short guided resets. Which one gets suggested depends on the phase and on
@@ -1725,13 +1450,12 @@ export default function App() {
   const [reflection, setReflection] = useState({});
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
-  const [history, setHistory] = useState([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [showAllPlan, setShowAllPlan] = useState(false);
   const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
   const [logDraft, setLogDraft] = useState({ type: "water", h: 12, m: 0, ap: "AM", note: "" });
-  const [range, setRange] = useState(28);
+  const [range, setRange] = useState(7);
   const [adjusting, setAdjusting] = useState(null);
   const [adjustDraft, setAdjustDraft] = useState({});
   const [quickResult, setQuickResult] = useState(null);
@@ -1755,9 +1479,6 @@ export default function App() {
     if (profile) store.set("nsp:v1", { profile, logs, now });
   }, [profile, logs, now]);
   useEffect(() => {
-    if (profile && history.length === 0) setHistory(seedHistory(profile, 56));
-  }, [profile]);
-  useEffect(() => {
     if (!profile) return;
     const tick = () => setNow(realNow(calculateShiftPhases(profile)));
     tick();
@@ -1773,6 +1494,17 @@ export default function App() {
     () => (plan ? generateAdvice(profile, logs, now, plan) : null),
     [plan, profile, logs, now]
   );
+
+  /* Nights are derived, never stored. The mock supplies the past, folded from
+     the profile so it follows whatever shift the quiz produced; tonight is
+     folded from the live logs and sits at the front as the most recent night.
+     Index 0 is the newest, which is what every range slice assumes. */
+  const history = useMemo(() => {
+    if (!profile) return [];
+    const past = materializeNights(profile);
+    const tonight = foldNight(profile, logs, reflection);
+    return tonight ? [tonight, ...past] : past;
+  }, [profile, logs, reflection]);
 
   const inShift = plan && now >= plan.ph.start && now < plan.ph.end;
   const autoTheme = inShift || (plan && now >= plan.ph.sleepStart && now < plan.ph.sleepEnd);
@@ -1882,28 +1614,34 @@ export default function App() {
 
   /* ------------------------------- dashboard ------------------------------ */
   const Dashboard = () => {
-    const hist = history.slice(-range);
+    /* history is newest first, so a range is the front of it; charts read left
+       to right in time, so they get it reversed */
+    const hist = history.slice(0, range);
+    const chrono = [...hist].reverse();
     const st = rangeStats(profile, hist);
     const pat = readPatterns(profile, st);
-    const rangeLabel = (RANGES.find((r) => r.n === range) || RANGES[2]).l;
+    const rangeLabel = (RANGES.find((r) => r.nights === range) || RANGES[2]).label;
     const thin = Math.max(0, Math.floor(hist.length / 7) - 1);
     const axis = { fill: T.faint, fontSize: 10.5, fontFamily: FONT_TEXT };
+    const dayLabel = (h) => (h.dayOffset === 0 ? "Now" : `${h.dayOffset}d`);
+    const num = (v, digits = 1) => (v === null || v === undefined ? "--" : v.toFixed(digits));
 
-    const sleep = hist.map((h) => ({
-      day: h.label, base: nightAxis(h.sleepStart), len: h.sleepHours * 60, hours: h.sleepHours,
+    const sleep = chrono.filter((h) => h.sleepStart !== null && h.sleepHours !== null).map((h) => ({
+      day: dayLabel(h), base: nightAxis(h.sleepStart), len: h.sleepHours * 60, hours: h.sleepHours,
     }));
-    const lo = Math.min(...sleep.map((d) => d.base)) - 40;
-    const hi = Math.max(...sleep.map((d) => d.base + d.len)) + 40;
-    const wake = hist.map((h) => ({ day: h.label, wake: nightAxis(h.wake) }));
-    const caff = hist.map((h) => {
-      const row = { day: h.label, cutoff: nightAxis(h.cutoff) };
+    const lo = sleep.length ? Math.min(...sleep.map((d) => d.base)) - 40 : 0;
+    const hi = sleep.length ? Math.max(...sleep.map((d) => d.base + d.len)) + 40 : DAY;
+    const wake = chrono.filter((h) => h.wake !== null)
+      .map((h) => ({ day: dayLabel(h), wake: nightAxis(h.wake) }));
+    const caff = chrono.map((h) => {
+      const row = { day: dayLabel(h), cutoff: h.cutoff === null ? null : nightAxis(h.cutoff) };
       h.caffeine.slice(0, 5).forEach((c, k) => { row[`c${k + 1}`] = nightAxis(c); });
       return row;
     });
-    const moves = hist.map((h) => ({
-      day: h.label, pct: Math.round((h.moveDone / Math.max(1, h.moveTotal)) * 100),
+    const moves = chrono.map((h) => ({
+      day: dayLabel(h), pct: Math.round((h.moveDone / Math.max(1, h.moveTotal)) * 100),
     }));
-    const rests = hist.map((h) => ({ day: h.label, mins: h.restMin, kind: h.restKind }));
+    const rests = chrono.map((h) => ({ day: dayLabel(h), mins: h.restMin, kind: h.restKind }));
 
     const Panel = ({ cat, title, sub, line, children, height = 160 }) => (
       <Card T={T} style={{ marginBottom: 12, padding: "16px 12px 14px" }}>
@@ -1940,14 +1678,14 @@ export default function App() {
       <div style={{ padding: "4px 20px 0" }}>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
           {RANGES.map((r) => (
-            <Pill key={r.key} T={T} hue={DOMAIN.sleep.hue} active={range === r.n}
-              onClick={() => setRange(r.n)}>{r.l}</Pill>
+            <Pill key={r.key} T={T} hue={DOMAIN.sleep.hue} active={range === r.nights}
+              onClick={() => setRange(r.nights)}>{r.label}</Pill>
           ))}
         </div>
 
         <Eyebrow T={T}>{rangeLabel}</Eyebrow>
         <Display T={T} size={32} style={{ marginBottom: 6 }}>
-          {st.avgSleep.toFixed(1)}h average sleep.
+          {st.avgSleep === null ? "No sleep logged yet." : `${num(st.avgSleep)}h average sleep.`}
         </Display>
         <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, lineHeight: 1.45, marginBottom: 16 }}>
           {profile.caffeine === "none"
@@ -1969,10 +1707,10 @@ export default function App() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
-          <Tile cat="sleep" k="Average sleep" v={`${st.avgSleep.toFixed(1)}h`} />
+          <Tile cat="sleep" k="Average sleep" v={`${num(st.avgSleep)}h`} />
           <Tile cat="caffeine" k="Cutoff crossed" v={`${st.lateCount} nights`} />
-          <Tile cat="movement" k="Movement resets" v={`${st.movePct}% done`} />
-          <Tile cat="recovery" k="Most sleepy" v={SLEEPY_LABEL[st.sleepyWindow]} />
+          <Tile cat="movement" k="Movement resets" v={st.movePct === null ? "--" : `${st.movePct}% done`} />
+          <Tile cat="recovery" k="Most sleepy" v={SLEEPY_LABEL[st.sleepyWindow] || "Not yet"} />
         </div>
 
         <Panel cat="sleep" title="Sleep average" sub={`Across ${st.n} nights`} line={pat.sleepAvgLine} />
@@ -1996,7 +1734,8 @@ export default function App() {
         </Panel>
 
         <Panel cat="light" title="Wake time drift"
-          sub={`Moved by about ${st.wakeDrift.toFixed(1)} hours`} line={pat.wakeDrift}>
+          sub={st.wakeDrift === null ? "Nothing logged yet" : `Moved by about ${num(st.wakeDrift)} hours`}
+          line={pat.wakeDrift}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={wake} margin={{ left: -14, right: 12, top: 8, bottom: 0 }}>
               <CartesianGrid stroke={T.hair} vertical={false} />
@@ -2060,9 +1799,10 @@ export default function App() {
         </Panel>
 
         <Panel cat="recovery" title="Sleepiness pattern"
-          sub={`Most common: ${SLEEPY_LABEL[st.sleepyWindow].toLowerCase()}`} line={pat.fatigue} />
+          sub={st.sleepyWindow === null ? "Nothing logged yet"
+            : `Most common: ${SLEEPY_LABEL[st.sleepyWindow].toLowerCase()}`} line={pat.fatigue} />
         <Panel cat="food" title="Food and hydration"
-          sub={`${st.waterAvg.toFixed(1)} water logs per shift`} line={pat.foodHydration} />
+          sub={`${num(st.waterAvg)} water logs per shift`} line={pat.foodHydration} />
         <Panel cat="light" title="Light and screen care"
           sub={`${st.lateLightDone} of ${st.n} late-light reminders done`} line={pat.light} />
 
