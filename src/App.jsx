@@ -6,7 +6,7 @@ import {
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
-import { DAY, toMin, fmt, nextAfter, overlap, dur } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, dur } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
@@ -1244,7 +1244,7 @@ function Generating({ onDone }) {
 
 /* ------------------------------- timeline card ---------------------------- */
 
-function TimelineItem({ item, T, status, onAct, now, showRail = true }) {
+function TimelineItem({ item, T, status, onAct, now, showRail = true, inDeepNight = false }) {
   const d = DOMAIN[item.category] || DOMAIN.shift;
   const [open, setOpen] = useState(false);
   const done = status === "done";
@@ -1269,10 +1269,21 @@ function TimelineItem({ item, T, status, onAct, now, showRail = true }) {
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           <Badge category={item.category} T={T} size={36} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
-              textDecoration: done ? "line-through" : "none",
-            }}>{item.title}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{
+                fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
+                textDecoration: done ? "line-through" : "none",
+              }}>{item.title}</span>
+              {/* the circadian low used to label a whole phase band; with a flat
+                  list it belongs on the items it actually covers */}
+              {inDeepNight && (
+                <span style={{
+                  fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                  textTransform: "uppercase", color: "#6C6BE8",
+                  background: tint("#6C6BE8", 0.14), padding: "3px 8px", borderRadius: 999,
+                }}>Circadian low</span>
+              )}
+            </div>
             <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.45, color: T.muted, margin: "5px 0 0" }}>
               {item.msg}
             </p>
@@ -1516,9 +1527,11 @@ export default function App() {
       : plan.items;
     if (hideDone) display = display.filter((i) => s.itemStatus(i.id) === "open" || i.recurring);
 
-    const groups = ph.phases.map((p) => ({
-      ...p, items: display.filter((i) => i.at >= p.from && i.at < p.to),
-    })).filter((g) => g.items.length);
+    /* One flat, time-ordered list. The old build grouped items into phase bands,
+       which silently dropped anything falling outside every phase window while
+       still counting it in "x of y done". A flat list cannot lose an item. */
+    const inDeepNight = (at) =>
+      !!ph.deepNight && at >= ph.deepNight[0] && at < ph.deepNight[1];
 
     const doneCount = plan.items.filter((i) => s.itemStatus(i.id) === "done").length;
 
@@ -1555,39 +1568,19 @@ export default function App() {
           )}
         </div>
 
-        {groups.map((g) => {
-          const overlaps = ph.deepNight && overlap([g.from, g.to], ph.deepNight);
-          return (
-            <div key={g.key} style={{ marginBottom: 22 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12, paddingLeft: 4 }}>
-                <span style={{
-                  fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 700, letterSpacing: "0.13em",
-                  textTransform: "uppercase", color: T.faint,
-                }}>{g.label}</span>
-                <span style={{ flex: 1, height: 1, background: T.hair }} />
-                {overlaps && (
-                  <span style={{
-                    fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em",
-                    textTransform: "uppercase", color: "#6C6BE8",
-                    background: tint("#6C6BE8", 0.14), padding: "4px 9px", borderRadius: 999,
-                  }}>Circadian low</span>
-                )}
-              </div>
-              {g.items.map((it) =>
-                it.recurring ? (
-                  <RecurringCard key="recurring" item={it} T={T} gap={movementInterval(profile)}
-                    onExpand={() => setShowAllPlan(true)}
-                    onAdjust={() => { setAdjustDraft({}); setAdjusting(it.id); }} />
-                ) : (
-                  <TimelineItem key={it.id} item={it} T={T} now={now}
-                    status={s.itemStatus(it.id)} onAct={onAct} />
-                )
-              )}
-            </div>
-          );
-        })}
+        {display.map((it) =>
+          it.recurring ? (
+            <RecurringCard key="recurring" item={it} T={T} gap={movementInterval(profile)}
+              onExpand={() => setShowAllPlan(true)}
+              onAdjust={() => { setAdjustDraft({}); setAdjusting(it.id); }} />
+          ) : (
+            <TimelineItem key={it.id} item={it} T={T} now={now}
+              status={s.itemStatus(it.id)} onAct={onAct}
+              inDeepNight={inDeepNight(it.at)} />
+          )
+        )}
 
-        {!groups.length && (
+        {!display.length && (
           <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5 }}>
             Nothing left open. Switch to showing everything if you want to look back over the night.
           </p>
