@@ -88,7 +88,63 @@ function Tiles({ T, st }) {
   );
 }
 
-export default function Dashboard({ T, profile, nights, rangeKey, setRangeKey, say, setProfile }) {
+/* The next few things due tonight, so the home screen answers "what now?"
+   without making the user cross to the Plan tab to find out. */
+function MiniPlan({ T, plan, status, now, onOpenPlan }) {
+  if (!plan || !plan.items || !plan.items.length) return null;
+  const open = plan.items.filter((i) => status(i.id) === "open");
+  const next = open.filter((i) => i.at >= now).slice(0, 3);
+  const shown = next.length ? next : open.slice(-3);
+  const doneCount = plan.items.length - open.length;
+  if (!shown.length) return null;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 8px" }}>
+        <span style={{
+          fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
+          textTransform: "uppercase", color: T.faint, flex: 1,
+        }}>{next.length ? "Coming up tonight" : "Tonight so far"}</span>
+        <span style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.faint }}>
+          {doneCount} of {plan.items.length} done
+        </span>
+      </div>
+      <Card T={T} style={{ padding: "4px 14px" }}>
+        {shown.map((it, k) => {
+          const d = DOMAIN[it.category] || DOMAIN.shift;
+          return (
+            <div key={it.id} style={{
+              display: "flex", alignItems: "center", gap: 11, padding: "12px 2px",
+              borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+            }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: 4, background: d.hue, flexShrink: 0,
+              }} />
+              <span style={{
+                fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, flex: 1,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{it.title}</span>
+              <span style={{
+                fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 600, color: T.faint,
+                fontVariantNumeric: "tabular-nums", flexShrink: 0,
+              }}>{fmt(it.at)}</span>
+            </div>
+          );
+        })}
+        <button onClick={onOpenPlan} style={{
+          width: "100%", background: "none", border: "none", cursor: "pointer",
+          padding: "11px 2px", borderTop: `1px solid ${T.hair}`, textAlign: "left",
+          fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600, color: DOMAIN.sleep.hue,
+        }}>See the full plan</button>
+      </Card>
+    </div>
+  );
+}
+
+export default function Dashboard({
+  T, profile, nights, rangeKey, setRangeKey, say, setProfile,
+  plan, status, now, onOpenPlan,
+}) {
   const spec = RANGES.find((r) => r.key === rangeKey) || RANGES[2];
   const today = nights.find((x) => x.dayOffset === 0) || null;
 
@@ -134,6 +190,7 @@ export default function Dashboard({ T, profile, nights, rangeKey, setRangeKey, s
         </p>
 
         <Tiles T={T} st={st} />
+        <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
 
         <Eyebrow T={T}>Tonight in figures</Eyebrow>
         <Card T={T} style={{ padding: "4px 16px 8px", marginBottom: 16 }}>
@@ -226,6 +283,7 @@ export default function Dashboard({ T, profile, nights, rangeKey, setRangeKey, s
       </div>
 
       <Tiles T={T} st={st} />
+      <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
 
       <Panel T={T} cat="sleep" title="When you slept" height={170}
         sub={anyEstimated

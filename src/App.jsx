@@ -1097,20 +1097,33 @@ function buildRecommendation(profile, ph) {
   return { p, sleepAnchor, fatigue, caffeine, rest, movement, light, food, water, startHere, checklist, cutoff };
 }
 
+/* Collapsed by default. Seven of these expanded at once was a wall of prose
+   before the user had done anything; the reasoning is still one tap away. */
 function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Card T={T} style={{ marginBottom: 12, padding: 18 }}>
+    <Card T={T} style={{ marginBottom: 8, padding: 15 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <Badge category={cat} T={T} size={36} />
+        <Badge category={cat} T={T} size={32} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: T.ink,
-            letterSpacing: "-0.02em", lineHeight: 1.2,
-          }}>{title}</div>
+          <button onClick={() => setOpen(!open)} style={{
+            background: "none", border: "none", padding: 0, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
+          }}>
+            <span style={{
+              flex: 1, fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 700, color: T.ink,
+              letterSpacing: "-0.02em", lineHeight: 1.25,
+            }}>{title}</span>
+            <CaretDown size={14} color={T.faint} style={{
+              flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 180ms ease",
+            }} />
+          </button>
+          {open && (
           <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.muted, margin: "8px 0 0" }}>
             {body}
           </p>
-          {items && (
+          )}
+          {open && items && (
             <div style={{ marginTop: 12 }}>
               {items.map((it) => (
                 <div key={it} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
@@ -1121,7 +1134,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
               ))}
             </div>
           )}
-          {adjustable !== undefined && (
+          {open && adjustable !== undefined && (
             <button onClick={() => onAdjust(adjustable)} style={{
               background: "none", border: "none", cursor: "pointer", padding: "11px 0 0",
               fontFamily: FONT_TEXT, fontSize: 13, color: DOMAIN[cat].hue, fontWeight: 600,
@@ -1178,6 +1191,7 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         </p>
       </div>
 
+      <Eyebrow T={T}>Why these choices</Eyebrow>
       <Section T={T} onAdjust={onAdjust} cat="sleep" title="Your sleep window is the anchor." adjustable={0}
         body={`Your planned sleep time is ${fmt(ph.sleepStart)}. Caffeine, light, food, and wind-down are timed backward from that sleep window. ${r.sleepAnchor}`} />
       <Section T={T} onAdjust={onAdjust} cat="recovery" title={r.fatigue.t} body={r.fatigue.b} />
@@ -1200,17 +1214,12 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         ))}
       </Card>
 
-      <div style={{ margin: "0 4px 24px" }}>
-        <div style={{
-          fontFamily: FONT_DISPLAY, fontSize: 19, fontWeight: 700, color: T.ink,
-          letterSpacing: "-0.02em", marginBottom: 8,
-        }}>This plan will change with you.</div>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.6, color: T.muted, margin: 0 }}>
-          This is a starting plan, not a fixed rule. It works backward from your planned sleep
-          and forward from your shift start. It will adjust when you log caffeine, sleepiness,
-          meals, water, skipped breaks, rest, or the sleep you actually get.
-        </p>
-      </div>
+      <p style={{
+        fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.faint,
+        margin: "0 4px 24px",
+      }}>
+        A starting plan, not a fixed rule. It adjusts as you log.
+      </p>
 
       <Btn T={T} full onClick={onDone}>
         {revisit ? "Back to my plan" : "Start my plan"} <ArrowRight size={18} />
@@ -2552,7 +2561,8 @@ export default function App() {
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 12, paddingBottom: 28 }}>
         {tab === "dashboard" && (
           <Dashboard T={T} profile={profile} nights={history}
-            rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile} />
+            rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile}
+            plan={plan} status={s.itemStatus} now={now} onOpenPlan={() => setTab("plan")} />
         )}
         {tab === "plan" && (
           <PlanTab
