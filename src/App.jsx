@@ -20,6 +20,9 @@ import { materializeNights } from "./mockNights.js";
 import {
   RANGES, SLEEPY_LABEL, foldNight, rangeStats, readPatterns, achievements,
 } from "./stats.js";
+import {
+  Card, Btn, Pill, Badge, Display, Eyebrow, Select, RangeControl,
+} from "./ui/index.jsx";
 
 /* ============================================================================
    GRAVEYARD — a planner for the night shift
@@ -324,81 +327,6 @@ function realNow(ph) {
     if (!best || dist < best.dist) best = { t, dist };
   }
   return best.t;
-}
-
-/* ------------------------------ shared UI bits ---------------------------- */
-
-function Badge({ category, T, size = 40 }) {
-  const d = DOMAIN[category] || DOMAIN.shift;
-  const I = d.Icon;
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: size / 2, flexShrink: 0,
-      background: tint(d.hue, T.tintA),
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <I size={size * 0.45} color={d.hue} strokeWidth={2} />
-    </div>
-  );
-}
-
-function Card({ T, children, style, onClick, tone }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        background: tone || T.card, borderRadius: 22, padding: 16,
-        boxShadow: T.key === "warm" ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
-        border: T.key === "dark" ? `1px solid ${T.hair}` : "none",
-        cursor: onClick ? "pointer" : "default", ...style,
-      }}
-    >{children}</div>
-  );
-}
-
-function Eyebrow({ children, T, color }) {
-  return (
-    <div style={{
-      fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em",
-      textTransform: "uppercase", color: color || T.faint, marginBottom: 10,
-    }}>{children}</div>
-  );
-}
-
-function Display({ children, T, size = 34, style }) {
-  return (
-    <h1 style={{
-      fontFamily: FONT_DISPLAY, fontSize: size, fontWeight: 700, letterSpacing: "-0.028em",
-      lineHeight: 1.08, color: T.ink, margin: 0, ...style,
-    }}>{children}</h1>
-  );
-}
-
-function Pill({ children, T, hue, active, onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      fontFamily: FONT_TEXT, fontSize: 14, fontWeight: 500,
-      padding: "9px 15px", borderRadius: 999, cursor: "pointer",
-      border: `1px solid ${active ? "transparent" : T.hair}`,
-      background: active ? tint(hue || DOMAIN.shift.hue, T.tintA + 0.06) : T.card,
-      color: active ? (hue || T.ink) : T.muted,
-      display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
-    }}>{children}</button>
-  );
-}
-
-function Btn({ children, T, kind = "primary", onClick, hue, style, full }) {
-  const base = {
-    fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, borderRadius: 999,
-    padding: "14px 22px", border: "none", cursor: "pointer", width: full ? "100%" : undefined,
-    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-  };
-  const kinds = {
-    primary: { background: T.ink, color: T.bg },
-    tinted: { background: tint(hue || DOMAIN.shift.hue, T.tintA + 0.04), color: hue || T.ink },
-    quiet: { background: "transparent", color: T.muted, border: `1px solid ${T.hair}` },
-  };
-  return <button onClick={onClick} style={{ ...base, ...kinds[kind], ...style }}>{children}</button>;
 }
 
 /* --------------------------------- onboarding ----------------------------- */
