@@ -1,12 +1,5 @@
 import { DAY, toMin, fmt, nextAfter, overlap, dur } from "./time.js";
 
-/* ============================================================================
-   GRAVEYARD — planner
-   The timeline is a pure function of (profile, logs, now) and is recomputed
-   on every render. Nothing is stored and mutated, so undo is free and every
-   adaptation is traceable.
-============================================================================ */
-
 /* ----------------------------- planner functions -------------------------- */
 
 /**
