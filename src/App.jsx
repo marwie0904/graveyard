@@ -200,18 +200,15 @@ function CarePlayer({ T, activity, onClose, onDone }) {
    The plus button answers "what happened right now?", so every entry gets an
    immediate reading of what it means for the rest of tonight. */
 
+/* Only the five events that change what the rest of the plan does. Water,
+   movement, sleepiness, stress, and screen strain are still loggable from the
+   Reflection tab, but they do not belong in a one-tap sheet used at 3am. */
 const QUICK = [
-  { k: "water", l: "Water", cat: "water" },
   { k: "caffeine", l: "Caffeine", cat: "caffeine" },
   { k: "meal", l: "Meal / snack", cat: "food" },
   { k: "nap", l: "Nap / quiet rest", cat: "sleep" },
-  { k: "move", l: "Movement reset done", cat: "movement" },
-  { k: "skip", l: "Skipped a break", cat: "movement" },
-  { k: "sleepy", l: "Sleepy", cat: "recovery" },
-  { k: "stress", l: "Stressed", cat: "recovery" },
-  { k: "screen", l: "Screen strain", cat: "light" },
-  { k: "endShift", l: "End shift", cat: "shift" },
   { k: "sleepStart", l: "Going to sleep", cat: "sleep" },
+  { k: "endShift", l: "End shift", cat: "shift" },
 ];
 
 function quickAdvice(kind, profile, plan, now) {
