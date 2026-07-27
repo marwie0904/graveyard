@@ -18,7 +18,7 @@ import { Card, Btn, Pill, Badge, Display, Eyebrow, Select } from "./ui/index.jsx
 import Dashboard from "./screens/Dashboard.jsx";
 
 /* ============================================================================
-   GRAVEYARD — a planner for the night shift
+   GRAVEYARD: a planner for the night shift
    quiz -> generated timeline -> live shift mode with adaptive logging -> reflection
 
    ARCHITECTURE NOTE
@@ -197,7 +197,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
 }
 
 /* ---------------------- quick log: instant, one sentence ------------------
-   The plus button answers "what happened right now?" — so every entry gets an
+   The plus button answers "what happened right now?", so every entry gets an
    immediate reading of what it means for the rest of tonight. */
 
 const QUICK = [
@@ -229,7 +229,7 @@ function quickAdvice(kind, profile, plan, now) {
     if (!cutoff) return "Caffeine logged. I will check the timing against your sleep window.";
     if (now >= cutoff) return "Caffeine logged. This is past your cutoff, so the rest of the plan will avoid caffeine and protect sleep.";
     if (now >= cutoff - 60) return "Caffeine logged. You are close to your cutoff, so I will switch later prompts toward water and wind-down.";
-    return `Caffeine logged. This fits your window — last call is ${fmt(cutoff)}.`;
+    return `Caffeine logged. This fits your window, last call is ${fmt(cutoff)}.`;
   }
   if (kind === "meal") {
     if (late) return "Meal logged. Since sleep is close, the plan will not prompt for heavier food again.";
@@ -319,7 +319,7 @@ function Welcome({ onNext }) {
       <p style={{
         fontFamily: FONT_TEXT, fontSize: 17, lineHeight: 1.5, color: T.muted, marginTop: 18,
       }}>
-        This planner is built around the hours you actually work — caffeine,
+        This planner is built around the hours you actually work: caffeine,
         rest, movement, light, food, and a sleep window that gets protected.
       </p>
       <p style={{
@@ -655,7 +655,7 @@ const REVIEW = [
       `Wind-down starts ${fmt(ph.sleepStart - ph.end <= 60 ? ph.end - 30 : ph.end - 15)}`,
       p.sleepGoalHours <= 5 ? "Flagged as higher fatigue risk" : `${dur(p.sleepGoalHours * 60)} of sleep planned`,
     ],
-    why: "Your sleep window is the anchor for the entire plan. Caffeine cutoffs, light reduction, meal timing, and wind-down are all calculated backward from it, which is why getting this one right matters more than any other setting.",
+    why: "Caffeine cutoffs, light reduction, meal timing, and wind-down are all calculated backward from your sleep window, which is why this setting matters more than any other.",
     controls: [{
       key: "chronotype", q: "Are you naturally more alert in the morning or the evening?",
       help: "Morning types tend to struggle more overnight, so the plan adds extra rest and fatigue check-ins.",
@@ -675,7 +675,7 @@ const REVIEW = [
             p.caffeine === "high" ? "Water swaps added mid-shift" : "No caffeine suggestions after the cutoff",
           ];
     },
-    why: "Caffeine is a short-term alertness tool, not a fix for a disrupted body clock. It takes hours to clear, so a cup late in the shift is still working when your sleep window opens.",
+    why: "Caffeine takes hours to clear, so a cup late in the shift is still working when your sleep window opens.",
     controls: [{
       key: "caffeineSensitivity", q: "How sensitive are you to caffeine?",
       help: "This moves the cutoff. High sensitivity stops caffeine about eight hours before sleep; low, about five.",
@@ -690,7 +690,7 @@ const REVIEW = [
       "Water paired with every movement reset",
       p.bathroom === "yes" ? "Large drinks stop early to protect your sleep" : "Lighter drinks close to your sleep window",
     ],
-    why: "Mild dehydration feels a lot like fatigue, which is why the urge for another coffee is often thirst. Front-loading also means fewer bathroom trips breaking up the sleep you are trying to protect.",
+    why: "Mild dehydration feels a lot like fatigue, and drinking steadily early means fewer bathroom trips breaking up the sleep you are protecting.",
     controls: [
       {
         key: "hydration", q: "How often do you drink water during your shift?",
@@ -714,7 +714,7 @@ const REVIEW = [
       p.breakControl === "low" ? "Kept under a minute, no need to leave your desk" : "Two to three minutes each",
       "Shortened automatically if you start skipping them",
     ],
-    why: "Long unbroken sitting adds stiffness and drowsiness on top of the fatigue the night is already causing. Frequent short resets work better than occasional long ones, mostly because they are the ones people actually do.",
+    why: "Long unbroken sitting adds stiffness and drowsiness on top of the night's own fatigue, and frequent short resets work better because they are the ones people actually do.",
     controls: [
       {
         key: "sedentary", q: "How much of your shift is spent sitting?",
@@ -741,7 +741,7 @@ const REVIEW = [
       `Start dimming at ${fmt(ph.end - 90)}`,
       "Warmer screen settings before you head home",
     ],
-    why: "Bright light early supports alertness at no cost. The same light close to your sleep window tells your body the day is beginning, which is the opposite of what you need after a night shift.",
+    why: "Bright light early supports alertness at no cost, while the same light near your sleep window tells your body the day is beginning.",
     controls: [{
       key: "lightEnv", q: "What is your workspace lighting like?",
       options: [
@@ -758,7 +758,7 @@ const REVIEW = [
       `Planned snack around ${fmt(ph.start + ph.length * 0.45)}`,
       `Keep it light after ${fmt(ph.end - 60)}`,
     ],
-    why: "This is about timing, not about what you eat or how much. Heavy food during the deep night or right before sleep tends to sit badly and make the sleep you get lighter.",
+    why: "This is about timing rather than what you eat, because heavy food in the deep night or close to sleep tends to sit badly and make your sleep lighter.",
     controls: [{
       key: "mealPattern", q: "How do you usually eat during a night shift?",
       help: "If you tend to skip meals, the plan adds a planned snack rather than leaving a gap.",
@@ -776,7 +776,7 @@ const REVIEW = [
       `Sleep preparation at ${fmt(ph.sleepStart - 30)}`,
       `Shown first: ${goalLabel(p).toLowerCase()}`,
     ],
-    why: "Sleepiness on a night shift often peaks toward the end, which is exactly when most people commute. The plan treats that as a safety matter rather than another wellness prompt.",
+    why: "Sleepiness peaks toward the end of a night shift, exactly when most people commute, so the plan treats it as a safety matter.",
     controls: [
       {
         key: "commute", q: "How do you get home after work?",
@@ -1022,7 +1022,7 @@ function buildRecommendation(profile, ph) {
       items: ["Optional caffeine window", "Log caffeine if you use it", "Water after caffeine", "No late-shift caffeine prompt"] },
     moderate: { t: "Caffeine gets a window and a cutoff.", b: "You usually have two or three drinks, so the plan treats caffeine as a timed alertness tool. It opens a window earlier in the shift and closes it before sleep protection begins.",
       items: ["First caffeine window", "Optional second log", `Final caffeine warning around ${cutoff ? fmt(cutoff) : "your cutoff"}`, "Switch to water", "No caffeine near your sleep window"] },
-    high: { t: "Caffeine gets tracked closely.", b: "You usually have four or more drinks, so the plan adds tracking, cutoff warnings, and water swaps. This is not about shaming caffeine use — it is about stopping it from spilling into the part of the shift that protects your sleep.",
+    high: { t: "Caffeine gets tracked closely.", b: "You usually have four or more drinks, so the plan adds tracking, cutoff warnings, and water swaps. This is not about shaming caffeine use, it is about stopping it from spilling into the part of the shift that protects your sleep.",
       items: ["Log each caffeine drink", "Water swap after caffeine", `Cutoff around ${cutoff ? fmt(cutoff) : "your cutoff"}`, "Late-shift no-caffeine reminder", "Sleep reflection after the shift"] },
   }[profile.caffeine];
 
@@ -1339,7 +1339,7 @@ function TimelineItem({ item, T, status, onAct, now, showRail = true, inDeepNigh
             {(done || skipped) && (
               <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, marginTop: 9,
                 display: "flex", alignItems: "center", gap: 6 }}>
-                {done ? <><Check size={13} /> Done</> : <>Skipped — the plan adapted</>}
+                {done ? <><Check size={13} /> Done</> : <>Skipped, the plan adapted</>}
                 <button onClick={() => onAct("undo", item)} style={{
                   background: "none", border: "none", cursor: "pointer", color: T.faint,
                   fontFamily: FONT_TEXT, fontSize: 13, textDecoration: "underline", padding: 0, marginLeft: 4,
@@ -2126,7 +2126,7 @@ export default function App() {
             }}>{(profile.mutedReminders || []).length ? "All on" : "All off"}</button>
           </div>
           <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "0 0 12px", lineHeight: 1.4 }}>
-            Turning one off keeps it on your plan — it just stops nudging you.
+            Turning one off keeps it on your plan, it just stops nudging you.
           </p>
           {REMINDERS.map((r, k) => {
             const on = !(profile.mutedReminders || []).includes(r.k);
@@ -2501,7 +2501,7 @@ export default function App() {
 
   return (
     <Frame T={T} raw>
-      {/* header — pinned */}
+      {/* header, pinned */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", padding: "2px 20px 14px",
         background: T.bg, borderBottom: `1px solid ${T.hair}`,
@@ -2539,7 +2539,7 @@ export default function App() {
         }}>{toast}</div>
       )}
 
-      {/* tab bar — pinned */}
+      {/* tab bar, pinned */}
       <div style={{
         flexShrink: 0, height: 78, zIndex: 45,
         background: T.key === "warm" ? "rgba(242,240,234,0.86)" : "rgba(18,18,24,0.86)",

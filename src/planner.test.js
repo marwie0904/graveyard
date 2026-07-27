@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
+  deriveState,
 } from "./planner.js";
 
 const P = {
@@ -66,5 +67,30 @@ describe("generateTimeline", () => {
     const ph = calculateShiftPhases(P);
     const ids = generateTimeline(P, [], ph.start).items.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+/* Regression: a cutoff of exactly 0 (midnight) is real, not absent. The
+   truthiness test in deriveState silently disabled caffeine sleep-protection
+   for any shift whose cutoff landed on midnight. */
+describe("deriveState with a midnight cutoff", () => {
+  const P0 = {
+    shiftStart: "00:00", shiftEnd: "05:00", plannedSleep: "06:00",
+    sleepGoalHours: 7, caffeine: "moderate", caffeineSensitivity: "normal",
+    nap: "both", sedentary: "some", breakControl: "high", lightEnv: "bright",
+    commute: "drive", mealPattern: "before", sleepiestTime: "deep", overrides: {},
+  };
+
+  it("still flags caffeine logged after a cutoff of 0", () => {
+    const ph = calculateShiftPhases(P0);
+    expect(calculateCaffeineCutoff(P0, ph)).toBe(0);
+    const logs = [{ id: "c", t: 60, type: "caffeine", value: 1 }];
+    expect(deriveState(P0, logs, 120, ph).lateCaffeine).toBe(true);
+  });
+
+  it("does not flag caffeine logged before it", () => {
+    const ph = calculateShiftPhases(P0);
+    const logs = [{ id: "c", t: -120, type: "caffeine", value: 1 }];
+    expect(deriveState(P0, logs, 120, ph).lateCaffeine).toBe(false);
   });
 });
