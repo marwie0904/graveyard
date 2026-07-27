@@ -53,11 +53,24 @@ describe("materializeNights", () => {
     expect(delta).toBeLessThan(1.9);
   });
 
-  it("keeps clean nights clean for a high-sensitivity profile too", () => {
-    const nights = materializeNights({ ...P, caffeineSensitivity: "high" });
-    const late = nights.filter(isLate);
-    expect(late.length).toBeGreaterThanOrEqual(9);
-    expect(late.length).toBeLessThanOrEqual(14);
+  /* Counting late nights alone would still pass if the clean and late rows
+     swapped identity, so assert per-row that the authored intent survives:
+     a row with `late: null` must never register as late, for any profile. */
+  it("keeps every authored-clean night clean across profiles", () => {
+    for (const variant of [
+      { caffeineSensitivity: "high" },
+      { caffeineSensitivity: "low" },
+      { sleepGoalHours: 5 },
+      { plannedSleep: "10:00" },
+      { overrides: { caffeineHours: 10 } },
+    ]) {
+      const nights = materializeNights({ ...P, ...variant });
+      nights.forEach((n, i) => {
+        const authoredLate = MOCK_ROWS[i].late !== null;
+        expect([JSON.stringify(variant), n.dayOffset, isLate(n)])
+          .toEqual([JSON.stringify(variant), n.dayOffset, authoredLate]);
+      });
+    }
   });
 
   it("moves with the profile instead of staying fixed", () => {

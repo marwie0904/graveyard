@@ -147,9 +147,6 @@ export function deriveState(profile, logs, now, ph) {
   const endShift = of("endShift").length > 0;
   const sleepStarted = of("sleepStart").length > 0;
 
-  const sleepProtection =
-    endShift || lateCaffeine || (cutoff !== null && now >= cutoff) || now >= ph.phases[3].from;
-
   return {
     cutoff,
     caffeineLogs,

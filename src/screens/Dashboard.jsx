@@ -180,7 +180,7 @@ export default function Dashboard({ T, profile, nights, rangeKey, setRangeKey, s
   const dayLabel = (h) => (h.dayOffset === 0 ? "Now" : `${h.dayOffset}d`);
 
   const sleep = chrono.filter((h) => h.sleepStart !== null && h.sleepHours !== null).map((h) => ({
-    day: dayLabel(h), base: nightAxis(h.sleepStart), len: h.sleepHours * 60,
+    id: h.id, day: dayLabel(h), base: nightAxis(h.sleepStart), len: h.sleepHours * 60,
     hours: h.sleepHours, estimated: !!h.sleepEstimated,
   }));
   /* Math.min/Math.max over [] return +/-Infinity, which used to reach the DOM
@@ -240,8 +240,10 @@ export default function Dashboard({ T, profile, nights, rangeKey, setRangeKey, s
               axisLine={false} tickLine={false} width={40} />
             <Bar dataKey="base" stackId="a" fill="transparent" />
             <Bar dataKey="len" stackId="a" radius={[4, 4, 4, 4]}>
-              {sleep.map((d, k) => (
-                <Cell key={k} fill={d.estimated ? tint(DOMAIN.sleep.hue, 0.35)
+              {/* keyed by night id, not index: the range changes length as the
+                  user switches windows, and index keys would recolour bars */}
+              {sleep.map((d) => (
+                <Cell key={d.id} fill={d.estimated ? tint(DOMAIN.sleep.hue, 0.35)
                   : d.hours < 5 ? DOMAIN.food.hue : DOMAIN.sleep.hue} />
               ))}
             </Bar>

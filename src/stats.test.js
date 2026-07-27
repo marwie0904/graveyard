@@ -55,6 +55,23 @@ describe("rangeStats on the mock", () => {
     expect(new Set(windows).size).toBeGreaterThan(1);
   });
 
+  /* The test above discriminates via one tie-break, so it would still pass if
+     the field were read wrongly. These pin the field read directly. */
+  it("reads sleepyWindow off the record rather than deriving it", () => {
+    const base = nights[0];
+    for (const w of ["early", "mid", "deep", "late"]) {
+      const synthetic = Array.from({ length: 5 }, (_, i) => ({
+        ...base, id: `s${i}`, dayOffset: i + 1, sleepyWindow: w,
+      }));
+      expect(rangeStats(P, synthetic).sleepyWindow).toBe(w);
+    }
+  });
+
+  it("returns null, not a default window, when no record carries one", () => {
+    const blank = nights.slice(0, 5).map((h, i) => ({ ...h, id: `b${i}`, sleepyWindow: null }));
+    expect(rangeStats(P, blank).sleepyWindow).toBeNull();
+  });
+
   it("surfaces the caffeine correlation as the main pattern", () => {
     const pat = readPatterns(P, rangeStats(P, nights));
     expect(pat.mainPattern).toMatch(/caffeine/i);

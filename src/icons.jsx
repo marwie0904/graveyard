@@ -22,3 +22,9 @@ export const ListChecks = (p) => <ListChecksBase weight="regular" {...p} />;
 export const ChartBar   = (p) => <ChartBarBase   weight="regular" {...p} />;
 export const Pulse      = (p) => <PulseBase      weight="regular" {...p} />;
 export const Footprints = (p) => <FootprintsBase weight="regular" {...p} />;
+
+/* without these the four render as "Anonymous" in React DevTools */
+ListChecks.displayName = "ListChecks";
+ChartBar.displayName = "ChartBar";
+Pulse.displayName = "Pulse";
+Footprints.displayName = "Footprints";
