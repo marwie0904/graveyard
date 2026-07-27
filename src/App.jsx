@@ -1,28 +1,21 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
-  Moon, Coffee, Pulse, Heart, Clock, Check,
+  Moon, Pulse, Heart, Clock, Check,
   CaretRight, Plus, Wind, Eye, Bed, ArrowRight, ArrowLeft,
   X, ListChecks, Info, Footprints, ArrowCounterClockwise, Pencil,
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
-import {
-  BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis,
-  ResponsiveContainer, Cell, CartesianGrid,
-} from "recharts";
-import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, overlap, dur } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
   movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
-import {
-  RANGES, SLEEPY_LABEL, foldNight, rangeStats, readPatterns, achievements,
-} from "./stats.js";
-import {
-  Card, Btn, Pill, Badge, Display, Eyebrow, Select, RangeControl,
-} from "./ui/index.jsx";
+import { foldNight, achievements } from "./stats.js";
+import { Card, Btn, Pill, Badge, Display, Eyebrow } from "./ui/index.jsx";
+import Dashboard from "./screens/Dashboard.jsx";
 
 /* ============================================================================
    GRAVEYARD — a planner for the night shift
@@ -299,20 +292,6 @@ function planChanges(profile, plan, now) {
   if (s.endShift) out.push("Ending your shift switched the plan into recovery mode.");
   return out;
 }
-
-/* --------------------------------- storage -------------------------------- */
-
-const store = {
-  async get(k) {
-    try {
-      const r = await window.storage.get(k);
-      return r ? JSON.parse(r.value) : null;
-    } catch { return null; }
-  },
-  async set(k, v) {
-    try { await window.storage.set(k, JSON.stringify(v)); } catch { /* memory only */ }
-  },
-};
 
 /** Map the wall clock onto this plan's absolute-minute scale, choosing the
     occurrence nearest the planned window. */
@@ -1383,7 +1362,7 @@ export default function App() {
   const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
   const [logDraft, setLogDraft] = useState({ type: "water", h: 12, m: 0, ap: "AM", note: "" });
-  const [range, setRange] = useState(7);
+  const [rangeKey, setRangeKey] = useState("1w");
   const [adjusting, setAdjusting] = useState(null);
   const [adjustDraft, setAdjustDraft] = useState({});
   const [quickResult, setQuickResult] = useState(null);
@@ -1391,21 +1370,8 @@ export default function App() {
   const [timeEdit, setTimeEdit] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
 
-  /* restore */
-  useEffect(() => {
-    (async () => {
-      const saved = await store.get("nsp:v1");
-      if (saved && saved.profile) {
-        setProfile(saved.profile);
-        setLogs(saved.logs || []);
-        setNow(realNow(calculateShiftPhases(saved.profile)));
-        setScreen("app");
-      }
-    })();
-  }, []);
-  useEffect(() => {
-    if (profile) store.set("nsp:v1", { profile, logs, now });
-  }, [profile, logs, now]);
+  /* Nothing is persisted. The app boots to the quiz every time, by design:
+     there is no backend, no database, and no storage of any kind. */
   useEffect(() => {
     if (!profile) return;
     const tick = () => setNow(realNow(calculateShiftPhases(profile)));
@@ -1539,245 +1505,6 @@ export default function App() {
 
   const { ph, state: s } = plan;
   const shiftPct = (now - ph.start) / ph.length;
-
-  /* ------------------------------- dashboard ------------------------------ */
-  const Dashboard = () => {
-    /* history is newest first, so a range is the front of it; charts read left
-       to right in time, so they get it reversed */
-    const hist = history.slice(0, range);
-    const chrono = [...hist].reverse();
-    const st = rangeStats(profile, hist);
-    const pat = readPatterns(profile, st);
-    const rangeLabel = (RANGES.find((r) => r.nights === range) || RANGES[2]).label;
-    const thin = Math.max(0, Math.floor(hist.length / 7) - 1);
-    const axis = { fill: T.faint, fontSize: 10.5, fontFamily: FONT_TEXT };
-    const dayLabel = (h) => (h.dayOffset === 0 ? "Now" : `${h.dayOffset}d`);
-    const num = (v, digits = 1) => (v === null || v === undefined ? "--" : v.toFixed(digits));
-
-    const sleep = chrono.filter((h) => h.sleepStart !== null && h.sleepHours !== null).map((h) => ({
-      day: dayLabel(h), base: nightAxis(h.sleepStart), len: h.sleepHours * 60, hours: h.sleepHours,
-    }));
-    const lo = sleep.length ? Math.min(...sleep.map((d) => d.base)) - 40 : 0;
-    const hi = sleep.length ? Math.max(...sleep.map((d) => d.base + d.len)) + 40 : DAY;
-    const wake = chrono.filter((h) => h.wake !== null)
-      .map((h) => ({ day: dayLabel(h), wake: nightAxis(h.wake) }));
-    const caff = chrono.map((h) => {
-      const row = { day: dayLabel(h), cutoff: h.cutoff === null ? null : nightAxis(h.cutoff) };
-      h.caffeine.slice(0, 5).forEach((c, k) => { row[`c${k + 1}`] = nightAxis(c); });
-      return row;
-    });
-    const moves = chrono.map((h) => ({
-      day: dayLabel(h), pct: Math.round((h.moveDone / Math.max(1, h.moveTotal)) * 100),
-    }));
-    const rests = chrono.map((h) => ({ day: dayLabel(h), mins: h.restMin, kind: h.restKind }));
-
-    const Panel = ({ cat, title, sub, line, children, height = 160 }) => (
-      <Card T={T} style={{ marginBottom: 12, padding: "16px 12px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 6px 12px" }}>
-          <Badge category={cat} T={T} size={30} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>{title}</div>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.muted, marginTop: 1 }}>{sub}</div>
-          </div>
-        </div>
-        {children && <div style={{ height }}>{children}</div>}
-        {line && (
-          <p style={{
-            fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
-            margin: "12px 6px 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`,
-          }}>{line}</p>
-        )}
-      </Card>
-    );
-
-    const Tile = ({ cat, k, v }) => (
-      <div style={{
-        background: tint(DOMAIN[cat].hue, T.tintA), borderRadius: 18, padding: "13px 14px",
-      }}>
-        <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>{k}</div>
-        <div style={{
-          fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: DOMAIN[cat].hue,
-          letterSpacing: "-0.02em", marginTop: 3,
-        }}>{v}</div>
-      </div>
-    );
-
-    return (
-      <div style={{ padding: "4px 20px 0" }}>
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 18 }}>
-          {RANGES.map((r) => (
-            <Pill key={r.key} T={T} hue={DOMAIN.sleep.hue} active={range === r.nights}
-              onClick={() => setRange(r.nights)}>{r.label}</Pill>
-          ))}
-        </div>
-
-        <Eyebrow T={T}>{rangeLabel}</Eyebrow>
-        <Display T={T} size={32} style={{ marginBottom: 6 }}>
-          {st.avgSleep === null ? "No sleep logged yet." : `${num(st.avgSleep)}h average sleep.`}
-        </Display>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, lineHeight: 1.45, marginBottom: 16 }}>
-          {profile.caffeine === "none"
-            ? "No caffeine prompts in your plan this period."
-            : `${st.lateCount} of ${st.n} nights had caffeine after your cutoff.`}
-        </p>
-
-        <div style={{
-          padding: "14px 16px", borderRadius: 18, marginBottom: 18,
-          background: tint(DOMAIN.recovery.hue, T.tintA),
-        }}>
-          <div style={{
-            fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
-            textTransform: "uppercase", color: DOMAIN.recovery.hue, marginBottom: 7,
-          }}>Main pattern</div>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.5, color: T.ink, margin: 0 }}>
-            {pat.mainPattern}
-          </p>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
-          <Tile cat="sleep" k="Average sleep" v={`${num(st.avgSleep)}h`} />
-          <Tile cat="caffeine" k="Cutoff crossed" v={`${st.lateCount} nights`} />
-          <Tile cat="movement" k="Movement resets" v={st.movePct === null ? "--" : `${st.movePct}% done`} />
-          <Tile cat="recovery" k="Most sleepy" v={SLEEPY_LABEL[st.sleepyWindow] || "Not yet"} />
-        </div>
-
-        <Panel cat="sleep" title="Sleep average" sub={`Across ${st.n} nights`} line={pat.sleepAvgLine} />
-
-        <Panel cat="sleep" title="When you slept"
-          sub="Each bar is one sleep block, start to wake" line={pat.sleepTiming} height={170}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sleep} margin={{ left: -16, right: 8, top: 4, bottom: 0 }}>
-              <CartesianGrid stroke={T.hair} vertical={false} />
-              <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-              <YAxis domain={[lo, hi]} tickFormatter={nightTick} tick={axis}
-                axisLine={false} tickLine={false} width={40} />
-              <Bar dataKey="base" stackId="a" fill="transparent" />
-              <Bar dataKey="len" stackId="a" radius={[4, 4, 4, 4]}>
-                {sleep.map((d, k) => (
-                  <Cell key={k} fill={d.hours < 5 ? DOMAIN.food.hue : DOMAIN.sleep.hue} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel cat="light" title="Wake time drift"
-          sub={st.wakeDrift === null ? "Nothing logged yet" : `Moved by about ${num(st.wakeDrift)} hours`}
-          line={pat.wakeDrift}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={wake} margin={{ left: -14, right: 12, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke={T.hair} vertical={false} />
-              <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-              <YAxis tickFormatter={nightTick} tick={axis} axisLine={false} tickLine={false} width={40} />
-              <Line type="monotone" dataKey="wake" stroke={DOMAIN.light.hue} strokeWidth={2.2}
-                dot={hist.length > 20 ? false : { r: 3.5, fill: DOMAIN.light.hue, strokeWidth: 0 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel cat="caffeine" title="Caffeine against your cutoff"
-          sub="Dots above the line landed too late" line={pat.caffeine}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={caff} margin={{ left: -14, right: 12, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke={T.hair} vertical={false} />
-              <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-              <YAxis tickFormatter={nightTick} tick={axis} axisLine={false} tickLine={false} width={40} />
-              <Line dataKey="cutoff" stroke={DOMAIN.sleep.hue} strokeWidth={1.6}
-                strokeDasharray="5 5" dot={false} />
-              {["c1", "c2", "c3", "c4", "c5"].map((k) => (
-                <Line key={k} dataKey={k} stroke="none"
-                  dot={{ r: hist.length > 20 ? 2.8 : 4, fill: DOMAIN.caffeine.hue, strokeWidth: 0 }} />
-              ))}
-            </ComposedChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel cat="movement" title="Movement resets"
-          sub={`${st.moveDone} of ${st.moveTotal} completed`} line={pat.movement} height={130}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={moves} margin={{ left: -20, right: 12, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke={T.hair} vertical={false} />
-              <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-              <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={[0, 100]} />
-              <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
-                {moves.map((d, k) => (
-                  <Cell key={k} fill={d.pct >= 60 ? DOMAIN.movement.hue : tint(DOMAIN.movement.hue, 0.4)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel cat="recovery" title="Rest blocks"
-          sub={`${st.naps} naps · ${st.quiets} quiet rests · ${st.missed} missed`}
-          line={pat.rest} height={130}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rests} margin={{ left: -20, right: 12, top: 8, bottom: 0 }}>
-              <CartesianGrid stroke={T.hair} vertical={false} />
-              <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-              <YAxis tick={axis} axisLine={false} tickLine={false} width={34} />
-              <Bar dataKey="mins" radius={[4, 4, 0, 0]}>
-                {rests.map((d, k) => (
-                  <Cell key={k} fill={d.kind === "nap" ? DOMAIN.sleep.hue
-                    : d.kind === "quiet" ? DOMAIN.recovery.hue : T.hair} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Panel>
-
-        <Panel cat="recovery" title="Sleepiness pattern"
-          sub={st.sleepyWindow === null ? "Nothing logged yet"
-            : `Most common: ${SLEEPY_LABEL[st.sleepyWindow].toLowerCase()}`} line={pat.fatigue} />
-        <Panel cat="food" title="Food and hydration"
-          sub={`${num(st.waterAvg)} water logs per shift`} line={pat.foodHydration} />
-        <Panel cat="light" title="Light and screen care"
-          sub={`${st.lateLightDone} of ${st.n} late-light reminders done`} line={pat.light} />
-
-        <Eyebrow T={T}>What the plan noticed</Eyebrow>
-        <Card T={T} style={{ padding: "6px 18px", marginBottom: 18 }}>
-          {pat.noticed.map((nn, k) => (
-            <div key={nn} style={{
-              display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 0",
-              borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
-            }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: 3, background: DOMAIN.recovery.hue,
-                flexShrink: 0, marginTop: 7,
-              }} />
-              <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{nn}</span>
-            </div>
-          ))}
-        </Card>
-
-        <Eyebrow T={T}>Next plan adjustment</Eyebrow>
-        <Card T={T} style={{ padding: 18, marginBottom: 16 }}>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
-            {pat.adjustment.text}
-          </p>
-          {pat.adjustment.apply && (
-            <div style={{ display: "flex", gap: 9, marginTop: 16 }}>
-              <Btn T={T} style={{ flex: 1.4, fontSize: 14.5 }} onClick={() => {
-                setProfile(pat.adjustment.apply(profile));
-                say(pat.adjustment.done);
-              }}>Apply to next plan</Btn>
-              <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14.5 }}
-                onClick={() => say("Keeping your current plan.")}>Keep current</Btn>
-            </div>
-          )}
-        </Card>
-
-        <div style={{
-          display: "flex", alignItems: "flex-start", gap: 8, margin: "0 4px 8px",
-          fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, lineHeight: 1.45,
-        }}>
-          <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-          Pattern tracking for sleep protection and recovery. Nothing here is a score,
-          and nothing here is graded.
-        </div>
-      </div>
-    );
-  };
 
   /* --------------------------------- plan --------------------------------- */
   const PlanTab = () => {
@@ -2801,7 +2528,10 @@ export default function App() {
 
       {/* the only scrolling region */}
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 12, paddingBottom: 28 }}>
-        {tab === "dashboard" && <Dashboard />}
+        {tab === "dashboard" && (
+          <Dashboard T={T} profile={profile} nights={history}
+            rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile} />
+        )}
         {tab === "plan" && <PlanTab />}
         {tab === "log" && <LogTab />}
         {tab === "live" && <LiveTab />}

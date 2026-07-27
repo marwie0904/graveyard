@@ -94,10 +94,10 @@ export function foldNight(profile, logs, reflection = {}) {
     water: of("water").length,
     screenStrain: of("screen").length,
     sleepyWindow: WINDOW_FROM_REFLECTION[reflection.sleepiest] ?? null,
-    skippedMeal: of("meal").some((l) => l.value === "skipped"),
     heavyMeal: of("meal").some((l) => l.value === "heavy"),
-    lateSnack: false,
-    lateLightDone: false,
+    /* The plan's light-category items are the late-light reminders: light-down,
+       light-early and eye-break. Completing any of them counts. */
+    lateLightDone: items.some((l) => l.value.category === "light" && l.value.status === "done"),
   };
 }
 
@@ -110,8 +110,8 @@ export function rangeStats(profile, nights) {
       n: 0, avgSleep: null, lateCount: 0, avgClean: null, avgLate: null,
       spread: null, wakeDrift: null, movePct: null, moveDone: 0, moveTotal: 0,
       naps: 0, quiets: 0, missed: 0, groggy: 0, sleepyWindow: null,
-      waterAvg: null, caffeineAvg: null, deepHeavy: 0, skippedMeals: 0,
-      lateSnacks: 0, strain: 0, lateLightDone: 0,
+      waterAvg: null, caffeineAvg: null, deepHeavy: 0,
+      strain: 0, lateLightDone: 0,
     };
   }
 
@@ -157,8 +157,6 @@ export function rangeStats(profile, nights) {
     waterAvg: avgOf(nights, (h) => h.water),
     caffeineAvg: avgOf(nights, (h) => (h.caffeine ? h.caffeine.length : null)),
     deepHeavy: nights.filter((h) => h.heavyMeal).length,
-    skippedMeals: nights.filter((h) => h.skippedMeal).length,
-    lateSnacks: nights.filter((h) => h.lateSnack).length,
     strain: nights.reduce((a, h) => a + (h.screenStrain || 0), 0),
     lateLightDone: nights.filter((h) => h.lateLightDone).length,
   };
@@ -200,6 +198,9 @@ export function readPatterns(profile, st) {
 
   const movement =
     st.movePct === null ? "No movement resets have been logged in this period yet."
+    /* One night with nothing marked yet is a shift that has barely started, not
+       a shift where resets were skipped. */
+    : st.n === 1 && st.moveDone === 0 ? "Tonight has only just started, so there are no resets to read yet."
     : profile.breakControl === "low" || profile.breakControl === "unpredictable"
       ? `${st.movePct}% of resets were completed, and since breaks are hard to control the plan uses 30 to 60 second micro-resets.`
     : st.movePct >= 70 ? "You completed most movement resets, so the plan will keep the current reset frequency."
@@ -223,7 +224,6 @@ export function readPatterns(profile, st) {
   const foodHydration =
     empty ? "No food or water has been logged in this period yet."
     : st.deepHeavy > st.n * 0.3 ? "Heavy meals often landed in the deep-night window, so the plan will move food prompts earlier where possible."
-    : st.skippedMeals > st.n * 0.35 ? "Meals were skipped on several nights, so the plan will add a planned snack before the hardest part of the shift."
     : st.waterAvg !== null && st.caffeineAvg !== null && st.waterAvg < st.caffeineAvg
       ? "Caffeine was logged more often than water, so the plan will add water swaps after caffeine."
     : "Food and water stayed roughly on plan, so the plan will keep reminders light.";

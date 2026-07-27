@@ -28,7 +28,13 @@ describe("rangeStats on empty input", () => {
     for (const k of ["avgSleep", "movePct", "wakeDrift", "sleepyWindow"]) {
       expect(st[k]).toBeNull();
     }
-    expect(JSON.stringify(st)).not.toMatch(/Infinity|null,"NaN"|NaN/);
+    /* JSON.stringify serialises both Infinity and NaN as the literal `null`,
+       so a regex over the serialised form can never catch either. Check the
+       live values instead. */
+    const bad = Object.entries(st).filter(
+      ([, v]) => typeof v === "number" && !Number.isFinite(v)
+    );
+    expect(bad).toEqual([]);
   });
 });
 
