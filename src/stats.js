@@ -129,6 +129,12 @@ export function rangeStats(profile, nights) {
 
   const moveDone = nights.reduce((a, h) => a + (h.moveDone || 0), 0);
   const moveTotal = nights.reduce((a, h) => a + (h.moveTotal || 0), 0);
+  /* A lone night with nothing marked yet is a shift that has only just
+     started, not one where every reset was skipped. moveTotal is a fixed
+     total for the whole shift, so at minute one it is already nonzero while
+     nothing has actually come due; without a real percentage to report,
+     movePct stays null rather than reading 0%. */
+  const noneDueYet = n === 1 && moveDone === 0;
 
   /* The mode of the window each record actually carries. The old code derived
      this and then dropped it on the floor, which pinned the whole app to
@@ -146,7 +152,7 @@ export function rangeStats(profile, nights) {
     avgLate,
     spread: spanHours(starts),
     wakeDrift: spanHours(wakes),
-    movePct: moveTotal ? Math.round((moveDone / moveTotal) * 100) : null,
+    movePct: moveTotal && !noneDueYet ? Math.round((moveDone / moveTotal) * 100) : null,
     moveDone,
     moveTotal,
     naps: nights.filter((h) => h.restKind === "nap").length,
@@ -197,10 +203,11 @@ export function readPatterns(profile, st) {
     : "Caffeine crossed your cutoff often, which may be one reason your sleep window is harder to protect.";
 
   const movement =
-    st.movePct === null ? "No movement resets have been logged in this period yet."
     /* One night with nothing marked yet is a shift that has barely started, not
-       a shift where resets were skipped. */
-    : st.n === 1 && st.moveDone === 0 ? "Tonight has only just started, so there are no resets to read yet."
+       a shift where resets were skipped. movePct is null in this case too, so
+       the Tile reads "-" rather than a premature 0%. */
+    st.n === 1 && st.moveDone === 0 ? "Tonight has only just started, so there are no resets to read yet."
+    : st.movePct === null ? "No movement resets have been logged in this period yet."
     : profile.breakControl === "low" || profile.breakControl === "unpredictable"
       ? `${st.movePct}% of resets were completed, and since breaks are hard to control the plan uses 30 to 60 second micro-resets.`
     : st.movePct >= 70 ? "You completed most movement resets, so the plan will keep the current reset frequency."
