@@ -359,6 +359,35 @@ function Disclaimer({ onNext, onBack }) {
 
 /* ----------------------------------- quiz --------------------------------- */
 
+function Column({ T, items, selected, onPick, width, fmtItem }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current && ref.current.querySelector("[data-on='1']");
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" });
+  }, [selected]);
+  return (
+    <div ref={ref} style={{
+      width, height: 176, overflowY: "auto", scrollSnapType: "y mandatory",
+      padding: "66px 0", scrollbarWidth: "none",
+    }}>
+      {items.map((it) => {
+        const on = it === selected;
+        return (
+          <button key={String(it)} data-on={on ? "1" : "0"} onClick={() => onPick(it)}
+            style={{
+              display: "block", width: "100%", height: 44, scrollSnapAlign: "center",
+              border: "none", background: "transparent", cursor: "pointer",
+              fontFamily: FONT_DISPLAY, fontSize: on ? 26 : 20,
+              fontWeight: on ? 700 : 500, fontVariantNumeric: "tabular-nums",
+              color: on ? T.ink : T.faint, letterSpacing: "-0.02em",
+              transition: "font-size 120ms ease, color 120ms ease",
+            }}>{fmtItem ? fmtItem(it) : it}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* iOS-style wheel: three snap columns, and every row is tappable so it works
    whether you scroll it or poke it. */
 function TimeWheel({ T, value, onChange }) {
@@ -373,35 +402,6 @@ function TimeWheel({ T, value, onChange }) {
     onChange(`${String(h).padStart(2, "0")}:${String(o.m).padStart(2, "0")}`);
   };
 
-  const Column = ({ items, selected, onPick, width, fmtItem }) => {
-    const ref = useRef(null);
-    useEffect(() => {
-      const el = ref.current && ref.current.querySelector("[data-on='1']");
-      if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" });
-    }, [selected]);
-    return (
-      <div ref={ref} style={{
-        width, height: 176, overflowY: "auto", scrollSnapType: "y mandatory",
-        padding: "66px 0", scrollbarWidth: "none",
-      }}>
-        {items.map((it) => {
-          const on = it === selected;
-          return (
-            <button key={String(it)} data-on={on ? "1" : "0"} onClick={() => onPick(it)}
-              style={{
-                display: "block", width: "100%", height: 44, scrollSnapAlign: "center",
-                border: "none", background: "transparent", cursor: "pointer",
-                fontFamily: FONT_DISPLAY, fontSize: on ? 26 : 20,
-                fontWeight: on ? 700 : 500, fontVariantNumeric: "tabular-nums",
-                color: on ? T.ink : T.faint, letterSpacing: "-0.02em",
-                transition: "font-size 120ms ease, color 120ms ease",
-              }}>{fmtItem ? fmtItem(it) : it}</button>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <div style={{ position: "relative", background: T.card, borderRadius: 22, padding: "0 10px" }}>
       <div style={{
@@ -410,11 +410,11 @@ function TimeWheel({ T, value, onChange }) {
         background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.06)",
       }} />
       <div style={{ position: "relative", display: "flex", justifyContent: "center", gap: 4 }}>
-        <Column width={72} items={[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]}
+        <Column T={T} width={72} items={[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]}
           selected={cur.h} onPick={(h) => emit({ h })} />
-        <Column width={72} items={[0, 15, 30, 45]} selected={cur.m}
+        <Column T={T} width={72} items={[0, 15, 30, 45]} selected={cur.m}
           onPick={(m) => emit({ m })} fmtItem={(m) => String(m).padStart(2, "0")} />
-        <Column width={72} items={["AM", "PM"]} selected={cur.ap} onPick={(ap) => emit({ ap })} />
+        <Column T={T} width={72} items={["AM", "PM"]} selected={cur.ap} onPick={(ap) => emit({ ap })} />
       </div>
     </div>
   );
@@ -1097,11 +1097,8 @@ function buildRecommendation(profile, ph) {
   return { p, sleepAnchor, fatigue, caffeine, rest, movement, light, food, water, startHere, checklist, cutoff };
 }
 
-function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
-  const ph = calculateShiftPhases(profile);
-  const r = buildRecommendation(profile, ph);
-
-  const Section = ({ cat, title, body, items, adjustable }) => (
+function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
+  return (
     <Card T={T} style={{ marginBottom: 12, padding: 18 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <Badge category={cat} T={T} size={36} />
@@ -1135,13 +1132,20 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
       </div>
     </Card>
   );
+}
 
-  const Row = ({ k, v }) => (
+function Row({ T, k, v }) {
+  return (
     <div style={{ display: "flex", gap: 12, padding: "9px 0", borderTop: `1px solid ${T.hair}` }}>
       <span style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, width: 118, flexShrink: 0 }}>{k}</span>
       <span style={{ fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600, color: T.ink, flex: 1 }}>{v}</span>
     </div>
   );
+}
+
+function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
+  const ph = calculateShiftPhases(profile);
+  const r = buildRecommendation(profile, ph);
 
   return (
     <div style={{ padding: "44px 20px 40px" }}>
@@ -1154,11 +1158,11 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
       </p>
 
       <Card T={T} style={{ padding: "6px 18px 14px", marginBottom: 12 }}>
-        <Row k="Plan type" v={r.p.type} />
-        <Row k="Main focus" v={r.p.focus} />
-        <Row k="Sleep" v={r.p.sleep} />
-        <Row k="Caffeine" v={CAFFEINE_STRATEGY[profile.caffeine]} />
-        <Row k="Rest" v={REST_STRATEGY[profile.nap]} />
+        <Row T={T} k="Plan type" v={r.p.type} />
+        <Row T={T} k="Main focus" v={r.p.focus} />
+        <Row T={T} k="Sleep" v={r.p.sleep} />
+        <Row T={T} k="Caffeine" v={CAFFEINE_STRATEGY[profile.caffeine]} />
+        <Row T={T} k="Rest" v={REST_STRATEGY[profile.nap]} />
       </Card>
 
       <div style={{
@@ -1174,14 +1178,14 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         </p>
       </div>
 
-      <Section cat="sleep" title="Your sleep window is the anchor." adjustable={0}
+      <Section T={T} onAdjust={onAdjust} cat="sleep" title="Your sleep window is the anchor." adjustable={0}
         body={`Your planned sleep time is ${fmt(ph.sleepStart)}. Caffeine, light, food, and wind-down are timed backward from that sleep window. ${r.sleepAnchor}`} />
-      <Section cat="recovery" title={r.fatigue.t} body={r.fatigue.b} />
-      <Section cat="caffeine" title={r.caffeine.t} body={r.caffeine.b} items={r.caffeine.items} adjustable={1} />
-      <Section cat="sleep" title={r.rest.t} body={r.rest.b} items={r.rest.items} />
-      <Section cat="movement" title={r.movement.t} body={r.movement.b} adjustable={3} />
-      <Section cat="light" title={r.light.t} body={r.light.b} adjustable={4} />
-      <Section cat="food" title={r.food.t} body={`${r.food.b} ${r.water}`} adjustable={5} />
+      <Section T={T} onAdjust={onAdjust} cat="recovery" title={r.fatigue.t} body={r.fatigue.b} />
+      <Section T={T} onAdjust={onAdjust} cat="caffeine" title={r.caffeine.t} body={r.caffeine.b} items={r.caffeine.items} adjustable={1} />
+      <Section T={T} onAdjust={onAdjust} cat="sleep" title={r.rest.t} body={r.rest.b} items={r.rest.items} />
+      <Section T={T} onAdjust={onAdjust} cat="movement" title={r.movement.t} body={r.movement.b} adjustable={3} />
+      <Section T={T} onAdjust={onAdjust} cat="light" title={r.light.t} body={r.light.b} adjustable={4} />
+      <Section T={T} onAdjust={onAdjust} cat="food" title={r.food.t} body={`${r.food.b} ${r.water}`} adjustable={5} />
 
       <Eyebrow T={T}>Tonight, in short</Eyebrow>
       <Card T={T} style={{ padding: "10px 18px", marginBottom: 18 }}>
@@ -1355,6 +1359,943 @@ function TimelineItem({ item, T, status, onAct, now, showRail = true, inDeepNigh
 
 /* ----------------------------------- app ---------------------------------- */
 
+const LOG_TYPES = [
+  { v: "wake", l: "Woke up", cat: "sleep", val: "ontime",
+    details: ["Earlier", "On time", "Later"] },
+  { v: "sleepQuality", l: "Slept poorly", cat: "sleep", val: "poor" },
+  { v: "caffeine", l: "Caffeine", cat: "caffeine", val: 1,
+    details: ["Coffee", "Tea", "Energy drink", "Other"] },
+  { v: "water", l: "Water", cat: "water", val: 1 },
+  { v: "meal", l: "Meal or snack", cat: "food", val: "normal",
+    details: ["Full meal", "Light snack", "Heavy meal"] },
+  { v: "nap", l: "Nap or rest", cat: "sleep", val: "ok",
+    details: ["Slept", "Quiet rest", "Woke groggy"] },
+  { v: "move", l: "Movement break", cat: "movement", val: 1 },
+  { v: "skip", l: "Skipped a break", cat: "movement", val: 1 },
+  { v: "sleepy", l: "Felt sleepy", cat: "recovery", val: 1 },
+  { v: "stress", l: "Felt stressed", cat: "recovery", val: 1 },
+  { v: "screen", l: "Screen strain", cat: "light", val: 1 },
+  { v: "endShift", l: "Ended shift", cat: "shift", val: 1 },
+  { v: "sleepStart", l: "Went to sleep", cat: "sleep", val: 1 },
+];
+
+function metaFor(l) {
+  return LOG_TYPES.find((x) => x.v === l.type)
+    || (l.type === "item"
+      ? { l: l.value.status === "done" ? "Movement reset" : "Skipped a break", cat: l.value.category }
+      : { l: l.type, cat: "shift" });
+}
+
+/* --------------------------------- plan --------------------------------- */
+function PlanTab({
+  T, plan, s, ph, profile, now, showAllPlan, setShowAllPlan, hideDone, setHideDone,
+  setScreen, onAct, setAdjustDraft, setAdjusting,
+}) {
+  const moves = plan.items.filter((i) => i.id.startsWith("move-"));
+  const others = plan.items.filter((i) => !i.id.startsWith("move-"));
+  const collapsed = !showAllPlan && moves.length > 1;
+  let display = collapsed
+    ? [...others, { ...moves[0], recurring: moves }].sort((a, b) => a.at - b.at)
+    : plan.items;
+  if (hideDone) display = display.filter((i) => s.itemStatus(i.id) === "open" || i.recurring);
+
+  /* One flat, time-ordered list. The old build grouped items into phase bands,
+     which silently dropped anything falling outside every phase window while
+     still counting it in "x of y done". A flat list cannot lose an item. */
+  const inDeepNight = (at) =>
+    !!ph.deepNight && at >= ph.deepNight[0] && at < ph.deepNight[1];
+
+  const doneCount = plan.items.filter((i) => s.itemStatus(i.id) === "done").length;
+
+  return (
+    <div style={{ padding: "4px 20px 0" }}>
+      <Eyebrow T={T}>Tonight's plan</Eyebrow>
+      <Display T={T} size={32} style={{ marginBottom: 14 }}>
+        {doneCount} of {plan.items.length} done.
+      </Display>
+
+      <Card T={T} onClick={() => setScreen("recommendation-revisit")}
+        style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 13, padding: 15 }}>
+        <Badge category="recovery" T={T} size={34} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>
+            Why this plan
+          </div>
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
+            {planSummary(profile).type}
+          </div>
+        </div>
+        <CaretRight size={17} color={T.faint} />
+      </Card>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        <Pill T={T} hue={DOMAIN.shift.hue} active={hideDone} onClick={() => setHideDone(!hideDone)}>
+          {hideDone ? "Remaining only" : "Showing everything"}
+        </Pill>
+        {moves.length > 1 && (
+          <Pill T={T} hue={DOMAIN.movement.hue} active={!collapsed}
+            onClick={() => setShowAllPlan(!showAllPlan)}>
+            {collapsed ? "Resets grouped" : "Resets expanded"}
+          </Pill>
+        )}
+      </div>
+
+      {display.map((it) =>
+        it.recurring ? (
+          <RecurringCard key="recurring" item={it} T={T} gap={movementInterval(profile)}
+            onExpand={() => setShowAllPlan(true)}
+            onAdjust={() => { setAdjustDraft({}); setAdjusting(it.id); }} />
+        ) : (
+          <TimelineItem key={it.id} item={it} T={T} now={now}
+            status={s.itemStatus(it.id)} onAct={onAct}
+            inDeepNight={inDeepNight(it.at)} />
+        )
+      )}
+
+      {!display.length && (
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5 }}>
+          Nothing left open. Switch to showing everything if you want to look back over the night.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const REFLECT_QS = [
+  { k: "slept", q: "How long did you sleep?", o: ["Under 5h", "5–6h", "7–9h", "Over 9h"] },
+  { k: "rested", q: "How rested do you feel?", o: ["Not at all", "A little", "Fairly", "Very"] },
+  { k: "sleepiest", q: "When were you most sleepy?", o: ["Early shift", "Mid-shift", "Deep night", "Last hours"] },
+  { k: "caffeineImpact", q: "Did caffeine affect your sleep?", o: ["Yes", "Maybe", "No", "Had none"] },
+  { k: "movement", q: "Did you complete your movement breaks?", o: ["Most", "Some", "Few", "None"] },
+  { k: "napped", q: "Did you nap or rest?", o: ["Napped", "Quiet rest", "Neither"] },
+  { k: "adjust", q: "What should the plan change next shift?", o: ["Earlier caffeine cutoff", "More rest", "Fewer resets", "Nothing"] },
+];
+
+function ReflectionBlock({ T, reflection, setReflection, push, profile, setProfile, say }) {
+  return (
+    <div>
+      {/* selects rather than pill rows: seven questions of four options each ran
+          to about five screens of scrolling, and an unanswered question now
+          reads as unanswered instead of blending into the grid */}
+      {REFLECT_QS.map((x) => (
+        <Select key={x.k} T={T} label={x.q} options={x.o}
+          value={reflection[x.k] ?? null}
+          onChange={(v) => setReflection({ ...reflection, [x.k]: v })} />
+      ))}
+      <Btn T={T} full onClick={() => {
+        if (reflection.slept === "Under 5h" || reflection.rested === "Not at all") push("sleepQuality", "poor");
+        if (reflection.adjust === "Earlier caffeine cutoff") {
+          setProfile({ ...profile, caffeineSensitivity: "high" });
+          say("Caffeine cutoff moved earlier for the next shift.");
+        } else if (reflection.adjust === "Fewer resets") {
+          setProfile({ ...profile, sedentary: "little" });
+          say("Resets spaced further apart for the next shift.");
+        } else say("Saved. The next plan will use this.");
+      }}>Save reflection</Btn>
+    </div>
+  );
+}
+
+/* ---------------------------------- log --------------------------------- */
+function LogTab({
+  T, logs, setLogs, profile, plan, now, s, ph, editingLog, setEditingLog, say,
+  saveManualLog, clockToAbs, logDraft, setLogDraft, reflection, setReflection, push, setProfile,
+}) {
+  const t = LOG_TYPES.find((x) => x.v === logDraft.type);
+  const entries = [...logs].sort((a2, b2) => b2.t - a2.t);
+  const changes = planChanges(profile, plan, now);
+
+  const sel = {
+    fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, color: T.ink,
+    background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.06)",
+    border: "none", borderRadius: 12, padding: "9px 11px", cursor: "pointer",
+  };
+
+  /* today's pattern, read from the logs rather than asserted */
+  const pattern = [];
+  const sleepLog = logs.filter((l) => l.type === "sleepStart").slice(-1)[0];
+  if (sleepLog) {
+    const diff = Math.round(sleepLog.t - ph.sleepStart);
+    pattern.push(diff === 0 ? "Sleep started on plan."
+      : `Sleep started ${dur(Math.abs(diff))} ${diff > 0 ? "later" : "earlier"} than planned.`);
+  }
+  if (profile.caffeine !== "none") {
+    pattern.push(s.lateCaffeine
+      ? "Caffeine crossed your cutoff."
+      : s.caffeineLogs.length ? "Caffeine stayed before your cutoff." : "No caffeine logged yet.");
+  }
+  if (s.skippedMovement) pattern.push(`You skipped ${s.skippedMovement} movement reset${s.skippedMovement > 1 ? "s" : ""}.`);
+  if (s.sleepy.length) {
+    const w = determineCurrentPhase(s.sleepy[s.sleepy.length - 1].t, ph);
+    pattern.push(`You logged sleepiness during ${w.inDeepNight ? "the deep night" : w.phase.label.toLowerCase()}.`);
+  }
+
+  return (
+    <div style={{ padding: "4px 20px 0" }}>
+      <Eyebrow T={T}>Reflection</Eyebrow>
+      <Display T={T} size={32} style={{ marginBottom: 8 }}>Look back on the night.</Display>
+      <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, marginBottom: 22, lineHeight: 1.45 }}>
+        Review what happened, fix times, add detail, and see what your logs changed.
+        For something happening right now, the plus button is faster.
+      </p>
+
+      <Eyebrow T={T}>Add with your own time</Eyebrow>
+      <Card T={T} style={{ marginBottom: 24 }}>
+        {/* thirteen pills wrapped to five rows before the time picker was even
+            visible; one select keeps the whole control above the fold */}
+        <Select T={T} label="What are you logging?" placeholder="Choose a type"
+          value={t ? t.l : null}
+          options={LOG_TYPES.map((x) => x.l)}
+          onChange={(label) => {
+            const found = LOG_TYPES.find((x) => x.l === label);
+            setLogDraft({ ...logDraft, type: found ? found.v : logDraft.type, note: "" });
+          }} />
+
+        {t && t.details && (
+          <Select T={T} label="Detail" placeholder="Optional"
+            value={logDraft.note || null} options={t.details}
+            onChange={(note) => setLogDraft({ ...logDraft, note: note || "" })} />
+        )}
+
+        <div style={{
+          display: "flex", alignItems: "center", gap: 7, paddingTop: 14,
+          borderTop: `1px solid ${T.hair}`,
+        }}>
+          <Clock size={16} color={T.faint} />
+          <select value={logDraft.h} style={sel}
+            onChange={(e) => setLogDraft({ ...logDraft, h: Number(e.target.value) })}>
+            {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
+          </select>
+          <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
+          <select value={logDraft.m} style={sel}
+            onChange={(e) => setLogDraft({ ...logDraft, m: Number(e.target.value) })}>
+            {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+              <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
+            ))}
+          </select>
+          <select value={logDraft.ap} style={sel}
+            onChange={(e) => setLogDraft({ ...logDraft, ap: e.target.value })}>
+            <option value="AM">AM</option><option value="PM">PM</option>
+          </select>
+          <div style={{ flex: 1 }} />
+          <Btn T={T} kind="tinted" hue={DOMAIN[t.cat].hue} onClick={saveManualLog}
+            style={{ fontSize: 14, padding: "10px 18px" }}>Save</Btn>
+        </div>
+      </Card>
+
+      <Eyebrow T={T}>Today's timeline</Eyebrow>
+      {entries.length === 0 && (
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5, marginBottom: 24 }}>
+          Nothing logged yet. Anything you record reshapes the rest of the plan.
+        </p>
+      )}
+      <div style={{ marginBottom: 24 }}>
+        {entries.map((l) => {
+          const meta = metaFor(l);
+          const open = editingLog === l.id;
+          const m = ((l.t % DAY) + DAY) % DAY;
+          let hh = Math.floor(m / 60);
+          const ap = hh < 12 ? "AM" : "PM";
+          hh %= 12; if (hh === 0) hh = 12;
+          return (
+            <div key={l.id} style={{
+              borderRadius: 16, background: open ? T.card : "transparent",
+              padding: open ? 14 : 0, marginBottom: open ? 10 : 0,
+            }}>
+              <div onClick={() => setEditingLog(open ? null : l.id)} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "11px 4px",
+                borderBottom: open ? "none" : `1px solid ${T.hair}`, cursor: "pointer",
+              }}>
+                <Badge category={meta.cat} T={T} size={30} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.ink }}>{meta.l}</div>
+                  {l.note && (
+                    <div style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, marginTop: 1 }}>
+                      {l.note}
+                    </div>
+                  )}
+                </div>
+                <span style={{
+                  fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: T.faint,
+                  fontVariantNumeric: "tabular-nums",
+                }}>{fmt(l.t)}</span>
+                <CaretRight size={15} color={T.faint}
+                  style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
+              </div>
+
+              {open && (
+                <div style={{ paddingTop: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                    <Clock size={15} color={T.faint} />
+                    <select value={hh} style={sel} onChange={(e) => {
+                      const nt = clockToAbs(Number(e.target.value), m % 60, ap);
+                      setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
+                    }}>
+                      {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
+                    <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} onChange={(e) => {
+                      const nt = clockToAbs(hh, Number(e.target.value), ap);
+                      setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
+                    }}>
+                      {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((mm) => (
+                        <option key={mm} value={mm}>{String(mm).padStart(2, "0")}</option>
+                      ))}
+                    </select>
+                    <select value={ap} style={sel} onChange={(e) => {
+                      const nt = clockToAbs(hh, m % 60, e.target.value);
+                      setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
+                    }}>
+                      <option value="AM">AM</option><option value="PM">PM</option>
+                    </select>
+                  </div>
+                  <input value={l.note || ""} placeholder="Add a note"
+                    onChange={(e) => setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, note: e.target.value } : x)))}
+                    style={{
+                      width: "100%", padding: "11px 13px", borderRadius: 13, marginBottom: 10,
+                      border: `1px solid ${T.hair}`, background: "transparent", color: T.ink,
+                      fontFamily: FONT_TEXT, fontSize: 14.5, outline: "none",
+                    }} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 13.5 }} onClick={() => {
+                      setLogs((L) => L.filter((x) => x.id !== l.id));
+                      setEditingLog(null);
+                      say("Entry removed. The plan recalculated.");
+                    }}><X size={14} /> Delete</Btn>
+                    <Btn T={T} kind="tinted" hue={DOMAIN[meta.cat].hue} style={{ flex: 1, fontSize: 13.5 }}
+                      onClick={() => setEditingLog(null)}>Done</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {pattern.length > 0 && (
+        <>
+          <Eyebrow T={T}>Today's pattern</Eyebrow>
+          <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
+            {pattern.map((pp, k) => (
+              <div key={pp} style={{
+                display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
+                borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+              }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: 3, background: T.faint,
+                  flexShrink: 0, marginTop: 7,
+                }} />
+                <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{pp}</span>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+
+      {changes.length > 0 && (
+        <>
+          <Eyebrow T={T}>What your logs changed</Eyebrow>
+          <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
+            {changes.map((c, k) => (
+              <div key={c} style={{
+                display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
+                borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+              }}>
+                <ArrowCounterClockwise size={13} color={DOMAIN.recovery.hue} style={{ flexShrink: 0, marginTop: 4 }} />
+                <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{c}</span>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+
+      <Eyebrow T={T}>Daily reflection</Eyebrow>
+      <ReflectionBlock T={T} reflection={reflection} setReflection={setReflection}
+        push={push} profile={profile} setProfile={setProfile} say={say} />
+    </div>
+  );
+}
+
+/* --------------------------------- care --------------------------------- */
+function LiveTab({ T, profile, plan, now, setPlaying }) {
+  const suggested = suggestedCare(profile, plan, now, null);
+  return (
+    <div style={{ padding: "4px 20px 0" }}>
+      <Eyebrow T={T}>Micro-care</Eyebrow>
+      <Display T={T} size={32} style={{ marginBottom: 8 }}>Reset in two minutes.</Display>
+      <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.muted, marginBottom: 20, lineHeight: 1.45 }}>
+        Breathing and movement, guided. Tap to play.
+      </p>
+      {CARE.map((c) => {
+        const on = c.k === suggested;
+        const hue = DOMAIN[c.cat].hue;
+        return (
+          <Card T={T} key={c.k} onClick={() => setPlaying(c.k)} style={{
+            marginBottom: 10, padding: 14, display: "flex", alignItems: "center", gap: 13,
+            border: on ? `1.5px solid ${tint(hue, 0.45)}` : undefined,
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 22, flexShrink: 0,
+              background: tint(hue, T.tintA),
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}><c.Icon size={20} color={hue} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
+                display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+              }}>
+                {c.l}
+                {on && (
+                  <span style={{
+                    fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
+                    textTransform: "uppercase", color: hue, background: tint(hue, 0.14),
+                    padding: "3px 7px", borderRadius: 999,
+                  }}>Suggested</span>
+                )}
+              </div>
+              <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 2 }}>
+                {c.sub}
+              </div>
+            </div>
+            <span style={{
+              fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
+              color: DOMAIN.caffeine.hue, whiteSpace: "nowrap",
+            }}>{c.mins} min</span>
+            <div style={{
+              width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: T.ink,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}><Play size={15} color={T.bg} fill={T.bg} /></div>
+          </Card>
+        );
+      })}
+      <p style={{
+        fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, lineHeight: 1.45,
+        margin: "14px 4px 0",
+      }}>
+        Finishing a movement reset here counts toward tonight's plan.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------ profile sheet ---------------------------- */
+function ProfileRow({ T, Icon, l, sub, onClick, hue }) {
+  return (
+    <button onClick={onClick} style={{
+      width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "14px 16px",
+      background: T.card, border: "none", borderRadius: 18, marginBottom: 8,
+      cursor: onClick ? "pointer" : "default", textAlign: "left",
+    }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 17, flexShrink: 0,
+        background: tint(hue, T.tintA), display: "flex", alignItems: "center", justifyContent: "center",
+      }}><Icon size={16} color={hue} /></div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>{l}</div>
+        {sub && <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>{sub}</div>}
+      </div>
+      {onClick && <CaretRight size={17} color={T.faint} />}
+    </button>
+  );
+}
+
+function ProfileSheet({
+  T, profile, logs, history, ph, setProfileOpen, setProfile, setTimeEdit,
+  themeOverride, setThemeOverride, setReview, setScreen, exportData, exportText,
+}) {
+  const badges = achievements(profile, logs, history);
+
+  return (
+    <div style={{
+      position: "absolute", inset: 0, background: T.bg, zIndex: 80, overflowY: "auto",
+      padding: "44px 20px 40px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 22 }}>
+        <Display T={T} size={30} style={{ flex: 1 }}>You.</Display>
+        <button onClick={() => setProfileOpen(false)} style={{
+          width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        }}><X size={18} color={T.ink} /></button>
+      </div>
+
+      <Card T={T} style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{
+          width: 54, height: 54, borderRadius: 27, flexShrink: 0,
+          background: tint(DOMAIN.sleep.hue, T.tintA + 0.06),
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {profile.name
+            ? <span style={{
+                fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.hue,
+              }}>{profile.name.trim().charAt(0).toUpperCase()}</span>
+            : <User size={24} color={DOMAIN.sleep.hue} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input value={profile.name || ""} placeholder="Add your name"
+            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+            style={{
+              width: "100%", border: "none", background: "transparent", outline: "none",
+              fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
+              letterSpacing: "-0.02em", padding: 0,
+            }} />
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 2 }}>
+            {planSummary(profile).type}
+          </div>
+        </div>
+      </Card>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
+        <button onClick={() => setTimeEdit("shift")} style={{
+          textAlign: "left", border: "none", cursor: "pointer", borderRadius: 18, padding: 14,
+          background: tint(DOMAIN.shift.hue, T.tintA),
+        }}>
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>Shift time</div>
+          <div style={{
+            fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 700, color: T.ink,
+            marginTop: 3, letterSpacing: "-0.02em",
+          }}>{fmt(ph.start)} – {fmt(ph.end)}</div>
+        </button>
+        <button onClick={() => setTimeEdit("sleep")} style={{
+          textAlign: "left", border: "none", cursor: "pointer", borderRadius: 18, padding: 14,
+          background: tint(DOMAIN.sleep.hue, T.tintA),
+        }}>
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>Sleep time</div>
+          <div style={{
+            fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 700, color: T.ink,
+            marginTop: 3, letterSpacing: "-0.02em",
+          }}>{fmt(ph.sleepStart)} · {dur(profile.sleepGoalHours * 60)}</div>
+        </button>
+      </div>
+
+      <Eyebrow T={T}>Your setup</Eyebrow>
+      <ProfileRow T={T} Icon={Pencil} hue={DOMAIN.sleep.hue} l="Edit profile"
+        sub="Walk back through all seven segments"
+        onClick={() => { setProfileOpen(false); setReview({ index: 0, single: false, back: "app" }); setScreen("review"); }} />
+      <ProfileRow T={T} Icon={FileText} hue={DOMAIN.light.hue} l="Why this plan"
+        sub={planSummary(profile).type}
+        onClick={() => { setProfileOpen(false); setScreen("recommendation-revisit"); }} />
+      <ProfileRow T={T} Icon={Target} hue={DOMAIN.movement.hue} l="Goal"
+        sub={goalLabel(profile)}
+        onClick={() => { setProfileOpen(false); setReview({ index: 6, single: true, back: "app" }); setScreen("review"); }} />
+      <ProfileRow T={T} Icon={Bed} hue={DOMAIN.recovery.hue} l="Sleep schedule"
+        sub={`${dur(profile.sleepGoalHours * 60)} from ${fmt(ph.sleepStart)}`}
+        onClick={() => { setProfileOpen(false); setReview({ index: 0, single: true, back: "app" }); setScreen("review"); }} />
+
+      <div style={{ height: 18 }} />
+      <Eyebrow T={T}>Achievements</Eyebrow>
+      <p style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "-4px 0 12px", lineHeight: 1.45 }}>
+        Earned once, kept forever. No streaks to break.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
+        {badges.map((b) => (
+          <div key={b.key} style={{
+            background: b.got ? tint(b.hue, T.tintA) : T.card, borderRadius: 18, padding: 14,
+            opacity: b.got ? 1 : 0.5,
+            border: b.got ? `1px solid ${tint(b.hue, 0.28)}` : `1px solid ${T.hair}`,
+          }}>
+            {b.got
+              ? <b.Icon size={19} color={b.hue} />
+              : <Lock size={19} color={T.faint} />}
+            <div style={{
+              fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink, marginTop: 9,
+            }}>{b.l}</div>
+            <div style={{
+              fontFamily: FONT_TEXT, fontSize: 12.5, color: T.muted, marginTop: 3, lineHeight: 1.35,
+            }}>{b.d}</div>
+          </div>
+        ))}
+      </div>
+
+      <Eyebrow T={T}>Personalize</Eyebrow>
+      <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <Palette size={16} color={DOMAIN.light.hue} />
+          <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Theme</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[
+            { v: null, l: "Follow the shift" },
+            { v: false, l: "Always warm" },
+            { v: true, l: "Always dark" },
+          ].map((o) => (
+            <Pill key={String(o.v)} T={T} hue={DOMAIN.light.hue}
+              active={themeOverride === o.v}
+              onClick={() => setThemeOverride(o.v)}>{o.l}</Pill>
+          ))}
+        </div>
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "10px 0 0", lineHeight: 1.4 }}>
+          Following the shift turns the app dark when you clock in and warm again when you finish.
+        </p>
+      </Card>
+      <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <Bell size={16} color={DOMAIN.caffeine.hue} />
+          <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Reminders</span>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => setProfile({
+            ...profile,
+            mutedReminders: (profile.mutedReminders || []).length ? [] : REMINDERS.map((r) => r.k),
+          })} style={{
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            fontFamily: FONT_TEXT, fontSize: 13, color: T.faint,
+          }}>{(profile.mutedReminders || []).length ? "All on" : "All off"}</button>
+        </div>
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "0 0 12px", lineHeight: 1.4 }}>
+          Turning one off keeps it on your plan, it just stops nudging you.
+        </p>
+        {REMINDERS.map((r, k) => {
+          const on = !(profile.mutedReminders || []).includes(r.k);
+          return (
+            <div key={r.k} style={{
+              display: "flex", alignItems: "center", gap: 11, padding: "10px 0",
+              borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+            }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 13, flexShrink: 0,
+                background: tint(DOMAIN[r.cat].hue, on ? T.tintA : 0.05),
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {React.createElement(DOMAIN[r.cat].Icon, {
+                  size: 13, color: on ? DOMAIN[r.cat].hue : T.faint,
+                })}
+              </div>
+              <span style={{
+                flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5,
+                color: on ? T.ink : T.faint,
+              }}>{r.l}</span>
+              <button onClick={() => {
+                const muted = profile.mutedReminders || [];
+                setProfile({
+                  ...profile,
+                  mutedReminders: on ? [...muted, r.k] : muted.filter((x) => x !== r.k),
+                });
+              }} style={{
+                width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
+                background: on ? DOMAIN[r.cat].hue : T.hair, position: "relative",
+                transition: "background 160ms ease",
+              }}>
+                <span style={{
+                  position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20,
+                  borderRadius: 10, background: "#fff", transition: "left 160ms ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }} />
+              </button>
+            </div>
+          );
+        })}
+      </Card>
+
+      <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
+        <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 10 }}>
+          How you get reminded
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {["Sound", "Vibrate", "Silent"].map((o) => (
+            <Pill key={o} T={T} hue={DOMAIN.caffeine.hue} active={(profile.remindStyle || "Vibrate") === o}
+              onClick={() => setProfile({ ...profile, remindStyle: o })}>{o}</Pill>
+          ))}
+        </div>
+        <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 10 }}>
+          How far ahead
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[0, 5, 10, 15].map((o) => (
+            <Pill key={o} T={T} hue={DOMAIN.caffeine.hue} active={(profile.remindLead ?? 5) === o}
+              onClick={() => setProfile({ ...profile, remindLead: o })}>
+              {o === 0 ? "On time" : `${o} min before`}
+            </Pill>
+          ))}
+        </div>
+      </Card>
+
+      <div style={{ height: 12 }} />
+      <Eyebrow T={T}>Your data</Eyebrow>
+      <ProfileRow T={T} Icon={DownloadSimple} hue={DOMAIN.water.hue} l="Export data"
+        sub="Everything logged, as a JSON file" onClick={exportData} />
+      {exportText && (
+        <textarea readOnly value={exportText} style={{
+          width: "100%", height: 150, borderRadius: 14, padding: 12, marginBottom: 8,
+          fontFamily: "ui-monospace, monospace", fontSize: 11, background: T.card,
+          color: T.muted, border: `1px solid ${T.hair}`, resize: "vertical",
+        }} />
+      )}
+
+      <div style={{ height: 12 }} />
+      <Eyebrow T={T}>About GraveYard</Eyebrow>
+      <Card T={T} style={{ padding: 18 }}>
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
+          GraveYard turns your shift into a timeline. It works backward from when you
+          plan to sleep, so caffeine, light, food, and rest land where they help rather
+          than where they cost you.
+        </p>
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.muted, margin: "12px 0 0" }}>
+          Every recommendation carries a plain-language reason you can read and disagree with.
+          The plan is a proposal, not an instruction.
+        </p>
+        <div style={{
+          marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.hair}`,
+          display: "flex", gap: 9, alignItems: "flex-start",
+        }}>
+          <Question size={15} color={T.faint} style={{ flexShrink: 0, marginTop: 2 }} />
+          <p style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.5, color: T.faint, margin: 0 }}>
+            General wellness and scheduling support based on research-informed principles.
+            Not medical advice, diagnosis, or treatment. For health conditions, medications,
+            supplements, sleep disorders, or persistent fatigue, consult a qualified
+            healthcare professional.
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------------------------- quick log sheet ---------------------------- */
+function Sheet({
+  T, sheet, setSheet, setQuickResult, push, say, quickResult, setEditingLog,
+  setTab, now, quickLog, setLogs,
+}) {
+  if (!sheet) return null;
+  const close = () => { setSheet(null); setQuickResult(null); };
+
+  if (sheet === "nap") {
+    const rows = [
+      { l: "Napped, felt fine", f: () => { push("nap", "ok"); say("Rest logged. A wake-up buffer was added."); } },
+      { l: "Napped, woke groggy", f: () => { push("nap", "groggy"); say("Future rests shortened, buffer lengthened."); } },
+      { l: "Could not nap", f: () => { push("nap", "couldnt"); say("Swapped to quiet rest. It still counts."); } },
+    ];
+    return (
+      <div onClick={close} style={{
+        position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
+        display: "flex", alignItems: "flex-end",
+      }}>
+        <div onClick={(e) => e.stopPropagation()} style={{
+          background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
+          padding: "10px 20px 26px", maxHeight: "76%", overflowY: "auto",
+        }}>
+          <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
+          <Display T={T} size={24} style={{ marginBottom: 16 }}>How did the rest go?</Display>
+          {rows.map((r) => (
+            <button key={r.l} onClick={() => { r.f(); close(); }} style={{
+              width: "100%", textAlign: "left", padding: "15px 17px", marginBottom: 8,
+              borderRadius: 17, border: "none", background: T.card, cursor: "pointer",
+              fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 500, color: T.ink,
+            }}>{r.l}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const done = quickResult;
+  const doneMeta = done && QUICK.find((q) => q.k === done.kind);
+
+  return (
+    <div onClick={close} style={{
+      position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
+      display: "flex", alignItems: "flex-end",
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
+        padding: "10px 20px 26px", maxHeight: "80%", overflowY: "auto",
+      }}>
+        <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
+
+        {!done ? (
+          <>
+            <Display T={T} size={24}>Quick log.</Display>
+            <p style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.muted, margin: "8px 0 4px" }}>
+              What happened just now?
+            </p>
+            <p style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "0 0 16px" }}>
+              Logged at {fmt(now)}. Use the Log tab to change the time or add details.
+            </p>
+            {QUICK.map((q) => (
+              <button key={q.k} onClick={() => quickLog(q.k)} style={{
+                width: "100%", textAlign: "left", padding: "13px 15px", marginBottom: 8,
+                borderRadius: 17, border: "none", background: T.card, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 12,
+              }}>
+                <Badge category={q.cat} T={T} size={32} />
+                <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 500, color: T.ink }}>
+                  {q.l}
+                </span>
+              </button>
+            ))}
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <Badge category={doneMeta.cat} T={T} size={42} />
+              <div>
+                <Display T={T} size={24} style={{ marginBottom: 2 }}>Logged.</Display>
+                <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted }}>
+                  {doneMeta.l} at {fmt(now)}
+                </div>
+              </div>
+            </div>
+            <div style={{
+              background: tint(DOMAIN[doneMeta.cat].hue, T.tintA), borderRadius: 20, padding: 17,
+            }}>
+              <p style={{ fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.55, color: T.ink, margin: 0 }}>
+                {done.advice}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+              <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14 }} onClick={() => {
+                setLogs((L) => L.filter((l) => l.id !== done.id));
+                close();
+                say("Undone.");
+              }}><ArrowCounterClockwise size={14} /> Undo</Btn>
+              <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14 }} onClick={() => {
+                setEditingLog(done.id);
+                close();
+                setTab("log");
+              }}>Add details</Btn>
+              <Btn T={T} style={{ flex: 1.2, fontSize: 14 }} onClick={() => { close(); setTab("plan"); }}>
+                View plan
+              </Btn>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- adjust sheet ---------------------------- */
+function AdjustSheet({
+  T, adjusting, setAdjusting, plan, profile, adjustDraft, setAdjustDraft,
+  logs, now, setProfile, say, setReview, setScreen,
+}) {
+  if (!adjusting) return null;
+  const item = plan.items.find((i) => i.id === adjusting);
+  if (!item || !item.adjust) return null;
+  const d = DOMAIN[item.category] || DOMAIN.shift;
+
+  const merged = { ...(profile.overrides || {}), ...adjustDraft };
+  const preview = generateTimeline({ ...profile, overrides: merged }, logs, now);
+  const previewItem = preview.items.find((i) => i.id === item.id) || item;
+  const dirty = Object.keys(adjustDraft).length > 0;
+  const customised = item.adjust.some((a) => merged[a.key] !== undefined && merged[a.key] !== a.def);
+
+  const valueOf = (a) => (merged[a.key] === undefined ? a.def : merged[a.key]);
+  const bump = (a, dir) => {
+    const spec = ADJUSTABLE[a.key];
+    const next = Math.min(spec.max, Math.max(spec.min,
+      Math.round((valueOf(a) + dir * spec.step) * 10) / 10));
+    setAdjustDraft({ ...adjustDraft, [a.key]: next });
+  };
+
+  const close = () => { setAdjusting(null); setAdjustDraft({}); };
+
+  return (
+    <div onClick={close} style={{
+      position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 70,
+      display: "flex", alignItems: "flex-end",
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
+        padding: "10px 20px 26px", maxHeight: "84%", overflowY: "auto",
+      }}>
+        <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <Badge category={item.category} T={T} size={40} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
+              letterSpacing: "-0.02em" }}>{item.title}</div>
+            <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
+              {previewItem.at === item.at
+                ? `Currently ${fmt(item.at)}`
+                : `${fmt(item.at)} → ${fmt(previewItem.at)}`}
+            </div>
+          </div>
+        </div>
+
+        {item.adjust.map((a) => {
+          const spec = ADJUSTABLE[a.key];
+          const val = valueOf(a);
+          const isDefault = val === a.def;
+          return (
+            <Card T={T} key={a.key} style={{ marginBottom: 10, padding: "14px 16px" }}>
+              <div style={{ fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>
+                {spec.l}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+                <button onClick={() => bump(a, -1)} disabled={val <= spec.min} style={{
+                  width: 40, height: 40, borderRadius: 20, border: `1px solid ${T.hair}`,
+                  background: "transparent", cursor: val <= spec.min ? "default" : "pointer",
+                  opacity: val <= spec.min ? 0.35 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 500, color: T.ink, lineHeight: 1,
+                }}>−</button>
+                <div style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{
+                    fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 700, color: d.hue,
+                    fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em",
+                  }}>{spec.decimals ? val.toFixed(1) : Math.round(val)}</div>
+                  <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.faint, marginTop: 1 }}>
+                    {spec.unit}
+                  </div>
+                </div>
+                <button onClick={() => bump(a, 1)} disabled={val >= spec.max} style={{
+                  width: 40, height: 40, borderRadius: 20, border: `1px solid ${T.hair}`,
+                  background: "transparent", cursor: val >= spec.max ? "default" : "pointer",
+                  opacity: val >= spec.max ? 0.35 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 500, color: T.ink, lineHeight: 1,
+                }}>+</button>
+              </div>
+              <input type="range" min={spec.min} max={spec.max} step={spec.step} value={val}
+                onChange={(e) => setAdjustDraft({ ...adjustDraft, [a.key]: Number(e.target.value) })}
+                style={{ width: "100%", marginTop: 12, accentColor: d.hue }} />
+              {!isDefault && (
+                <button onClick={() => setAdjustDraft({ ...adjustDraft, [a.key]: a.def })} style={{
+                  background: "none", border: "none", cursor: "pointer", padding: "8px 0 0",
+                  fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint,
+                }}>Back to the default of {spec.decimals ? a.def.toFixed(1) : Math.round(a.def)}</button>
+              )}
+            </Card>
+          );
+        })}
+
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.5, color: T.faint, margin: "6px 4px 16px" }}>
+          Changing this reshapes the rest of the plan, not just this card.
+        </p>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          {customised && (
+            <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => {
+              const next = { ...(profile.overrides || {}) };
+              item.adjust.forEach((a) => { delete next[a.key]; });
+              setProfile({ ...profile, overrides: next });
+              close();
+              say("Back to the default timing.");
+            }}><ArrowCounterClockwise size={15} /> Reset</Btn>
+          )}
+          <Btn T={T} style={{ flex: 1.6 }} onClick={() => {
+            if (dirty) {
+              setProfile({ ...profile, overrides: merged });
+              say(`${item.title} moved to ${fmt(previewItem.at)}.`);
+            }
+            close();
+          }}>{dirty ? "Save" : "Done"}</Btn>
+        </div>
+
+        <button onClick={() => {
+          const idx = Math.max(0, REVIEW.findIndex((r) => r.cat === item.category));
+          close();
+          setReview({ index: idx, single: true, back: "app" });
+          setScreen("review");
+        }} style={{
+          background: "none", border: "none", cursor: "pointer", marginTop: 14, width: "100%",
+          fontFamily: FONT_TEXT, fontSize: 13.5, color: T.faint, padding: 6,
+        }}>Change my answers instead</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState("welcome");
   const [tab, setTab] = useState("dashboard");
@@ -1517,98 +2458,7 @@ export default function App() {
   const { ph, state: s } = plan;
   const shiftPct = (now - ph.start) / ph.length;
 
-  /* --------------------------------- plan --------------------------------- */
-  const PlanTab = () => {
-    const moves = plan.items.filter((i) => i.id.startsWith("move-"));
-    const others = plan.items.filter((i) => !i.id.startsWith("move-"));
-    const collapsed = !showAllPlan && moves.length > 1;
-    let display = collapsed
-      ? [...others, { ...moves[0], recurring: moves }].sort((a, b) => a.at - b.at)
-      : plan.items;
-    if (hideDone) display = display.filter((i) => s.itemStatus(i.id) === "open" || i.recurring);
-
-    /* One flat, time-ordered list. The old build grouped items into phase bands,
-       which silently dropped anything falling outside every phase window while
-       still counting it in "x of y done". A flat list cannot lose an item. */
-    const inDeepNight = (at) =>
-      !!ph.deepNight && at >= ph.deepNight[0] && at < ph.deepNight[1];
-
-    const doneCount = plan.items.filter((i) => s.itemStatus(i.id) === "done").length;
-
-    return (
-      <div style={{ padding: "4px 20px 0" }}>
-        <Eyebrow T={T}>Tonight's plan</Eyebrow>
-        <Display T={T} size={32} style={{ marginBottom: 14 }}>
-          {doneCount} of {plan.items.length} done.
-        </Display>
-
-        <Card T={T} onClick={() => setScreen("recommendation-revisit")}
-          style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 13, padding: 15 }}>
-          <Badge category="recovery" T={T} size={34} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>
-              Why this plan
-            </div>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
-              {planSummary(profile).type}
-            </div>
-          </div>
-          <CaretRight size={17} color={T.faint} />
-        </Card>
-
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-          <Pill T={T} hue={DOMAIN.shift.hue} active={hideDone} onClick={() => setHideDone(!hideDone)}>
-            {hideDone ? "Remaining only" : "Showing everything"}
-          </Pill>
-          {moves.length > 1 && (
-            <Pill T={T} hue={DOMAIN.movement.hue} active={!collapsed}
-              onClick={() => setShowAllPlan(!showAllPlan)}>
-              {collapsed ? "Resets grouped" : "Resets expanded"}
-            </Pill>
-          )}
-        </div>
-
-        {display.map((it) =>
-          it.recurring ? (
-            <RecurringCard key="recurring" item={it} T={T} gap={movementInterval(profile)}
-              onExpand={() => setShowAllPlan(true)}
-              onAdjust={() => { setAdjustDraft({}); setAdjusting(it.id); }} />
-          ) : (
-            <TimelineItem key={it.id} item={it} T={T} now={now}
-              status={s.itemStatus(it.id)} onAct={onAct}
-              inDeepNight={inDeepNight(it.at)} />
-          )
-        )}
-
-        {!display.length && (
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5 }}>
-            Nothing left open. Switch to showing everything if you want to look back over the night.
-          </p>
-        )}
-      </div>
-    );
-  };
-
   /* ---------------------------------- log --------------------------------- */
-  const LOG_TYPES = [
-    { v: "wake", l: "Woke up", cat: "sleep", val: "ontime",
-      details: ["Earlier", "On time", "Later"] },
-    { v: "sleepQuality", l: "Slept poorly", cat: "sleep", val: "poor" },
-    { v: "caffeine", l: "Caffeine", cat: "caffeine", val: 1,
-      details: ["Coffee", "Tea", "Energy drink", "Other"] },
-    { v: "water", l: "Water", cat: "water", val: 1 },
-    { v: "meal", l: "Meal or snack", cat: "food", val: "normal",
-      details: ["Full meal", "Light snack", "Heavy meal"] },
-    { v: "nap", l: "Nap or rest", cat: "sleep", val: "ok",
-      details: ["Slept", "Quiet rest", "Woke groggy"] },
-    { v: "move", l: "Movement break", cat: "movement", val: 1 },
-    { v: "skip", l: "Skipped a break", cat: "movement", val: 1 },
-    { v: "sleepy", l: "Felt sleepy", cat: "recovery", val: 1 },
-    { v: "stress", l: "Felt stressed", cat: "recovery", val: 1 },
-    { v: "screen", l: "Screen strain", cat: "light", val: 1 },
-    { v: "endShift", l: "Ended shift", cat: "shift", val: 1 },
-    { v: "sleepStart", l: "Went to sleep", cat: "sleep", val: 1 },
-  ];
 
   const clockToAbs = (h12, m, ap) => {
     let h = h12 % 12;
@@ -1637,322 +2487,6 @@ export default function App() {
     say(`${t.l} logged at ${fmt(at)}.`);
   };
 
-  const metaFor = (l) =>
-    LOG_TYPES.find((x) => x.v === l.type)
-    || (l.type === "item"
-      ? { l: l.value.status === "done" ? "Movement reset" : "Skipped a break", cat: l.value.category }
-      : { l: l.type, cat: "shift" });
-
-  const LogTab = () => {
-    const t = LOG_TYPES.find((x) => x.v === logDraft.type);
-    const entries = [...logs].sort((a2, b2) => b2.t - a2.t);
-    const changes = planChanges(profile, plan, now);
-
-    const sel = {
-      fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, color: T.ink,
-      background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.06)",
-      border: "none", borderRadius: 12, padding: "9px 11px", cursor: "pointer",
-    };
-
-    /* today's pattern, read from the logs rather than asserted */
-    const pattern = [];
-    const sleepLog = logs.filter((l) => l.type === "sleepStart").slice(-1)[0];
-    if (sleepLog) {
-      const diff = Math.round(sleepLog.t - ph.sleepStart);
-      pattern.push(diff === 0 ? "Sleep started on plan."
-        : `Sleep started ${dur(Math.abs(diff))} ${diff > 0 ? "later" : "earlier"} than planned.`);
-    }
-    if (profile.caffeine !== "none") {
-      pattern.push(s.lateCaffeine
-        ? "Caffeine crossed your cutoff."
-        : s.caffeineLogs.length ? "Caffeine stayed before your cutoff." : "No caffeine logged yet.");
-    }
-    if (s.skippedMovement) pattern.push(`You skipped ${s.skippedMovement} movement reset${s.skippedMovement > 1 ? "s" : ""}.`);
-    if (s.sleepy.length) {
-      const w = determineCurrentPhase(s.sleepy[s.sleepy.length - 1].t, ph);
-      pattern.push(`You logged sleepiness during ${w.inDeepNight ? "the deep night" : w.phase.label.toLowerCase()}.`);
-    }
-
-    return (
-      <div style={{ padding: "4px 20px 0" }}>
-        <Eyebrow T={T}>Reflection</Eyebrow>
-        <Display T={T} size={32} style={{ marginBottom: 8 }}>Look back on the night.</Display>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, marginBottom: 22, lineHeight: 1.45 }}>
-          Review what happened, fix times, add detail, and see what your logs changed.
-          For something happening right now, the plus button is faster.
-        </p>
-
-        <Eyebrow T={T}>Add with your own time</Eyebrow>
-        <Card T={T} style={{ marginBottom: 24 }}>
-          {/* thirteen pills wrapped to five rows before the time picker was even
-              visible; one select keeps the whole control above the fold */}
-          <Select T={T} label="What are you logging?" placeholder="Choose a type"
-            value={t ? t.l : null}
-            options={LOG_TYPES.map((x) => x.l)}
-            onChange={(label) => {
-              const found = LOG_TYPES.find((x) => x.l === label);
-              setLogDraft({ ...logDraft, type: found ? found.v : logDraft.type, note: "" });
-            }} />
-
-          {t && t.details && (
-            <Select T={T} label="Detail" placeholder="Optional"
-              value={logDraft.note || null} options={t.details}
-              onChange={(note) => setLogDraft({ ...logDraft, note: note || "" })} />
-          )}
-
-          <div style={{
-            display: "flex", alignItems: "center", gap: 7, paddingTop: 14,
-            borderTop: `1px solid ${T.hair}`,
-          }}>
-            <Clock size={16} color={T.faint} />
-            <select value={logDraft.h} style={sel}
-              onChange={(e) => setLogDraft({ ...logDraft, h: Number(e.target.value) })}>
-              {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
-            </select>
-            <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-            <select value={logDraft.m} style={sel}
-              onChange={(e) => setLogDraft({ ...logDraft, m: Number(e.target.value) })}>
-              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
-                <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
-              ))}
-            </select>
-            <select value={logDraft.ap} style={sel}
-              onChange={(e) => setLogDraft({ ...logDraft, ap: e.target.value })}>
-              <option value="AM">AM</option><option value="PM">PM</option>
-            </select>
-            <div style={{ flex: 1 }} />
-            <Btn T={T} kind="tinted" hue={DOMAIN[t.cat].hue} onClick={saveManualLog}
-              style={{ fontSize: 14, padding: "10px 18px" }}>Save</Btn>
-          </div>
-        </Card>
-
-        <Eyebrow T={T}>Today's timeline</Eyebrow>
-        {entries.length === 0 && (
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5, marginBottom: 24 }}>
-            Nothing logged yet. Anything you record reshapes the rest of the plan.
-          </p>
-        )}
-        <div style={{ marginBottom: 24 }}>
-          {entries.map((l) => {
-            const meta = metaFor(l);
-            const open = editingLog === l.id;
-            const m = ((l.t % DAY) + DAY) % DAY;
-            let hh = Math.floor(m / 60);
-            const ap = hh < 12 ? "AM" : "PM";
-            hh %= 12; if (hh === 0) hh = 12;
-            return (
-              <div key={l.id} style={{
-                borderRadius: 16, background: open ? T.card : "transparent",
-                padding: open ? 14 : 0, marginBottom: open ? 10 : 0,
-              }}>
-                <div onClick={() => setEditingLog(open ? null : l.id)} style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "11px 4px",
-                  borderBottom: open ? "none" : `1px solid ${T.hair}`, cursor: "pointer",
-                }}>
-                  <Badge category={meta.cat} T={T} size={30} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.ink }}>{meta.l}</div>
-                    {l.note && (
-                      <div style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, marginTop: 1 }}>
-                        {l.note}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{
-                    fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: T.faint,
-                    fontVariantNumeric: "tabular-nums",
-                  }}>{fmt(l.t)}</span>
-                  <CaretRight size={15} color={T.faint}
-                    style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
-                </div>
-
-                {open && (
-                  <div style={{ paddingTop: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-                      <Clock size={15} color={T.faint} />
-                      <select value={hh} style={sel} onChange={(e) => {
-                        const nt = clockToAbs(Number(e.target.value), m % 60, ap);
-                        setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
-                      }}>
-                        {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                      <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-                      <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} onChange={(e) => {
-                        const nt = clockToAbs(hh, Number(e.target.value), ap);
-                        setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
-                      }}>
-                        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((mm) => (
-                          <option key={mm} value={mm}>{String(mm).padStart(2, "0")}</option>
-                        ))}
-                      </select>
-                      <select value={ap} style={sel} onChange={(e) => {
-                        const nt = clockToAbs(hh, m % 60, e.target.value);
-                        setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
-                      }}>
-                        <option value="AM">AM</option><option value="PM">PM</option>
-                      </select>
-                    </div>
-                    <input value={l.note || ""} placeholder="Add a note"
-                      onChange={(e) => setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, note: e.target.value } : x)))}
-                      style={{
-                        width: "100%", padding: "11px 13px", borderRadius: 13, marginBottom: 10,
-                        border: `1px solid ${T.hair}`, background: "transparent", color: T.ink,
-                        fontFamily: FONT_TEXT, fontSize: 14.5, outline: "none",
-                      }} />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 13.5 }} onClick={() => {
-                        setLogs((L) => L.filter((x) => x.id !== l.id));
-                        setEditingLog(null);
-                        say("Entry removed. The plan recalculated.");
-                      }}><X size={14} /> Delete</Btn>
-                      <Btn T={T} kind="tinted" hue={DOMAIN[meta.cat].hue} style={{ flex: 1, fontSize: 13.5 }}
-                        onClick={() => setEditingLog(null)}>Done</Btn>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {pattern.length > 0 && (
-          <>
-            <Eyebrow T={T}>Today's pattern</Eyebrow>
-            <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
-              {pattern.map((pp, k) => (
-                <div key={pp} style={{
-                  display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
-                  borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
-                }}>
-                  <div style={{
-                    width: 6, height: 6, borderRadius: 3, background: T.faint,
-                    flexShrink: 0, marginTop: 7,
-                  }} />
-                  <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{pp}</span>
-                </div>
-              ))}
-            </Card>
-          </>
-        )}
-
-        {changes.length > 0 && (
-          <>
-            <Eyebrow T={T}>What your logs changed</Eyebrow>
-            <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
-              {changes.map((c, k) => (
-                <div key={c} style={{
-                  display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
-                  borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
-                }}>
-                  <ArrowCounterClockwise size={13} color={DOMAIN.recovery.hue} style={{ flexShrink: 0, marginTop: 4 }} />
-                  <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{c}</span>
-                </div>
-              ))}
-            </Card>
-          </>
-        )}
-
-        <Eyebrow T={T}>Daily reflection</Eyebrow>
-        <ReflectionBlock />
-      </div>
-    );
-  };
-
-  const REFLECT_QS = [
-    { k: "slept", q: "How long did you sleep?", o: ["Under 5h", "5–6h", "7–9h", "Over 9h"] },
-    { k: "rested", q: "How rested do you feel?", o: ["Not at all", "A little", "Fairly", "Very"] },
-    { k: "sleepiest", q: "When were you most sleepy?", o: ["Early shift", "Mid-shift", "Deep night", "Last hours"] },
-    { k: "caffeineImpact", q: "Did caffeine affect your sleep?", o: ["Yes", "Maybe", "No", "Had none"] },
-    { k: "movement", q: "Did you complete your movement breaks?", o: ["Most", "Some", "Few", "None"] },
-    { k: "napped", q: "Did you nap or rest?", o: ["Napped", "Quiet rest", "Neither"] },
-    { k: "adjust", q: "What should the plan change next shift?", o: ["Earlier caffeine cutoff", "More rest", "Fewer resets", "Nothing"] },
-  ];
-
-  const ReflectionBlock = () => (
-    <div>
-      {/* selects rather than pill rows: seven questions of four options each ran
-          to about five screens of scrolling, and an unanswered question now
-          reads as unanswered instead of blending into the grid */}
-      {REFLECT_QS.map((x) => (
-        <Select key={x.k} T={T} label={x.q} options={x.o}
-          value={reflection[x.k] ?? null}
-          onChange={(v) => setReflection({ ...reflection, [x.k]: v })} />
-      ))}
-      <Btn T={T} full onClick={() => {
-        if (reflection.slept === "Under 5h" || reflection.rested === "Not at all") push("sleepQuality", "poor");
-        if (reflection.adjust === "Earlier caffeine cutoff") {
-          setProfile({ ...profile, caffeineSensitivity: "high" });
-          say("Caffeine cutoff moved earlier for the next shift.");
-        } else if (reflection.adjust === "Fewer resets") {
-          setProfile({ ...profile, sedentary: "little" });
-          say("Resets spaced further apart for the next shift.");
-        } else say("Saved. The next plan will use this.");
-      }}>Save reflection</Btn>
-    </div>
-  );
-
-  /* --------------------------------- care --------------------------------- */
-  const LiveTab = () => {
-    const suggested = suggestedCare(profile, plan, now, null);
-    return (
-      <div style={{ padding: "4px 20px 0" }}>
-        <Eyebrow T={T}>Micro-care</Eyebrow>
-        <Display T={T} size={32} style={{ marginBottom: 8 }}>Reset in two minutes.</Display>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.muted, marginBottom: 20, lineHeight: 1.45 }}>
-          Breathing and movement, guided. Tap to play.
-        </p>
-        {CARE.map((c) => {
-          const on = c.k === suggested;
-          const hue = DOMAIN[c.cat].hue;
-          return (
-            <Card T={T} key={c.k} onClick={() => setPlaying(c.k)} style={{
-              marginBottom: 10, padding: 14, display: "flex", alignItems: "center", gap: 13,
-              border: on ? `1.5px solid ${tint(hue, 0.45)}` : undefined,
-            }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 22, flexShrink: 0,
-                background: tint(hue, T.tintA),
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}><c.Icon size={20} color={hue} /></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
-                  display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-                }}>
-                  {c.l}
-                  {on && (
-                    <span style={{
-                      fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
-                      textTransform: "uppercase", color: hue, background: tint(hue, 0.14),
-                      padding: "3px 7px", borderRadius: 999,
-                    }}>Suggested</span>
-                  )}
-                </div>
-                <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 2 }}>
-                  {c.sub}
-                </div>
-              </div>
-              <span style={{
-                fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
-                color: DOMAIN.caffeine.hue, whiteSpace: "nowrap",
-              }}>{c.mins} min</span>
-              <div style={{
-                width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: T.ink,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}><Play size={15} color={T.bg} fill={T.bg} /></div>
-            </Card>
-          );
-        })}
-        <p style={{
-          fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, lineHeight: 1.45,
-          margin: "14px 4px 0",
-        }}>
-          Finishing a movement reset here counts toward tonight's plan.
-        </p>
-      </div>
-    );
-  };
-
   /* ------------------------------ profile sheet ---------------------------- */
   const exportData = () => {
     const payload = JSON.stringify({ app: "GraveYard", profile, logs, history, reflection }, null, 2);
@@ -1970,270 +2504,6 @@ export default function App() {
     }
   };
 
-  const ProfileSheet = () => {
-    const badges = achievements(profile, logs, history);
-    const Row = ({ Icon, l, sub, onClick, hue }) => (
-      <button onClick={onClick} style={{
-        width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "14px 16px",
-        background: T.card, border: "none", borderRadius: 18, marginBottom: 8,
-        cursor: onClick ? "pointer" : "default", textAlign: "left",
-      }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 17, flexShrink: 0,
-          background: tint(hue, T.tintA), display: "flex", alignItems: "center", justifyContent: "center",
-        }}><Icon size={16} color={hue} /></div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>{l}</div>
-          {sub && <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>{sub}</div>}
-        </div>
-        {onClick && <CaretRight size={17} color={T.faint} />}
-      </button>
-    );
-
-    return (
-      <div style={{
-        position: "absolute", inset: 0, background: T.bg, zIndex: 80, overflowY: "auto",
-        padding: "44px 20px 40px",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 22 }}>
-          <Display T={T} size={30} style={{ flex: 1 }}>You.</Display>
-          <button onClick={() => setProfileOpen(false)} style={{
-            width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          }}><X size={18} color={T.ink} /></button>
-        </div>
-
-        <Card T={T} style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{
-            width: 54, height: 54, borderRadius: 27, flexShrink: 0,
-            background: tint(DOMAIN.sleep.hue, T.tintA + 0.06),
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {profile.name
-              ? <span style={{
-                  fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.hue,
-                }}>{profile.name.trim().charAt(0).toUpperCase()}</span>
-              : <User size={24} color={DOMAIN.sleep.hue} />}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <input value={profile.name || ""} placeholder="Add your name"
-              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-              style={{
-                width: "100%", border: "none", background: "transparent", outline: "none",
-                fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
-                letterSpacing: "-0.02em", padding: 0,
-              }} />
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 2 }}>
-              {planSummary(profile).type}
-            </div>
-          </div>
-        </Card>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
-          <button onClick={() => setTimeEdit("shift")} style={{
-            textAlign: "left", border: "none", cursor: "pointer", borderRadius: 18, padding: 14,
-            background: tint(DOMAIN.shift.hue, T.tintA),
-          }}>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>Shift time</div>
-            <div style={{
-              fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 700, color: T.ink,
-              marginTop: 3, letterSpacing: "-0.02em",
-            }}>{fmt(ph.start)} – {fmt(ph.end)}</div>
-          </button>
-          <button onClick={() => setTimeEdit("sleep")} style={{
-            textAlign: "left", border: "none", cursor: "pointer", borderRadius: 18, padding: 14,
-            background: tint(DOMAIN.sleep.hue, T.tintA),
-          }}>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>Sleep time</div>
-            <div style={{
-              fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 700, color: T.ink,
-              marginTop: 3, letterSpacing: "-0.02em",
-            }}>{fmt(ph.sleepStart)} · {dur(profile.sleepGoalHours * 60)}</div>
-          </button>
-        </div>
-
-        <Eyebrow T={T}>Your setup</Eyebrow>
-        <Row Icon={Pencil} hue={DOMAIN.sleep.hue} l="Edit profile"
-          sub="Walk back through all seven segments"
-          onClick={() => { setProfileOpen(false); setReview({ index: 0, single: false, back: "app" }); setScreen("review"); }} />
-        <Row Icon={FileText} hue={DOMAIN.light.hue} l="Why this plan"
-          sub={planSummary(profile).type}
-          onClick={() => { setProfileOpen(false); setScreen("recommendation-revisit"); }} />
-        <Row Icon={Target} hue={DOMAIN.movement.hue} l="Goal"
-          sub={goalLabel(profile)}
-          onClick={() => { setProfileOpen(false); setReview({ index: 6, single: true, back: "app" }); setScreen("review"); }} />
-        <Row Icon={Bed} hue={DOMAIN.recovery.hue} l="Sleep schedule"
-          sub={`${dur(profile.sleepGoalHours * 60)} from ${fmt(ph.sleepStart)}`}
-          onClick={() => { setProfileOpen(false); setReview({ index: 0, single: true, back: "app" }); setScreen("review"); }} />
-
-        <div style={{ height: 18 }} />
-        <Eyebrow T={T}>Achievements</Eyebrow>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "-4px 0 12px", lineHeight: 1.45 }}>
-          Earned once, kept forever. No streaks to break.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
-          {badges.map((b) => (
-            <div key={b.key} style={{
-              background: b.got ? tint(b.hue, T.tintA) : T.card, borderRadius: 18, padding: 14,
-              opacity: b.got ? 1 : 0.5,
-              border: b.got ? `1px solid ${tint(b.hue, 0.28)}` : `1px solid ${T.hair}`,
-            }}>
-              {b.got
-                ? <b.Icon size={19} color={b.hue} />
-                : <Lock size={19} color={T.faint} />}
-              <div style={{
-                fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink, marginTop: 9,
-              }}>{b.l}</div>
-              <div style={{
-                fontFamily: FONT_TEXT, fontSize: 12.5, color: T.muted, marginTop: 3, lineHeight: 1.35,
-              }}>{b.d}</div>
-            </div>
-          ))}
-        </div>
-
-        <Eyebrow T={T}>Personalize</Eyebrow>
-        <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <Palette size={16} color={DOMAIN.light.hue} />
-            <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Theme</span>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[
-              { v: null, l: "Follow the shift" },
-              { v: false, l: "Always warm" },
-              { v: true, l: "Always dark" },
-            ].map((o) => (
-              <Pill key={String(o.v)} T={T} hue={DOMAIN.light.hue}
-                active={themeOverride === o.v}
-                onClick={() => setThemeOverride(o.v)}>{o.l}</Pill>
-            ))}
-          </div>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "10px 0 0", lineHeight: 1.4 }}>
-            Following the shift turns the app dark when you clock in and warm again when you finish.
-          </p>
-        </Card>
-        <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <Bell size={16} color={DOMAIN.caffeine.hue} />
-            <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Reminders</span>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => setProfile({
-              ...profile,
-              mutedReminders: (profile.mutedReminders || []).length ? [] : REMINDERS.map((r) => r.k),
-            })} style={{
-              background: "none", border: "none", cursor: "pointer", padding: 0,
-              fontFamily: FONT_TEXT, fontSize: 13, color: T.faint,
-            }}>{(profile.mutedReminders || []).length ? "All on" : "All off"}</button>
-          </div>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "0 0 12px", lineHeight: 1.4 }}>
-            Turning one off keeps it on your plan, it just stops nudging you.
-          </p>
-          {REMINDERS.map((r, k) => {
-            const on = !(profile.mutedReminders || []).includes(r.k);
-            return (
-              <div key={r.k} style={{
-                display: "flex", alignItems: "center", gap: 11, padding: "10px 0",
-                borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
-              }}>
-                <div style={{
-                  width: 26, height: 26, borderRadius: 13, flexShrink: 0,
-                  background: tint(DOMAIN[r.cat].hue, on ? T.tintA : 0.05),
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {React.createElement(DOMAIN[r.cat].Icon, {
-                    size: 13, color: on ? DOMAIN[r.cat].hue : T.faint,
-                  })}
-                </div>
-                <span style={{
-                  flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5,
-                  color: on ? T.ink : T.faint,
-                }}>{r.l}</span>
-                <button onClick={() => {
-                  const muted = profile.mutedReminders || [];
-                  setProfile({
-                    ...profile,
-                    mutedReminders: on ? [...muted, r.k] : muted.filter((x) => x !== r.k),
-                  });
-                }} style={{
-                  width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
-                  background: on ? DOMAIN[r.cat].hue : T.hair, position: "relative",
-                  transition: "background 160ms ease",
-                }}>
-                  <span style={{
-                    position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20,
-                    borderRadius: 10, background: "#fff", transition: "left 160ms ease",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  }} />
-                </button>
-              </div>
-            );
-          })}
-        </Card>
-
-        <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 10 }}>
-            How you get reminded
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {["Sound", "Vibrate", "Silent"].map((o) => (
-              <Pill key={o} T={T} hue={DOMAIN.caffeine.hue} active={(profile.remindStyle || "Vibrate") === o}
-                onClick={() => setProfile({ ...profile, remindStyle: o })}>{o}</Pill>
-            ))}
-          </div>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 10 }}>
-            How far ahead
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[0, 5, 10, 15].map((o) => (
-              <Pill key={o} T={T} hue={DOMAIN.caffeine.hue} active={(profile.remindLead ?? 5) === o}
-                onClick={() => setProfile({ ...profile, remindLead: o })}>
-                {o === 0 ? "On time" : `${o} min before`}
-              </Pill>
-            ))}
-          </div>
-        </Card>
-
-        <div style={{ height: 12 }} />
-        <Eyebrow T={T}>Your data</Eyebrow>
-        <Row Icon={DownloadSimple} hue={DOMAIN.water.hue} l="Export data"
-          sub="Everything logged, as a JSON file" onClick={exportData} />
-        {exportText && (
-          <textarea readOnly value={exportText} style={{
-            width: "100%", height: 150, borderRadius: 14, padding: 12, marginBottom: 8,
-            fontFamily: "ui-monospace, monospace", fontSize: 11, background: T.card,
-            color: T.muted, border: `1px solid ${T.hair}`, resize: "vertical",
-          }} />
-        )}
-
-        <div style={{ height: 12 }} />
-        <Eyebrow T={T}>About GraveYard</Eyebrow>
-        <Card T={T} style={{ padding: 18 }}>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
-            GraveYard turns your shift into a timeline. It works backward from when you
-            plan to sleep, so caffeine, light, food, and rest land where they help rather
-            than where they cost you.
-          </p>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.muted, margin: "12px 0 0" }}>
-            Every recommendation carries a plain-language reason you can read and disagree with.
-            The plan is a proposal, not an instruction.
-          </p>
-          <div style={{
-            marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.hair}`,
-            display: "flex", gap: 9, alignItems: "flex-start",
-          }}>
-            <Question size={15} color={T.faint} style={{ flexShrink: 0, marginTop: 2 }} />
-            <p style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.5, color: T.faint, margin: 0 }}>
-              General wellness and scheduling support based on research-informed principles.
-              Not medical advice, diagnosis, or treatment. For health conditions, medications,
-              supplements, sleep disorders, or persistent fatigue, consult a qualified
-              healthcare professional.
-            </p>
-          </div>
-        </Card>
-      </div>
-    );
-  };
-
   /* ---------------------------- quick log (the +) --------------------------- */
   const quickLog = (kind) => {
     let entry;
@@ -2249,246 +2519,6 @@ export default function App() {
       entry = push(kind, 1);
     }
     setQuickResult({ kind, id: entry.id, advice: quickAdvice(kind, profile, plan, now) });
-  };
-
-  const Sheet = () => {
-    if (!sheet) return null;
-    const close = () => { setSheet(null); setQuickResult(null); };
-
-    if (sheet === "nap") {
-      const rows = [
-        { l: "Napped, felt fine", f: () => { push("nap", "ok"); say("Rest logged. A wake-up buffer was added."); } },
-        { l: "Napped, woke groggy", f: () => { push("nap", "groggy"); say("Future rests shortened, buffer lengthened."); } },
-        { l: "Could not nap", f: () => { push("nap", "couldnt"); say("Swapped to quiet rest. It still counts."); } },
-      ];
-      return (
-        <div onClick={close} style={{
-          position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
-          display: "flex", alignItems: "flex-end",
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
-            padding: "10px 20px 26px", maxHeight: "76%", overflowY: "auto",
-          }}>
-            <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
-            <Display T={T} size={24} style={{ marginBottom: 16 }}>How did the rest go?</Display>
-            {rows.map((r) => (
-              <button key={r.l} onClick={() => { r.f(); close(); }} style={{
-                width: "100%", textAlign: "left", padding: "15px 17px", marginBottom: 8,
-                borderRadius: 17, border: "none", background: T.card, cursor: "pointer",
-                fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 500, color: T.ink,
-              }}>{r.l}</button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    const done = quickResult;
-    const doneMeta = done && QUICK.find((q) => q.k === done.kind);
-
-    return (
-      <div onClick={close} style={{
-        position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
-        display: "flex", alignItems: "flex-end",
-      }}>
-        <div onClick={(e) => e.stopPropagation()} style={{
-          background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
-          padding: "10px 20px 26px", maxHeight: "80%", overflowY: "auto",
-        }}>
-          <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
-
-          {!done ? (
-            <>
-              <Display T={T} size={24}>Quick log.</Display>
-              <p style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.muted, margin: "8px 0 4px" }}>
-                What happened just now?
-              </p>
-              <p style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "0 0 16px" }}>
-                Logged at {fmt(now)}. Use the Log tab to change the time or add details.
-              </p>
-              {QUICK.map((q) => (
-                <button key={q.k} onClick={() => quickLog(q.k)} style={{
-                  width: "100%", textAlign: "left", padding: "13px 15px", marginBottom: 8,
-                  borderRadius: 17, border: "none", background: T.card, cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: 12,
-                }}>
-                  <Badge category={q.cat} T={T} size={32} />
-                  <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 500, color: T.ink }}>
-                    {q.l}
-                  </span>
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                <Badge category={doneMeta.cat} T={T} size={42} />
-                <div>
-                  <Display T={T} size={24} style={{ marginBottom: 2 }}>Logged.</Display>
-                  <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted }}>
-                    {doneMeta.l} at {fmt(now)}
-                  </div>
-                </div>
-              </div>
-              <div style={{
-                background: tint(DOMAIN[doneMeta.cat].hue, T.tintA), borderRadius: 20, padding: 17,
-              }}>
-                <p style={{ fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.55, color: T.ink, margin: 0 }}>
-                  {done.advice}
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-                <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14 }} onClick={() => {
-                  setLogs((L) => L.filter((l) => l.id !== done.id));
-                  close();
-                  say("Undone.");
-                }}><ArrowCounterClockwise size={14} /> Undo</Btn>
-                <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14 }} onClick={() => {
-                  setEditingLog(done.id);
-                  close();
-                  setTab("log");
-                }}>Add details</Btn>
-                <Btn T={T} style={{ flex: 1.2, fontSize: 14 }} onClick={() => { close(); setTab("plan"); }}>
-                  View plan
-                </Btn>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  /* ------------------------------- adjust sheet ---------------------------- */
-  const AdjustSheet = () => {
-    if (!adjusting) return null;
-    const item = plan.items.find((i) => i.id === adjusting);
-    if (!item || !item.adjust) return null;
-    const d = DOMAIN[item.category] || DOMAIN.shift;
-
-    const merged = { ...(profile.overrides || {}), ...adjustDraft };
-    const preview = generateTimeline({ ...profile, overrides: merged }, logs, now);
-    const previewItem = preview.items.find((i) => i.id === item.id) || item;
-    const dirty = Object.keys(adjustDraft).length > 0;
-    const customised = item.adjust.some((a) => merged[a.key] !== undefined && merged[a.key] !== a.def);
-
-    const valueOf = (a) => (merged[a.key] === undefined ? a.def : merged[a.key]);
-    const bump = (a, dir) => {
-      const spec = ADJUSTABLE[a.key];
-      const next = Math.min(spec.max, Math.max(spec.min,
-        Math.round((valueOf(a) + dir * spec.step) * 10) / 10));
-      setAdjustDraft({ ...adjustDraft, [a.key]: next });
-    };
-
-    const close = () => { setAdjusting(null); setAdjustDraft({}); };
-
-    return (
-      <div onClick={close} style={{
-        position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 70,
-        display: "flex", alignItems: "flex-end",
-      }}>
-        <div onClick={(e) => e.stopPropagation()} style={{
-          background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
-          padding: "10px 20px 26px", maxHeight: "84%", overflowY: "auto",
-        }}>
-          <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <Badge category={item.category} T={T} size={40} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
-                letterSpacing: "-0.02em" }}>{item.title}</div>
-              <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
-                {previewItem.at === item.at
-                  ? `Currently ${fmt(item.at)}`
-                  : `${fmt(item.at)} → ${fmt(previewItem.at)}`}
-              </div>
-            </div>
-          </div>
-
-          {item.adjust.map((a) => {
-            const spec = ADJUSTABLE[a.key];
-            const val = valueOf(a);
-            const isDefault = val === a.def;
-            return (
-              <Card T={T} key={a.key} style={{ marginBottom: 10, padding: "14px 16px" }}>
-                <div style={{ fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>
-                  {spec.l}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
-                  <button onClick={() => bump(a, -1)} disabled={val <= spec.min} style={{
-                    width: 40, height: 40, borderRadius: 20, border: `1px solid ${T.hair}`,
-                    background: "transparent", cursor: val <= spec.min ? "default" : "pointer",
-                    opacity: val <= spec.min ? 0.35 : 1,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 500, color: T.ink, lineHeight: 1,
-                  }}>−</button>
-                  <div style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{
-                      fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 700, color: d.hue,
-                      fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em",
-                    }}>{spec.decimals ? val.toFixed(1) : Math.round(val)}</div>
-                    <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.faint, marginTop: 1 }}>
-                      {spec.unit}
-                    </div>
-                  </div>
-                  <button onClick={() => bump(a, 1)} disabled={val >= spec.max} style={{
-                    width: 40, height: 40, borderRadius: 20, border: `1px solid ${T.hair}`,
-                    background: "transparent", cursor: val >= spec.max ? "default" : "pointer",
-                    opacity: val >= spec.max ? 0.35 : 1,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 500, color: T.ink, lineHeight: 1,
-                  }}>+</button>
-                </div>
-                <input type="range" min={spec.min} max={spec.max} step={spec.step} value={val}
-                  onChange={(e) => setAdjustDraft({ ...adjustDraft, [a.key]: Number(e.target.value) })}
-                  style={{ width: "100%", marginTop: 12, accentColor: d.hue }} />
-                {!isDefault && (
-                  <button onClick={() => setAdjustDraft({ ...adjustDraft, [a.key]: a.def })} style={{
-                    background: "none", border: "none", cursor: "pointer", padding: "8px 0 0",
-                    fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint,
-                  }}>Back to the default of {spec.decimals ? a.def.toFixed(1) : Math.round(a.def)}</button>
-                )}
-              </Card>
-            );
-          })}
-
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.5, color: T.faint, margin: "6px 4px 16px" }}>
-            Changing this reshapes the rest of the plan, not just this card.
-          </p>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            {customised && (
-              <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => {
-                const next = { ...(profile.overrides || {}) };
-                item.adjust.forEach((a) => { delete next[a.key]; });
-                setProfile({ ...profile, overrides: next });
-                close();
-                say("Back to the default timing.");
-              }}><ArrowCounterClockwise size={15} /> Reset</Btn>
-            )}
-            <Btn T={T} style={{ flex: 1.6 }} onClick={() => {
-              if (dirty) {
-                setProfile({ ...profile, overrides: merged });
-                say(`${item.title} moved to ${fmt(previewItem.at)}.`);
-              }
-              close();
-            }}>{dirty ? "Save" : "Done"}</Btn>
-          </div>
-
-          <button onClick={() => {
-            const idx = Math.max(0, REVIEW.findIndex((r) => r.cat === item.category));
-            close();
-            setReview({ index: idx, single: true, back: "app" });
-            setScreen("review");
-          }} style={{
-            background: "none", border: "none", cursor: "pointer", marginTop: 14, width: "100%",
-            fontFamily: FONT_TEXT, fontSize: 13.5, color: T.faint, padding: 6,
-          }}>Change my answers instead</button>
-        </div>
-      </div>
-    );
   };
 
   /* -------------------------------- chrome -------------------------------- */
@@ -2524,9 +2554,25 @@ export default function App() {
           <Dashboard T={T} profile={profile} nights={history}
             rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile} />
         )}
-        {tab === "plan" && <PlanTab />}
-        {tab === "log" && <LogTab />}
-        {tab === "live" && <LiveTab />}
+        {tab === "plan" && (
+          <PlanTab
+            T={T} plan={plan} s={s} ph={ph} profile={profile} now={now}
+            showAllPlan={showAllPlan} setShowAllPlan={setShowAllPlan}
+            hideDone={hideDone} setHideDone={setHideDone}
+            setScreen={setScreen} onAct={onAct}
+            setAdjustDraft={setAdjustDraft} setAdjusting={setAdjusting}
+          />
+        )}
+        {tab === "log" && (
+          <LogTab
+            T={T} logs={logs} setLogs={setLogs} profile={profile} plan={plan} now={now}
+            s={s} ph={ph} editingLog={editingLog} setEditingLog={setEditingLog} say={say}
+            saveManualLog={saveManualLog} clockToAbs={clockToAbs}
+            logDraft={logDraft} setLogDraft={setLogDraft}
+            reflection={reflection} setReflection={setReflection} push={push} setProfile={setProfile}
+          />
+        )}
+        {tab === "live" && <LiveTab T={T} profile={profile} plan={plan} now={now} setPlaying={setPlaying} />}
       </div>
 
       {toast && (
@@ -2556,8 +2602,16 @@ export default function App() {
         {TABS.slice(2).map((t) => <TabBtn key={t.k} t={t} T={T} tab={tab} setTab={setTab} />)}
       </div>
 
-      <Sheet />
-      <AdjustSheet />
+      <Sheet
+        T={T} sheet={sheet} setSheet={setSheet} setQuickResult={setQuickResult}
+        push={push} say={say} quickResult={quickResult} setEditingLog={setEditingLog}
+        setTab={setTab} now={now} quickLog={quickLog} setLogs={setLogs}
+      />
+      <AdjustSheet
+        T={T} adjusting={adjusting} setAdjusting={setAdjusting} plan={plan} profile={profile}
+        adjustDraft={adjustDraft} setAdjustDraft={setAdjustDraft} logs={logs} now={now}
+        setProfile={setProfile} say={say} setReview={setReview} setScreen={setScreen}
+      />
       {playing && (
         <CarePlayer
           T={T} activity={CARE.find((c) => c.k === playing)}
@@ -2631,7 +2685,14 @@ export default function App() {
           </div>
         );
       })()}
-      {profileOpen && <ProfileSheet />}
+      {profileOpen && (
+        <ProfileSheet
+          T={T} profile={profile} logs={logs} history={history} ph={ph}
+          setProfileOpen={setProfileOpen} setProfile={setProfile} setTimeEdit={setTimeEdit}
+          themeOverride={themeOverride} setThemeOverride={setThemeOverride}
+          setReview={setReview} setScreen={setScreen} exportData={exportData} exportText={exportText}
+        />
+      )}
     </Frame>
   );
 }
