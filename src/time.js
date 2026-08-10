@@ -41,3 +41,22 @@ export const nightTick = (v) => {
   h %= 12; if (h === 0) h = 12;
   return `${h}${ap}`;
 };
+
+/** Which night the wall clock belongs to, and where that puts us on the plan's
+    axis. The night is named by the date its shift starts on and rolls over at
+    the plan's own wake time, so a shift crossing midnight is one night, not two.
+    Wake is capped at the next shift start: a profile whose planned sleep runs
+    past it must not file the first hour of a shift under the night before.
+    ponytail: local dates throughout. toISOString would report the UTC date,
+    which is the wrong night for half the world for part of every day. */
+export function nightOf(ph, d = new Date()) {
+  const clock = d.getHours() * 60 + d.getMinutes();
+  const wake = Math.min(ph.sleepEnd, ph.start + DAY);
+  const back = clock + DAY < wake;   // still inside last night's arc
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (back ? 1 : 0));
+  const p = (n) => String(n).padStart(2, "0");
+  return {
+    id: `${day.getFullYear()}-${p(day.getMonth() + 1)}-${p(day.getDate())}`,
+    now: clock + (back ? DAY : 0),
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick, nightOf } from "./time.js";
 
 describe("toMin", () => {
   it("converts HH:MM to minutes past midnight", () => {
@@ -56,5 +56,53 @@ describe("nightAxis / nightTick", () => {
   });
   it("round-trips a tick label", () => {
     expect(nightTick(nightAxis(toMin("02:00")))).toBe("2a");
+  });
+});
+
+describe("nightOf", () => {
+  /* 22:00-07:00 shift, sleep 08:30 for 7.5h: wake lands 16:00 the next day. */
+  const night = { start: 1320, sleepEnd: 2400 };
+
+  it("names the night after the date its shift starts on", () => {
+    // Mon 10 Aug 2026, 22:30 - half an hour into the shift
+    expect(nightOf(night, new Date(2026, 7, 10, 22, 30)))
+      .toEqual({ id: "2026-08-10", now: 1350 });
+  });
+
+  it("keeps a shift that crosses midnight on one night", () => {
+    // Tue 02:00 is still Monday's night
+    expect(nightOf(night, new Date(2026, 7, 11, 2, 0)))
+      .toEqual({ id: "2026-08-10", now: 1560 });
+  });
+
+  it("keeps the post-shift sleep on the night it belongs to", () => {
+    // Tue 15:00, an hour before the planned wake
+    expect(nightOf(night, new Date(2026, 7, 11, 15, 0)))
+      .toEqual({ id: "2026-08-10", now: 2340 });
+  });
+
+  it("rolls over exactly at the planned wake time", () => {
+    // Tue 16:00 is sleepEnd: the new night starts here, not a minute later
+    expect(nightOf(night, new Date(2026, 7, 11, 16, 0)))
+      .toEqual({ id: "2026-08-11", now: 960 });
+  });
+
+  it("rolls back across a year boundary", () => {
+    expect(nightOf(night, new Date(2026, 0, 1, 0, 30)))
+      .toEqual({ id: "2025-12-31", now: 1470 });
+  });
+
+  it("collapses the boundary to midnight when the shift starts there", () => {
+    // 00:00-08:00 shift waking 16:30: there is no previous night to fall back to
+    const midnight = { start: 0, sleepEnd: 990 };
+    expect(nightOf(midnight, new Date(2026, 7, 11, 2, 0)))
+      .toEqual({ id: "2026-08-11", now: 120 });
+  });
+
+  it("caps the boundary at the next shift start", () => {
+    // sleep planned so late it ends 23:00, an hour after the 22:00 shift begins
+    const late = { start: 1320, sleepEnd: 2820 };
+    expect(nightOf(late, new Date(2026, 7, 10, 22, 0)))
+      .toEqual({ id: "2026-08-10", now: 1320 });
   });
 });
