@@ -105,4 +105,12 @@ describe("nightOf", () => {
     expect(nightOf(late, new Date(2026, 7, 10, 22, 0)))
       .toEqual({ id: "2026-08-10", now: 1320 });
   });
+
+  it("keeps the pre-shift block on the night it prepares for", () => {
+    // 00:00-08:00 shift waking 16:30: 22:00 the evening before is pre-shift,
+    // two hours ahead of a shift that starts at midnight
+    const midnight = { start: 0, sleepEnd: 990 };
+    expect(nightOf(midnight, new Date(2026, 7, 10, 22, 0)))
+      .toEqual({ id: "2026-08-11", now: -120 });
+  });
 });

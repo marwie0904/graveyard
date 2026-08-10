@@ -290,7 +290,6 @@ function planChanges(profile, plan, now) {
   return out;
 }
 
-
 /* Holds the outgoing view mounted for one exit animation, then swaps in the
    new one. The class flips out -> in, and a changed animation-name is what
    restarts the animation, so callers need no keys. Screens use the slower
@@ -2430,7 +2429,6 @@ export default function App() {
   }
 
   const { ph, state: s } = plan;
-  const shiftPct = (now - ph.start) / ph.length;
 
   /* ---------------------------------- log --------------------------------- */
 

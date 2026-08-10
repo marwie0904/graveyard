@@ -46,17 +46,21 @@ export const nightTick = (v) => {
     axis. The night is named by the date its shift starts on and rolls over at
     the plan's own wake time, so a shift crossing midnight is one night, not two.
     Wake is capped at the next shift start: a profile whose planned sleep runs
-    past it must not file the first hour of a shift under the night before.
+    past it must not file the first hour of a shift under the night before. The
+    clock is placed by taking it modulo a full day around that wake boundary, so
+    it can resolve forward into last night's arc or back into a pre-shift block
+    that starts before midnight — `now` comes out negative there, which is the
+    axis working as designed, not an error.
     ponytail: local dates throughout. toISOString would report the UTC date,
     which is the wrong night for half the world for part of every day. */
 export function nightOf(ph, d = new Date()) {
   const clock = d.getHours() * 60 + d.getMinutes();
   const wake = Math.min(ph.sleepEnd, ph.start + DAY);
-  const back = clock + DAY < wake;   // still inside last night's arc
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (back ? 1 : 0));
+  const now = wake - DAY + ((((clock - wake) % DAY) + DAY) % DAY);
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - Math.floor(now / DAY));
   const p = (n) => String(n).padStart(2, "0");
   return {
     id: `${day.getFullYear()}-${p(day.getMonth() + 1)}-${p(day.getDate())}`,
-    now: clock + (back ? DAY : 0),
+    now,
   };
 }
