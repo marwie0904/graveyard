@@ -14,7 +14,7 @@ import {
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements } from "./stats.js";
-import { Card, Btn, Pill, Badge, Display, Eyebrow, Select } from "./ui/index.jsx";
+import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 
 /* ============================================================================
@@ -305,41 +305,74 @@ function realNow(ph) {
   return best.t;
 }
 
+/* Holds the outgoing view mounted for one exit animation, then swaps in the
+   new one. The class flips out -> in, and a changed animation-name is what
+   restarts the animation, so callers need no keys. Screens use the slower
+   pair (the whole sheet drops out); steps inside a screen use the quick one.
+   ponytail: these durations must stay in step with index.html. */
+const SCREEN_OUT_MS = 300;
+const STEP_OUT_MS = 190;
+
+function useSwap(value, ms, inCls, outCls) {
+  const [shown, setShown] = useState(value);
+  const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (value === shown) return;
+    setOut(true);
+    const t = setTimeout(() => { setShown(value); setOut(false); }, ms);
+    return () => clearTimeout(t);
+  }, [value, shown, ms]);
+  return [shown, out ? outCls : inCls];
+}
+
+const useScreenSwap = (v) => useSwap(v, SCREEN_OUT_MS, "gy-in", "gy-out");
+const useStepSwap = (v) => useSwap(v, STEP_OUT_MS, "gy-step", "gy-step-out");
+
 /* --------------------------------- onboarding ----------------------------- */
+
+/* A round back button that reads on the hero wash rather than on the sheet. */
+function HeroBack({ onClick }) {
+  return (
+    <button onClick={onClick} aria-label="Back" style={{
+      background: "rgba(255,255,255,0.18)", border: "none", width: 42, height: 42, borderRadius: 21,
+      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+    }}><ArrowLeft size={18} color="#FFFFFF" /></button>
+  );
+}
 
 function Welcome({ onNext }) {
   const T = WARM;
   return (
-    <div style={{ padding: "72px 24px 32px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <Eyebrow T={T}>You're working</Eyebrow>
-      <Display T={T} size={54} style={{ letterSpacing: "-0.04em" }}>graveyard.</Display>
-      <p style={{
-        fontFamily: FONT_TEXT, fontSize: 17, lineHeight: 1.5, color: T.muted, marginTop: 18,
-      }}>
-        This planner is built around the hours you actually work: caffeine,
-        rest, movement, light, food, and a sleep window that gets protected.
-      </p>
-      <p style={{
-        fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.5, color: T.faint, marginTop: 14,
-      }}>
-        Fourteen quick questions. Then get a plan you can adjust.
-      </p>
-      <div style={{ flex: 1 }} />
-      <Btn T={T} full onClick={onNext}>Build my shift plan <ArrowRight size={18} /></Btn>
-    </div>
+    <Arch T={T} Icon={Moon} heroPad={92} pad="66px 26px 30px">
+      <div style={{ textAlign: "center" }}>
+        <Eyebrow T={T}>You're working</Eyebrow>
+        <Display T={T} size={54} style={{ letterSpacing: "-0.04em" }}>graveyard.</Display>
+        <p style={{
+          fontFamily: FONT_TEXT, fontSize: 17, lineHeight: 1.5, color: T.muted, marginTop: 18,
+        }}>
+          This planner is built around the hours you actually work: caffeine,
+          rest, movement, light, food, and a sleep window that gets protected.
+        </p>
+        <p style={{
+          fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.5, color: T.faint, marginTop: 14,
+        }}>
+          Fourteen quick questions. Then get a plan you can adjust.
+        </p>
+      </div>
+      <div style={{ flex: 1, minHeight: 24 }} />
+      <Btn T={T} kind="accent" full onClick={onNext}>Build my shift plan <ArrowRight size={18} /></Btn>
+    </Arch>
   );
 }
 
 function Disclaimer({ onNext, onBack }) {
   const T = WARM;
   return (
-    <div style={{ padding: "56px 24px 32px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <button onClick={onBack} style={{
-        background: T.card, border: "none", width: 42, height: 42, borderRadius: 21,
-        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28,
-      }}><ArrowLeft size={18} color={T.ink} /></button>
-      <Eyebrow T={T}>Before you start</Eyebrow>
-      <Display T={T} size={32}>What this is, and what it is not.</Display>
+    <Arch T={T} Icon={Info} nav={<HeroBack onClick={onBack} />} pad="66px 26px 30px">
+      <div style={{ textAlign: "center" }}>
+        <Eyebrow T={T}>Before you start</Eyebrow>
+        <Display T={T} size={32}>What this is, and what it is not.</Display>
+      </div>
       <Card T={T} style={{ marginTop: 24, padding: 20 }}>
         <p style={{ fontFamily: FONT_TEXT, fontSize: 15.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
           This planner provides general wellness and scheduling support based on
@@ -348,9 +381,9 @@ function Disclaimer({ onNext, onBack }) {
           or persistent fatigue, consult a qualified healthcare professional.
         </p>
       </Card>
-      <div style={{ flex: 1 }} />
-      <Btn T={T} full onClick={onNext}>I understand</Btn>
-    </div>
+      <div style={{ flex: 1, minHeight: 24 }} />
+      <Btn T={T} kind="accent" full onClick={onNext}>I understand</Btn>
+    </Arch>
   );
 }
 
@@ -565,35 +598,43 @@ function Quiz({ onDone, onBack }) {
     mealPattern: "before", hydration: "some", commute: "drive",
     sleepiestTime: "deep", goal: ["sleep"],
   });
-  const q = QUESTIONS[i];
+  /* The progress bar tracks the tap; the question body lags by one exit. */
+  const [qi, qAnim] = useStepSwap(i);
+  const q = QUESTIONS[qi];
   const pct = (i + 1) / QUESTIONS.length;
 
   const canNext = !q.multi || asList(a[q.key]).length > 0;
   const back = () => (i === 0 ? onBack() : setI(i - 1));
   const next = () => (i === QUESTIONS.length - 1 ? onDone(a) : setI(i + 1));
 
+  const nav = (
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <HeroBack onClick={back} />
+      <div style={{
+        flex: 1, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.24)", overflow: "hidden",
+      }}>
+        <div style={{ width: `${pct * 100}%`, height: "100%", background: "#FFFFFF", transition: "width 300ms ease" }} />
+      </div>
+      <span style={{
+        fontFamily: FONT_TEXT, fontSize: 13, color: "rgba(255,255,255,0.8)", fontVariantNumeric: "tabular-nums",
+      }}>{i + 1}/{QUESTIONS.length}</span>
+    </div>
+  );
+
   return (
-    <div style={{ padding: "56px 24px 32px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 30 }}>
-        <button onClick={back} style={{
-          background: T.card, border: "none", width: 42, height: 42, borderRadius: 21,
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        }}><ArrowLeft size={18} color={T.ink} /></button>
-        <div style={{ flex: 1, height: 4, borderRadius: 2, background: T.sunken, overflow: "hidden" }}>
-          <div style={{ width: `${pct * 100}%`, height: "100%", background: T.ink, transition: "width 300ms ease" }} />
-        </div>
-        <span style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontVariantNumeric: "tabular-nums" }}>
-          {i + 1}/{QUESTIONS.length}
-        </span>
+    <Arch T={T} nav={nav} pad="60px 24px 28px">
+      <div className={qAnim} style={{
+        flex: 1, minHeight: 0, display: "flex", flexDirection: "column",
+      }}>
+      <div style={{ textAlign: "center" }}>
+        <Eyebrow T={T}>{q.part === 2 ? "How you work the night" : "Your shift"}</Eyebrow>
+        <Display T={T} size={28}>{q.q}</Display>
+        {q.help && (
+          <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.muted, marginTop: 10, lineHeight: 1.45 }}>{q.help}</p>
+        )}
       </div>
 
-      <Eyebrow T={T}>{q.part === 2 ? "How you work the night" : "Your shift"}</Eyebrow>
-      <Display T={T} size={28}>{q.q}</Display>
-      {q.help && (
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.muted, marginTop: 10, lineHeight: 1.45 }}>{q.help}</p>
-      )}
-
-      <div style={{ marginTop: 26, flex: 1, overflowY: "auto" }}>
+      <div style={{ marginTop: 24, flex: 1, overflowY: "auto" }}>
         {q.kind === "time" ? (
           <div>
             <TimeWheel T={T} value={a[q.key]} onChange={(v) => setA({ ...a, [q.key]: v })} />
@@ -603,41 +644,22 @@ function Quiz({ onDone, onBack }) {
             }}>Scroll or tap to set the time</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {q.options.map((o) => {
-              const on = q.multi ? asList(a[q.key]).includes(o.v) : a[q.key] === o.v;
-              return (
-                <button key={o.v}
-                  onClick={() => setA({ ...a, [q.key]: q.multi ? toggleIn(a[q.key], o.v) : o.v })}
-                  style={{
-                    textAlign: "left", padding: "16px 18px", borderRadius: 18, cursor: "pointer",
-                    border: `1.5px solid ${on ? T.ink : "transparent"}`, background: T.card,
-                    display: "flex", alignItems: "center", gap: 12,
-                  }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: FONT_TEXT, fontSize: 16.5, fontWeight: 600, color: T.ink }}>{o.l}</div>
-                    {o.s && <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 3 }}>{o.s}</div>}
-                  </div>
-                  {q.multi && (
-                    <div style={{
-                      width: 23, height: 23, borderRadius: 12, flexShrink: 0,
-                      border: on ? "none" : `1.5px solid ${T.hair}`,
-                      background: on ? T.ink : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>{on && <Check size={13} color={T.bg} strokeWidth={3.2} />}</div>
-                  )}
-                </button>
-              );
-            })}
+          <div className="gy-list" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {q.options.map((o) => (
+              <Choice key={o.v} T={T} label={o.l} sub={o.s}
+                on={q.multi ? asList(a[q.key]).includes(o.v) : a[q.key] === o.v}
+                onClick={() => setA({ ...a, [q.key]: q.multi ? toggleIn(a[q.key], o.v) : o.v })} />
+            ))}
           </div>
         )}
       </div>
+      </div>
 
-      <Btn T={T} full onClick={canNext ? next : undefined}
+      <Btn T={T} kind="accent" full onClick={canNext ? next : undefined}
         style={{ marginTop: 18, opacity: canNext ? 1 : 0.35, cursor: canNext ? "pointer" : "default" }}>
         {i === QUESTIONS.length - 1 ? "Build my plan" : "Continue"} <ArrowRight size={18} />
       </Btn>
-    </div>
+    </Arch>
   );
 }
 
@@ -802,7 +824,8 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
   const [editing, setEditing] = useState(single);
   const [draft, setDraft] = useState(profile);
 
-  const seg = REVIEW[i];
+  const [si, segAnim] = useStepSwap(i);
+  const seg = REVIEW[si];
   const d = DOMAIN[seg.cat];
   const ph = calculateShiftPhases(draft);
   const last = i === REVIEW.length - 1;
@@ -813,29 +836,26 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
     else { setI(i + 1); setEditing(false); }
   };
 
-  return (
-    <div style={{ padding: "48px 22px 32px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      {!single && (
-        <div style={{ display: "flex", gap: 5, marginBottom: 26 }}>
-          {REVIEW.map((r, k) => (
-            <div key={r.key} style={{
-              flex: 1, height: 3, borderRadius: 2,
-              background: k <= i ? DOMAIN[r.cat].hue : T.hair,
-              transition: "background 300ms ease",
-            }} />
-          ))}
-        </div>
-      )}
+  const nav = !single && (
+    <div style={{ display: "flex", gap: 5 }}>
+      {REVIEW.map((r, k) => (
+        <div key={r.key} style={{
+          flex: 1, height: 4, borderRadius: 2,
+          background: k <= i ? "#FFFFFF" : "rgba(255,255,255,0.24)",
+          transition: "background 300ms ease",
+        }} />
+      ))}
+    </div>
+  );
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <Badge category={seg.cat} T={T} size={44} />
-        <div>
-          <div style={{
-            fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 700, letterSpacing: "0.13em",
-            textTransform: "uppercase", color: d.hue,
-          }}>{single ? "Adjust" : `${i + 1} of ${REVIEW.length}`}</div>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>{d.label}</div>
-        </div>
+  return (
+    <Arch T={T} Icon={d.Icon} nav={nav || undefined} pad="62px 22px 30px">
+      <div className={segAnim} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{
+          fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 700, letterSpacing: "0.13em",
+          textTransform: "uppercase", color: d.hue,
+        }}>{single ? "Adjust" : `${si + 1} of ${REVIEW.length}`} · {d.label}</div>
       </div>
 
       <Display T={T} size={30}>{seg.title}</Display>
@@ -849,7 +869,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
             display: "flex", alignItems: "center", gap: 11, padding: "13px 14px",
             borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
           }}>
-            <Check size={15} color={d.hue} strokeWidth={2.6} style={{ flexShrink: 0 }} />
+            <Check size={15} color={d.hue} weight="bold" style={{ flexShrink: 0 }} />
             <span style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.ink, lineHeight: 1.35 }}>{l}</span>
           </div>
         ))}
@@ -868,7 +888,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
       </div>
 
       {editing && (
-        <div style={{ marginTop: 18 }}>
+        <div className="gy-list" style={{ marginTop: 18 }}>
           {seg.controls.map((c) => (
             <div key={c.key} style={{ marginBottom: 18 }}>
               <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 4 }}>
@@ -895,14 +915,15 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
       )}
 
       <div style={{ flex: 1, minHeight: 20 }} />
+      </div>
 
       <div style={{ display: "flex", gap: 10 }}>
         {!editing && (
-          <Btn T={T} kind="quiet" onClick={() => setEditing(true)} style={{ flex: 1 }}>
+          <Btn T={T} kind="soft" onClick={() => setEditing(true)} style={{ flex: 1 }}>
             <Pencil size={15} /> Adjust
           </Btn>
         )}
-        <Btn T={T} onClick={advance} style={{ flex: editing ? 1 : 1.6 }}>
+        <Btn T={T} kind="accent" onClick={advance} style={{ flex: editing ? 1 : 1.6 }}>
           {editing ? "Save and continue" : single ? "Done" : last ? "Build my plan" : "Sounds right"}
           {!editing && !last && !single && <ArrowRight size={17} />}
         </Btn>
@@ -913,7 +934,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
           fontFamily: FONT_TEXT, fontSize: 14, color: T.faint, padding: 6,
         }}>Skip the rest and show my plan</button>
       )}
-    </div>
+    </Arch>
   );
 }
 
@@ -1115,7 +1136,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
             <div style={{ marginTop: 12 }}>
               {items.map((it) => (
                 <div key={it} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                  <Check size={14} color={DOMAIN[cat].hue} strokeWidth={2.6}
+                  <Check size={14} color={DOMAIN[cat].hue} weight="bold"
                     style={{ flexShrink: 0, marginTop: 3 }} />
                   <span style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.ink, lineHeight: 1.4 }}>{it}</span>
                 </div>
@@ -1156,16 +1177,22 @@ function TimelinePreview({ T, profile, ph }) {
   }).slice(0, 8);
 
   return (
-    <Card T={T} style={{ padding: "4px 16px", marginBottom: 10 }}>
+    <Card T={T} style={{ padding: "16px 16px 10px", marginBottom: 10 }}>
       {rows.map((it, k) => {
         const d = DOMAIN[it.category] || DOMAIN.shift;
         const repeats = it.id.startsWith("move-");
         return (
           <div key={it.id} style={{
-            display: "flex", alignItems: "center", gap: 11, padding: "11px 2px",
-            borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
+            position: "relative", display: "flex", alignItems: "center", gap: 12, paddingBottom: 14,
           }}>
-            <span style={{ width: 7, height: 7, borderRadius: 4, background: d.hue, flexShrink: 0 }} />
+            {/* rail runs from under this badge to under the next one */}
+            {k < rows.length - 1 && (
+              <span style={{
+                position: "absolute", left: 15, top: 32, bottom: -2, width: 2,
+                borderRadius: 1, background: tint(d.hue, 0.28),
+              }} />
+            )}
+            <Badge category={it.category} T={T} size={32} />
             <span style={{
               flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -1186,7 +1213,7 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
   const r = buildRecommendation(profile, ph);
 
   return (
-    <div style={{ padding: "44px 20px 40px" }}>
+    <Arch T={T} Icon={Moon} pad="66px 20px 40px">
       <Eyebrow T={T}>{revisit ? "Your plan, explained" : "Your starting plan"}</Eyebrow>
       <Display T={T} size={32}>Your night-shift plan is ready.</Display>
       <p style={{ fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.5, color: T.muted, margin: "10px 0 20px" }}>
@@ -1225,10 +1252,33 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         <Row T={T} k="Rest" v={REST_STRATEGY[profile.nap]} />
       </Card>
 
-      <Btn T={T} full onClick={onDone}>
+      <Btn T={T} kind="accent" full onClick={onDone}>
         {revisit ? "Back to my plan" : "Start my plan"} <ArrowRight size={18} />
       </Btn>
-    </div>
+    </Arch>
+  );
+}
+
+/* One 22px slot, three states: waiting ring, spinning ring, filled check.
+   The same filled-circle-and-white-check as a selected answer, so "done" reads
+   the same everywhere. React reuses this div across states, so swapping the
+   class is what fires the pop. */
+function StepMark({ done, active, T }) {
+  const hue = DOMAIN.movement.hue;
+  if (done) {
+    return (
+      <div className="gy-pop" style={{
+        width: 22, height: 22, borderRadius: 11, flexShrink: 0, background: hue,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}><Check size={12} color="#FFFFFF" weight="bold" /></div>
+    );
+  }
+  return (
+    <div className={active ? "gy-spin" : undefined} style={{
+      width: 22, height: 22, borderRadius: 11, flexShrink: 0, boxSizing: "border-box",
+      border: `2px solid ${active ? tint(hue, 0.22) : T.hair}`,
+      borderTopColor: active ? hue : undefined,
+    }} />
   );
 }
 
@@ -1241,21 +1291,25 @@ function Generating({ onDone }) {
     const t = setTimeout(() => setI(i + 1), 520);
     return () => clearTimeout(t);
   }, [i]);
+  /* A fragment, not a wrapper: the rows become direct children of the sheet,
+     so they pick up its stagger instead of all arriving behind one container.
+     The heavy bottom padding biases the centred block upward, off the floor. */
   return (
-    <div style={{ padding: "0 28px", minHeight: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-      <Display T={T} size={30} style={{ marginBottom: 26 }}>Building your plan.</Display>
+    <Arch T={T} Icon={Moon} center pad="64px 28px 190px">
+      <Display T={T} size={30} style={{ marginBottom: 22, textAlign: "center" }}>Building your plan.</Display>
       {steps.map((s, k) => (
         <div key={s} style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "9px 0",
-          opacity: k <= i ? 1 : 0.25, transition: "opacity 300ms ease",
+          display: "flex", alignItems: "center", gap: 13, padding: "10px 0",
+          opacity: k <= i ? 1 : 0.34, transition: "opacity 320ms ease",
         }}>
-          {k < i
-            ? <Check size={17} color={DOMAIN.movement.hue} />
-            : <div style={{ width: 17, height: 17, borderRadius: 9, border: `2px solid ${T.faint}` }} />}
-          <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, color: k < i ? T.ink : T.muted }}>{s}</span>
+          <StepMark done={k < i} active={k === i} T={T} />
+          <span style={{
+            fontFamily: FONT_TEXT, fontSize: 15.5, color: k < i ? T.ink : T.muted,
+            transition: "color 320ms ease",
+          }}>{s}</span>
         </div>
       ))}
-    </div>
+    </Arch>
   );
 }
 
@@ -2334,6 +2388,7 @@ export default function App() {
   const [playing, setPlaying] = useState(null);
   const [timeEdit, setTimeEdit] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
+  const [shownScreen, screenAnim] = useScreenSwap(screen);
 
   /* Nothing is persisted. The app boots to the quiz every time, by design:
      there is no backend, no database, and no storage of any kind. */
@@ -2427,34 +2482,34 @@ export default function App() {
   };
 
   /* --------------------------- pre-app screens ---------------------------- */
-  if (screen === "welcome")
-    return <Frame T={WARM}><Welcome onNext={() => setScreen("disclaimer")} /></Frame>;
-  if (screen === "disclaimer")
-    return <Frame T={WARM}><Disclaimer onNext={() => setScreen("quiz")} onBack={() => setScreen("welcome")} /></Frame>;
-  if (screen === "quiz")
-    return <Frame T={WARM}><Quiz onDone={finishQuiz} onBack={() => setScreen("disclaimer")} /></Frame>;
-  if (screen === "generating")
-    return <Frame T={WARM}><Generating onDone={() => setScreen("recommendation")} /></Frame>;
-  if (screen === "recommendation" || screen === "recommendation-revisit") {
-    const revisit = screen === "recommendation-revisit";
+  if (shownScreen === "welcome")
+    return <Frame T={WARM} anim={screenAnim}><Welcome onNext={() => setScreen("disclaimer")} /></Frame>;
+  if (shownScreen === "disclaimer")
+    return <Frame T={WARM} anim={screenAnim}><Disclaimer onNext={() => setScreen("quiz")} onBack={() => setScreen("welcome")} /></Frame>;
+  if (shownScreen === "quiz")
+    return <Frame T={WARM} anim={screenAnim}><Quiz onDone={finishQuiz} onBack={() => setScreen("disclaimer")} /></Frame>;
+  if (shownScreen === "generating")
+    return <Frame T={WARM} anim={screenAnim}><Generating onDone={() => setScreen("recommendation")} /></Frame>;
+  if (shownScreen === "recommendation" || shownScreen === "recommendation-revisit") {
+    const revisit = shownScreen === "recommendation-revisit";
     const RT = revisit ? T : WARM;
     return (
-      <Frame T={RT}>
+      <Frame T={RT} anim={screenAnim}>
         <Recommendation
           T={RT} profile={profile} revisit={revisit}
           onDone={() => setScreen("app")}
           onAdjust={(idx) => {
-            setReview({ index: idx, single: true, back: screen });
+            setReview({ index: idx, single: true, back: shownScreen });
             setScreen("review");
           }}
         />
       </Frame>
     );
   }
-  if (screen === "review") {
+  if (shownScreen === "review") {
     const RT = review.single ? T : WARM;
     return (
-      <Frame T={RT}>
+      <Frame T={RT} anim={screenAnim}>
         <Review
           T={RT} profile={profile} onSave={setProfile}
           startAt={review.index} single={review.single}
@@ -2543,7 +2598,7 @@ export default function App() {
   ];
 
   return (
-    <Frame T={T} raw>
+    <Frame T={T} raw anim={screenAnim}>
       {/* header, pinned */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", padding: "2px 20px 14px",
@@ -2775,20 +2830,22 @@ function TabBtn({ t, T, tab, setTab }) {
   );
 }
 
-function Frame({ T, children, raw }) {
+function Frame({ T, children, raw, anim }) {
   return (
     <div style={{
       height: "100dvh", width: "100%", background: T.key === "warm" ? "#DEDBD3" : "#08080B",
       display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
       transition: "background 500ms ease", overflow: "hidden",
     }}>
-      <div style={{
+      {/* In raw mode the tab bar is part of children, so the animation goes on
+          the whole phone body; otherwise only the scrolling content moves. */}
+      <div className={raw ? anim : undefined} style={{
         width: "100%", maxWidth: 430, height: "100dvh", background: T.bg,
         position: "relative", overflow: "hidden", transition: "background 500ms ease",
         paddingTop: 14, display: "flex", flexDirection: "column",
       }}>
         {raw ? children : (
-          <div style={{
+          <div className={anim} style={{
             flex: 1, minHeight: 0, overflowY: "auto",
             display: "flex", flexDirection: "column",
           }}>{children}</div>

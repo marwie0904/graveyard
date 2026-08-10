@@ -48,6 +48,12 @@ export const DARK = {
   tintA: 0.2,
 };
 
+/* Onboarding accent and hero wash: dusk into sunrise, the arc of a night shift.
+   Reuses the sleep and light hues so onboarding reads as the same system. */
+export const ACCENT = DOMAIN.sleep.hue;
+export const DUSK =
+  `linear-gradient(168deg, #24244F 0%, ${DOMAIN.sleep.hue} 52%, ${DOMAIN.light.hue} 128%)`;
+
 export const tint = (hex, a) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;

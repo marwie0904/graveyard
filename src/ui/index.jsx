@@ -1,5 +1,5 @@
-import { FONT_DISPLAY, FONT_TEXT, DOMAIN, tint } from "../tokens.js";
-import { CaretDown } from "../icons.jsx";
+import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint } from "../tokens.js";
+import { CaretDown, Check } from "../icons.jsx";
 import { RANGES } from "../stats.js";
 
 /* ------------------------------ shared UI bits ---------------------------- */
@@ -66,15 +66,93 @@ export function Pill({ children, T, hue, active, onClick }) {
 export function Btn({ children, T, kind = "primary", onClick, hue, style, full }) {
   const base = {
     fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, borderRadius: 999,
-    padding: "14px 22px", border: "none", cursor: "pointer", width: full ? "100%" : undefined,
+    padding: "16px 22px", border: "none", cursor: "pointer", width: full ? "100%" : undefined,
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
   };
   const kinds = {
     primary: { background: T.ink, color: T.bg },
+    accent: { background: ACCENT, color: "#FFFFFF" },
+    soft: { background: T.sunken, color: T.ink },
     tinted: { background: tint(hue || DOMAIN.shift.hue, T.tintA + 0.04), color: hue || T.ink },
     quiet: { background: "transparent", color: T.muted, border: `1px solid ${T.hair}` },
   };
-  return <button onClick={onClick} style={{ ...base, ...kinds[kind], ...style }}>{children}</button>;
+  return (
+    <button onClick={onClick} className="gy-tap" style={{ ...base, ...kinds[kind], ...style }}>
+      {children}
+    </button>
+  );
+}
+
+/* Onboarding shell: a colored hero band with the content sheet arcing up into
+   it. The arc is one elliptical border-radius rather than an SVG mask, so the
+   sheet still scrolls and grows with its content. */
+/* The arc's corners sit 42px below its apex, so anything above ~60px of top
+   padding crowds the curve. That is the floor for every pad override below. */
+export function Arch({ T, children, Icon, nav, center, heroPad = 22, pad = "64px 24px 30px" }) {
+  return (
+    <div style={{
+      flex: "1 0 auto", minHeight: "100%", background: T.bg,
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* The wash extends 46px past its content so the arc cuts into gradient,
+          not into a seam. That padding and the sheet's negative margin move
+          together. backgroundImage rather than the background shorthand: the
+          shorthand would reset the background-size/position the drift animates. */}
+      <div className="gy-sky" style={{
+        backgroundImage: DUSK, padding: `8px 18px ${heroPad + 46}px`,
+        display: "flex", flexDirection: "column", gap: 22,
+        "--gy-glow": DOMAIN.sleep.hue, "--gy-warm": DOMAIN.light.hue,
+      }}>
+        {nav && <div className="gy-hero">{nav}</div>}
+        {Icon && (
+          <div className="gy-badge" style={{
+            alignSelf: "center", width: 84, height: 84, borderRadius: 42,
+            background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon size={38} color="#FFFFFF" />
+          </div>
+        )}
+      </div>
+      {/* positioned so it paints over the sky, which is positioned for its
+          blooms; without this the 46px overlap sits behind the gradient */}
+      <div className="gy-sheet gy-stagger" style={{
+        flex: "1 0 auto", background: T.bg, padding: pad, marginTop: -46,
+        position: "relative", zIndex: 1,
+        borderRadius: "50% 50% 0 0 / 42px 42px 0 0",
+        display: "flex", flexDirection: "column",
+        justifyContent: center ? "center" : undefined,
+      }}>{children}</div>
+    </div>
+  );
+}
+
+/* One answer row. Single and multi select look identical on purpose: the
+   trailing dot fills in either way, so nothing has to be learned twice. */
+export function Choice({ T, label, sub, on, onClick, hue = ACCENT }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} className="gy-tap" style={{
+      width: "100%", textAlign: "left", cursor: "pointer", borderRadius: 999,
+      padding: "13px 14px 13px 20px", display: "flex", alignItems: "center", gap: 12,
+      border: `1.5px solid ${on ? tint(hue, 0.4) : T.hair}`,
+      background: on ? tint(hue, 0.08) : T.card,
+      transition: "background 140ms ease, border-color 140ms ease",
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink }}>{label}</div>
+        {sub && (
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, marginTop: 3, lineHeight: 1.35 }}>
+            {sub}
+          </div>
+        )}
+      </div>
+      {/* the class only exists while selected, so adding it is what pops it */}
+      <div className={on ? "gy-pop" : undefined} style={{
+        width: 26, height: 26, borderRadius: 13, flexShrink: 0, background: on ? hue : T.sunken,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{on && <Check size={14} color="#FFFFFF" weight="bold" />}</div>
+    </button>
+  );
 }
 
 /* Native select rather than a custom dropdown: accessible by default, and on
