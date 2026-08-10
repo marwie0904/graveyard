@@ -6,3 +6,4 @@ drive*.mjs
 shot-plan.mjs
 check.mjs
 docs/*.pdf
+.claude/worktrees
