@@ -60,9 +60,33 @@ What this phase establishes:
   clock and the profile, not stored per-log.
 - The rule for **which night "now" belongs to** — including the awkward cases: a
   shift that starts at 22:00 Monday and ends 07:00 Tuesday is one night, not two.
-  Opening the app at 15:00 on a day off is neither.
+  Opening the app at 15:00 on a day off belongs to a night too; see below.
 - Where the **night boundary** sits. Candidate: the plan's own `sleepEnd`, not
   midnight. Midnight falls in the middle of every shift this app exists for.
+
+**Days off — deferred, on purpose.** Settled in
+`superpowers/specs/2026-08-11-night-identity-design.md`: there is no "neither".
+The profile records shift times and nothing else, so the app cannot know a
+Tuesday was not worked without inventing data. Every instant belongs to some
+night; a night nobody worked simply accumulates no logs, and `foldNight` already
+returns `null` for that.
+
+That is the right answer for Phase 0 and a thin one for later. Three things a
+work calendar would unlock, none of them worth building before there is an
+archive to prove they are needed:
+
+- **Stretch counting.** Phase 5 has `nightInStretch` count itself from the
+  archive. Without off-days it can only count *nights logged*, so an off-night
+  and a night you forgot to open the app are the same event.
+- **Averages.** `stats.js` would divide by nights worked rather than nights
+  elapsed. Today a week off drags every average toward null.
+- **Pre-shift prompts.** The plan currently proposes a pre-shift meal on a
+  Sunday it has no reason to believe you are working.
+
+The cheapest version, when it comes: one `workDays` array on the profile, set in
+the quiz. Not a calendar UI, not a scheduling engine. Do it only when the
+archive shows enough unlogged nights to distort a real number — before that, it
+is a question asked to fix a problem nobody has hit.
 
 Deliberately *not* in this phase: changing the log shape. `t` stays axis-minutes.
 A log's night is "the current one" while live, and "whichever archive record it
