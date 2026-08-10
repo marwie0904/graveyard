@@ -49,12 +49,12 @@ Two tasks. Task 1 is the function and can be reviewed and rejected on its own. T
 
 The app's clock is not a timestamp. `ph.start = toMin(profile.shiftStart)` is always in `[0, 1440)`, so the axis origin is midnight of the day the shift starts. A 22:00 shift is `now = 1320`; 02:00 the next morning is `now = 1560`, not `120`. `ph.sleepEnd` is when the plan says you wake, and for a night shift it is past 1440 — for a 22:00–07:00 shift sleeping 08:30 for 7.5h, `sleepEnd = 2400`, i.e. 16:00 the following day.
 
-The rule being implemented: **a night is named by the date its shift starts on, and rolls over at the plan's own wake time.** So the night `2026-08-10` runs 16:00 Mon → 16:00 Tue and contains the whole arc: pre-shift, shift, post-shift, sleep. The entire rule is the expression `clock + DAY < wake` — if yesterday's night still has room for this clock time, we are still in it.
+The rule being implemented: **a night is named by the date its shift starts on, and rolls over at the plan's own wake time.** So the night `2026-08-10` runs 16:00 Mon → 16:00 Tue and contains the whole arc: pre-shift, shift, post-shift, sleep. The rule is placing `clock` modulo a full day around `wake`: `now` is whichever occurrence of that clock time falls in the 24h window ending at `wake`, forward into last night's arc or back into a pre-shift block that starts before midnight — which is why `now` can come out negative.
 
 Two details that look like they could be dropped but must not be:
 
 - `Math.min(ph.sleepEnd, ph.start + DAY)` caps the boundary at the next shift start. `plannedSleep` is a free time input (`App.jsx:456`) and `sleepGoalHours` is editable from the profile screen (`App.jsx:2662`), so a user can produce a 23:00 wake against a 22:00 shift. Without the cap, the first hour of that shift files under the night before.
-- `new Date(y, m, d - 1)` — the `Date` constructor normalises `d - 1` across month and year boundaries. Constructing from local Y/M/D at midnight also keeps the arithmetic clear of DST.
+- `new Date(y, m, d - Math.floor(now / DAY))` — the `Date` constructor normalises the day arithmetic across month and year boundaries, in either direction. Constructing from local Y/M/D at midnight also keeps it clear of DST.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -121,16 +121,24 @@ describe("nightOf", () => {
     expect(nightOf(late, new Date(2026, 7, 10, 22, 0)))
       .toEqual({ id: "2026-08-10", now: 1320 });
   });
+
+  it("keeps the pre-shift block on the night it prepares for", () => {
+    // 00:00-08:00 shift waking 16:30: 22:00 the evening before is pre-shift,
+    // two hours ahead of a shift that starts at midnight
+    const midnight = { start: 0, sleepEnd: 990 };
+    expect(nightOf(midnight, new Date(2026, 7, 10, 22, 0)))
+      .toEqual({ id: "2026-08-11", now: -120 });
+  });
 });
 ```
 
-Why these seven and not more: each one is a distinct branch or edge. Rows 1 and 2 are the two sides of the `back` branch. Rows 3 and 4 bracket the boundary instant itself. Row 5 exercises `Date`'s rollover normalisation. Rows 6 and 7 are the two ways the boundary stops being wake time. A month-rollover case was deliberately cut — row 5 covers it strictly.
+Why these eight and not more: each one is a distinct branch or edge. Rows 1 and 2 are the two sides of the rollover. Rows 3 and 4 bracket the boundary instant itself. Row 5 exercises `Date`'s rollover normalisation. Rows 6 and 7 are the two ways the boundary stops being wake time. Row 8 covers a shift starting just after midnight, where the pre-shift block falls before midnight and `now` must go negative. A month-rollover case was deliberately cut — row 5 covers it strictly.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run src/time.test.js`
 
-Expected: 7 failures, all `TypeError: nightOf is not a function`.
+Expected: 8 failures, all `TypeError: nightOf is not a function`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -141,18 +149,22 @@ Append to `src/time.js`:
     axis. The night is named by the date its shift starts on and rolls over at
     the plan's own wake time, so a shift crossing midnight is one night, not two.
     Wake is capped at the next shift start: a profile whose planned sleep runs
-    past it must not file the first hour of a shift under the night before.
+    past it must not file the first hour of a shift under the night before. The
+    clock is placed by taking it modulo a full day around that wake boundary, so
+    it can resolve forward into last night's arc or back into a pre-shift block
+    that starts before midnight — `now` comes out negative there, which is the
+    axis working as designed, not an error.
     ponytail: local dates throughout. toISOString would report the UTC date,
     which is the wrong night for half the world for part of every day. */
 export function nightOf(ph, d = new Date()) {
   const clock = d.getHours() * 60 + d.getMinutes();
   const wake = Math.min(ph.sleepEnd, ph.start + DAY);
-  const back = clock + DAY < wake;   // still inside last night's arc
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (back ? 1 : 0));
+  const now = wake - DAY + ((((clock - wake) % DAY) + DAY) % DAY);
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - Math.floor(now / DAY));
   const p = (n) => String(n).padStart(2, "0");
   return {
     id: `${day.getFullYear()}-${p(day.getMonth() + 1)}-${p(day.getDate())}`,
-    now: clock + (back ? DAY : 0),
+    now,
   };
 }
 ```
@@ -161,7 +173,7 @@ export function nightOf(ph, d = new Date()) {
 
 Run: `npx vitest run src/time.test.js`
 
-Expected: PASS, 7 new tests green alongside the existing ones in that file.
+Expected: PASS, 8 new tests green alongside the existing ones in that file.
 
 - [ ] **Step 5: Run the whole suite**
 
@@ -191,7 +203,7 @@ git commit -m "feat: nightOf names the night and places us on the plan's axis"
 
 `realNow` currently picks among four candidate day offsets and keeps whichever lands nearest the plan window. That heuristic is the second answer to "which night is it", and the point of this task is that there is now only one. Line numbers below are from the current `main`; find the code by content if they have drifted.
 
-Expect a visible behaviour change **outside** the plan window, and none inside it. Inside — pre-shift through wake — `nightOf().now` returns exactly what `realNow` returned. Outside, the old code could pick a nonsensical candidate: at 20:00 with a 00:00–08:00 shift it returns `now = -240` (yesterday 20:00) because that sits closer to the pre-shift window, where `nightOf` returns `1200`, four hours before tonight's shift. The new answer is the correct one. This is the `realNow` clamp the roadmap files under Phase 4, fixed early as a side effect.
+Expect no visible behaviour change inside the plan window: pre-shift through wake, `nightOf().now` returns exactly what `realNow` returned. Outside the window the two mostly agree on the number but not on how they get there. `realNow` searches a handful of candidate day offsets and reports whichever lands *nearest* the plan window — a clamp that can round a wall-clock instant genuinely outside the arc (a day off) into the window, silently reporting it as inside the plan. `nightOf` places the same clock by a fixed rule instead of a nearest-candidate search, so an off-arc instant reads as off-arc. This is the `realNow` clamp the roadmap files under Phase 4, addressed early as a side effect.
 
 `id` being returned and not read is deliberate for one phase — see the spec. Do not split the function to avoid it.
 
@@ -294,7 +306,7 @@ git commit -m "refactor: one answer to which night it is, realNow gives way to n
 
 ## Done when
 
-- `npm test` passes with 7 new `nightOf` cases.
+- `npm test` passes with 8 new `nightOf` cases.
 - `grep -rn "realNow" src/` is empty.
 - The app boots to a rendered plan whose phase matches the wall clock.
 - Nothing persists. Phase 1 has not been started.

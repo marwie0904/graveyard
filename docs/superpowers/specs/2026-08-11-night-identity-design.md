@@ -89,34 +89,38 @@ one-word change.
 ```js
 /** Which night the wall clock belongs to, and where that puts us on the plan's
     axis. The night is named by the date its shift starts on and rolls over at
-    the plan's own wake time, so a shift that crosses midnight is one night.
+    the plan's own wake time, so a shift crossing midnight is one night, not two.
     Wake is capped at the next shift start: a profile whose planned sleep runs
-    past it must not file the first hour of a shift under the night before.
+    past it must not file the first hour of a shift under the night before. The
+    clock is placed by taking it modulo a full day around that wake boundary, so
+    it can resolve forward into last night's arc or back into a pre-shift block
+    that starts before midnight — `now` comes out negative there, which is the
+    axis working as designed, not an error.
     ponytail: local dates throughout. toISOString would report the UTC date,
     which is the wrong night for half the world for part of every day. */
 export function nightOf(ph, d = new Date()) {
   const clock = d.getHours() * 60 + d.getMinutes();
   const wake = Math.min(ph.sleepEnd, ph.start + DAY);
-  const back = clock + DAY < wake;   // still inside last night's arc
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (back ? 1 : 0));
+  const now = wake - DAY + ((((clock - wake) % DAY) + DAY) % DAY);
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() - Math.floor(now / DAY));
   const p = (n) => String(n).padStart(2, "0");
   return {
     id: `${day.getFullYear()}-${p(day.getMonth() + 1)}-${p(day.getDate())}`,
-    now: clock + (back ? DAY : 0),
+    now,
   };
 }
 ```
 
-Ten lines, replacing ten lines. The whole rule is `clock + DAY < wake`: if
-yesterday's night still has room for this clock time, we are still in it.
+The whole rule is placing `clock` modulo a full day around `wake`: `now` is
+whichever occurrence of that clock time falls in the 24h window ending at
+`wake`, and it can land before or after zero.
 
-It needs no modular arithmetic. The boundary in clock terms works out to
-`max(0, sleepEnd − DAY)`, which equals wake time when that is coherent and
-collapses to midnight when it is not. A 00:00–08:00 shift gets a midnight
-boundary for free, which is the right answer for that shift.
-
-`new Date(y, m, d - 1)` normalises month and year rollover, and constructing
-from local Y/M/D at midnight keeps it clear of DST minute arithmetic.
+It needs modular arithmetic, on purpose: a wall-clock time can resolve either
+forward into last night's still-open arc or back into tomorrow's pre-shift
+block, which for a shift starting just after midnight begins before midnight
+and so needs a negative `now`. The day offset for `id` falls out of that same
+`now` — `Math.floor(now / DAY)` — rather than being tracked as a separate
+boolean.
 
 ---
 
@@ -146,12 +150,15 @@ Inside the plan window — pre-shift through wake — `nightOf().now` returns wh
 `realNow` returned. Verified against the default 22:00–07:00 profile at 19:00,
 22:30, 02:00 and 15:00.
 
-Outside the window the two differ, and the new one is right. At 20:00 with a
-00:00–08:00 shift, `realNow` picks *yesterday* 20:00 (`now = −240`) because that
-candidate sits closer to the pre-shift window; `nightOf` returns `now = 1200`,
-four hours before tonight's shift. This is the `realNow` clamp the roadmap files
-under Phase 4, arriving early as a side effect of having one definition instead
-of two.
+Outside the plan window the two mostly agree on the number, but not on how they
+get there, and the difference matters. `realNow` searches a handful of candidate
+day offsets and reports whichever lands *nearest* the plan window — a clamp. A
+wall-clock instant that is genuinely outside the arc (a day off) can still be
+rounded into the window by that search, silently reporting it as inside the
+plan. `nightOf` places the same clock by a fixed rule instead of a
+nearest-candidate search, so an off-arc instant reads as off-arc. This is the
+`realNow` clamp the roadmap files under Phase 4, addressed early as a side
+effect of having one definition instead of two.
 
 ### Unchanged, checked
 
@@ -180,6 +187,7 @@ fields are the entire contract, so the tests need no planner import.
 | night `{1320, 2400}` | Jan 1, 00:30 | `2025-12-31` — year rollover, and month rollover with it |
 | midnight `{0, 990}` | 02:00 | today, `now 120` — boundary collapses to midnight |
 | pathological `{1320, 2820}` | 22:00 | today, `now 1320` — capped at shift start |
+| midnight `{0, 990}` | 22:00 the previous evening | `2026-08-11`, `now -120` — pre-shift belongs to the night it prepares for |
 
 These double as the UTC guard. `day` is always a local-midnight `Date`, so east
 of UTC its `toISOString().slice(0, 10)` is the day before — every row above fails
