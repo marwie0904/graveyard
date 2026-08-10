@@ -2381,7 +2381,8 @@ export default function App() {
   const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
   const [logDraft, setLogDraft] = useState({ type: "water", h: 12, m: 0, ap: "AM", note: "" });
-  const [rangeKey, setRangeKey] = useState("1w");
+  /* opens on tonight, the rightmost chip of the day strip */
+  const [rangeKey, setRangeKey] = useState("d0");
   const [adjusting, setAdjusting] = useState(null);
   const [adjustDraft, setAdjustDraft] = useState({});
   const [quickResult, setQuickResult] = useState(null);

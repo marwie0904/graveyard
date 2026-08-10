@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rangeStats, readPatterns, foldNight, RANGES } from "./stats.js";
+import { rangeStats, readPatterns, foldNight, RANGES, dayOffsetOf } from "./stats.js";
 import { materializeNights } from "./mockNights.js";
 
 const P = {
@@ -10,11 +10,23 @@ const P = {
 };
 
 describe("RANGES", () => {
-  it("offers Today, 3 days, 1 week inline and the rest under More", () => {
-    expect(RANGES.filter((r) => !r.inMore).map((r) => r.label))
-      .toEqual(["Today", "3 days", "1 week"]);
-    expect(RANGES.filter((r) => r.inMore).map((r) => r.label))
-      .toEqual(["2 weeks", "1 month", "All time"]);
+  it("offers only multi-night windows, since one night is picked off the strip", () => {
+    expect(RANGES.map((r) => r.label))
+      .toEqual(["3 days", "1 week", "2 weeks", "1 month", "All time"]);
+    expect(RANGES.every((r) => r.nights > 1)).toBe(true);
+  });
+});
+
+describe("dayOffsetOf", () => {
+  it("reads a day key back as its offset", () => {
+    expect(dayOffsetOf("d0")).toBe(0);
+    expect(dayOffsetOf("d6")).toBe(6);
+  });
+
+  it("returns null for a window key, so the dashboard renders the range view", () => {
+    expect(dayOffsetOf("1w")).toBe(null);
+    expect(dayOffsetOf("all")).toBe(null);
+    expect(dayOffsetOf(undefined)).toBe(null);
   });
 });
 

@@ -4,87 +4,120 @@ import {
 } from "recharts";
 import { DAY, fmt, nightAxis, nightTick } from "../time.js";
 import { FONT_DISPLAY, FONT_TEXT, DOMAIN, tint } from "../tokens.js";
-import { RANGES, rangeStats, readPatterns } from "../stats.js";
-import { Card, Btn, Badge, Display, Eyebrow, RangeControl } from "../ui/index.jsx";
+import { RANGES, rangeStats, readPatterns, dayOffsetOf } from "../stats.js";
+import { Card, Btn, Display, RangeControl } from "../ui/index.jsx";
 import { Info } from "../icons.jsx";
 
 /* ============================================================================
    DASHBOARD
 
-   Two charts, three tiles, four panels. Everything on this screen is derived
-   from the NightRecords handed in as `nights`, which arrive newest first:
-   dayOffset 0 is tonight, dayOffset 1 is last night. A range is therefore the
-   FRONT of that array, and the charts get a reversed copy so bars read oldest
-   to newest, left to right.
+   One hero figure, one trio, then the lists. Everything on this screen is
+   derived from the NightRecords handed in as `nights`, which arrive newest
+   first: dayOffset 0 is tonight, dayOffset 1 is last night. A range is
+   therefore the FRONT of that array, and the charts get a reversed copy so
+   bars read oldest to newest, left to right.
 
    Nothing here is a score and nothing here is graded, so no figure is ever
-   fabricated: a missing value prints as "-" rather than as a zero.
+   fabricated: a missing value prints as "-" and its meter is simply absent.
 ============================================================================ */
 
 const num = (v, digits = 1) => (v === null || v === undefined ? "-" : v.toFixed(digits));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/* null, not 0, when the figure is unknown or has no denominator: an unlogged
+   night must draw no meter at all, and 0/8 resets is a real empty meter while
+   "no sleep logged" is not a meter at all. */
+export const share = (a, b) =>
+  (a === null || a === undefined || !b ? null : Math.min(1, a / b));
 
-function Panel({ T, cat, title, sub, line, children, height = 160 }) {
+const CARD = { borderRadius: 16, marginBottom: 10 };
+
+/* One figure: label, number, optional denominator, one thin meter. The number
+   stays ink-coloured and the meter carries the domain hue, so size sets the
+   hierarchy and colour only ever means "which part of the plan". */
+function Stat({ T, hue, k, v, of, note, fill, big }) {
   return (
-    <Card T={T} style={{ marginBottom: 12, padding: "16px 12px 14px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 6px 12px" }}>
-        <Badge category={cat} T={T} size={30} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>{title}</div>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.muted, marginTop: 1 }}>{sub}</div>
-        </div>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.muted, flex: 1 }}>{k}</span>
+        {note && <span style={{ fontFamily: FONT_TEXT, fontSize: 11.5, color: T.faint }}>{note}</span>}
       </div>
-      {children && <div style={{ height }}>{children}</div>}
-      {line && (
-        <p style={{
-          fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
-          margin: "12px 6px 0", paddingTop: 12, borderTop: `1px solid ${T.hair}`,
-        }}>{line}</p>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 3 }}>
+        <span style={{
+          fontFamily: FONT_DISPLAY, fontSize: big ? 27 : 18, fontWeight: 700,
+          color: T.ink, letterSpacing: "-0.025em",
+        }}>{v}</span>
+        {of && (
+          <span style={{
+            fontFamily: FONT_TEXT, fontSize: big ? 14 : 12, color: T.faint,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>/ {of}</span>
+        )}
+      </div>
+      {fill !== null && fill !== undefined && (
+        <div style={{
+          height: 5, borderRadius: 3, marginTop: 8, overflow: "hidden",
+          background: tint(hue, 0.16),
+        }}>
+          <div style={{ width: `${Math.round(fill * 100)}%`, height: "100%", background: hue }} />
+        </div>
       )}
-    </Card>
-  );
-}
-
-function Tile({ T, cat, k, v }) {
-  return (
-    <div style={{
-      background: tint(DOMAIN[cat].hue, T.tintA), borderRadius: 18, padding: "13px 14px",
-    }}>
-      <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.muted }}>{k}</div>
-      <div style={{
-        fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: DOMAIN[cat].hue,
-        letterSpacing: "-0.02em", marginTop: 3,
-      }}>{v}</div>
     </div>
   );
 }
 
+function Head({ T, children, action, onAction }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "18px 4px 8px" }}>
+      <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, flex: 1 }}>
+        {children}
+      </span>
+      {action && (
+        <button onClick={onAction} style={{
+          background: "none", border: "none", cursor: "pointer", padding: 0,
+          fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600, color: DOMAIN.sleep.hue,
+        }}>{action}</button>
+      )}
+    </div>
+  );
+}
+
+function Panel({ T, title, sub, children, height = 150 }) {
+  return (
+    <Card T={T} style={{ ...CARD, padding: "13px 10px 8px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "0 6px 8px" }}>
+        <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink }}>{title}</span>
+        <span style={{
+          fontFamily: FONT_TEXT, fontSize: 11.5, color: T.faint, flex: 1,
+          textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{sub}</span>
+      </div>
+      <div style={{ height }}>{children}</div>
+    </Card>
+  );
+}
+
 /* one plain figure: what it is on the left, what it was on the right */
-function Figure({ T, k, v, hue }) {
+function Figure({ T, k, v }) {
   return (
     <div style={{
-      display: "flex", alignItems: "baseline", gap: 12, padding: "11px 2px",
+      display: "flex", alignItems: "baseline", gap: 12, padding: "10px 2px",
       borderTop: `1px solid ${T.hair}`,
     }}>
-      <span style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.muted, flex: 1 }}>{k}</span>
+      <span style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted, flex: 1 }}>{k}</span>
       <span style={{
-        fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600,
-        color: hue || T.ink, textAlign: "right",
+        fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600, color: T.ink, textAlign: "right",
       }}>{v}</span>
     </div>
   );
 }
 
-function Tiles({ T, st }) {
+/* One muted line under the hero: the single thing worth reading first. */
+function Lead({ T, children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
-      <Tile T={T} cat="sleep" k="Average sleep"
-        v={st.avgSleep === null ? "-" : `${st.avgSleep.toFixed(1)}h`} />
-      <Tile T={T} cat="caffeine" k="Cutoff crossed"
-        v={`${st.lateCount} ${st.lateCount === 1 ? "night" : "nights"}`} />
-      <Tile T={T} cat="movement" k="Movement resets"
-        v={st.movePct === null ? "-" : `${st.movePct}% done`} />
-    </div>
+    <p style={{
+      fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.45, color: T.muted,
+      margin: "0 4px 4px",
+    }}>{children}</p>
   );
 }
 
@@ -99,45 +132,33 @@ function MiniPlan({ T, plan, status, now, onOpenPlan }) {
   if (!shown.length) return null;
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 8px" }}>
-        <span style={{
-          fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
-          textTransform: "uppercase", color: T.faint, flex: 1,
-        }}>{next.length ? "Coming up tonight" : "Tonight so far"}</span>
-        <span style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.faint }}>
-          {doneCount} of {plan.items.length} done
-        </span>
-      </div>
-      <Card T={T} style={{ padding: "4px 14px" }}>
+    <>
+      <Head T={T} action="See all" onAction={onOpenPlan}>
+        {next.length ? "Coming up" : "Tonight so far"}
+        <span style={{ fontWeight: 400, color: T.faint }}>{"  "}{doneCount}/{plan.items.length} done</span>
+      </Head>
+      <Card T={T} style={{ ...CARD, padding: "2px 14px" }}>
         {shown.map((it, k) => {
           const d = DOMAIN[it.category] || DOMAIN.shift;
           return (
             <div key={it.id} style={{
-              display: "flex", alignItems: "center", gap: 11, padding: "12px 2px",
+              display: "flex", alignItems: "center", gap: 10, padding: "11px 2px",
               borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
             }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: d.hue, flexShrink: 0 }} />
               <span style={{
-                width: 7, height: 7, borderRadius: 4, background: d.hue, flexShrink: 0,
-              }} />
-              <span style={{
-                fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, flex: 1,
+                fontFamily: FONT_TEXT, fontSize: 14, color: T.ink, flex: 1,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>{it.title}</span>
               <span style={{
-                fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 600, color: T.faint,
+                fontFamily: FONT_DISPLAY, fontSize: 12.5, fontWeight: 600, color: T.faint,
                 fontVariantNumeric: "tabular-nums", flexShrink: 0,
               }}>{fmt(it.at)}</span>
             </div>
           );
         })}
-        <button onClick={onOpenPlan} style={{
-          width: "100%", background: "none", border: "none", cursor: "pointer",
-          padding: "11px 2px", borderTop: `1px solid ${T.hair}`, textAlign: "left",
-          fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600, color: DOMAIN.sleep.hue,
-        }}>See the full plan</button>
       </Card>
-    </div>
+    </>
   );
 }
 
@@ -145,86 +166,96 @@ export default function Dashboard({
   T, profile, nights, rangeKey, setRangeKey, say, setProfile,
   plan, status, now, onOpenPlan,
 }) {
-  const spec = RANGES.find((r) => r.key === rangeKey) || RANGES[2];
-  const today = nights.find((x) => x.dayOffset === 0) || null;
+  /* A number means one night off the strip, null means a multi-night window. */
+  const off = dayOffsetOf(rangeKey);
+  const spec = RANGES.find((r) => r.key === rangeKey) || RANGES[1];
+  const goal = profile.sleepGoalHours;
+  /* which offsets the strip can actually offer a record for */
+  const have = new Set(nights.map((x) => x.dayOffset));
 
-  /* Today means tonight and only tonight. Without it the range is empty, which
-     is the honest answer; it must never fall through to last night's record. */
-  const hist = rangeKey === "today"
-    ? (today ? [today] : [])
-    : nights.slice(0, spec.nights);
+  /* One night means that night and only that night. Without a record the range
+     is empty, which is the honest answer; it must never fall through to the
+     night next to it. */
+  const night = off === null ? null : nights.find((x) => x.dayOffset === off) || null;
+  const hist = off === null
+    ? nights.slice(0, spec.nights)
+    : (night ? [night] : []);
 
   const st = rangeStats(profile, hist);
   const pat = readPatterns(profile, st);
 
-  /* ------------------------------- today ---------------------------------- */
-  if (rangeKey === "today") {
-    if (!today) {
+  const rests = st.naps + st.quiets;
+
+  /* ----------------------------- one night -------------------------------- */
+  if (off !== null) {
+    if (!night) {
       return (
         <div style={{ padding: "4px 20px 0" }}>
-          <RangeControl T={T} value={rangeKey} onChange={setRangeKey} />
-          <Eyebrow T={T}>Today</Eyebrow>
-          <Display T={T} size={30} style={{ marginBottom: 8 }}>Nothing logged yet.</Display>
-          <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, lineHeight: 1.5 }}>
-            Log caffeine, water, rest, or your sleep and tonight will appear here.
-          </p>
+          <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
+          <Display T={T} size={26} style={{ marginBottom: 8 }}>
+            {off === 0 ? "Nothing logged yet." : "No record for this night."}
+          </Display>
+          <Lead T={T}>
+            {off === 0
+              ? "Log caffeine, water, rest, or your sleep and tonight will appear here."
+              : "Nothing was logged that night, so there is nothing to read back."}
+          </Lead>
         </div>
       );
     }
 
-    const lateDrinks = today.cutoff === null
+    const lateDrinks = night.cutoff === null
       ? 0
-      : today.caffeine.filter((c) => nightAxis(c) >= nightAxis(today.cutoff)).length;
+      : night.caffeine.filter((c) => nightAxis(c) >= nightAxis(night.cutoff)).length;
+    const restTaken = night.restMin > 0 ? 1 : 0;
 
     return (
       <div style={{ padding: "4px 20px 0" }}>
-        <RangeControl T={T} value={rangeKey} onChange={setRangeKey} />
-        <Eyebrow T={T}>Today</Eyebrow>
-        <Display T={T} size={30} style={{ marginBottom: 6 }}>
-          {today.sleepHours === null
-            ? "Tonight so far."
-            : `${num(today.sleepHours)}h sleep before tonight.`}
-        </Display>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, lineHeight: 1.45, marginBottom: 18 }}>
-          One night on its own is a snapshot, not a pattern.
-        </p>
+        <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
 
-        <Tiles T={T} st={st} />
-        <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
-
-        <Eyebrow T={T}>Tonight in figures</Eyebrow>
-        <Card T={T} style={{ padding: "4px 16px 8px", marginBottom: 16 }}>
-          <Figure T={T} k="Sleep" hue={DOMAIN.sleep.hue}
-            v={today.sleepHours === null
-              ? "Not logged"
-              : `${num(today.sleepHours)}h${today.sleepEstimated ? " (estimated)" : ""}`} />
-          <Figure T={T} k="Caffeine" hue={DOMAIN.caffeine.hue}
-            v={today.cutoff === null
-              ? plural(today.caffeine.length, "drink", "drinks")
-              : `${plural(today.caffeine.length, "drink", "drinks")}, cutoff ${fmt(today.cutoff)}`} />
-          <Figure T={T} k="After the cutoff" hue={DOMAIN.caffeine.hue}
-            v={today.cutoff === null ? "No cutoff set" : plural(lateDrinks, "drink", "drinks")} />
-          <Figure T={T} k="Movement resets" hue={DOMAIN.movement.hue}
-            v={`${today.moveDone} of ${today.moveTotal} done`} />
-          <Figure T={T} k="Rest taken" hue={DOMAIN.recovery.hue}
-            v={today.restKind === "nap" ? `Nap, ${today.restMin} minutes`
-              : today.restKind === "quiet" ? `Quiet rest, ${today.restMin} minutes`
-              : "None yet"} />
-          <Figure T={T} k="Water" hue={DOMAIN.water.hue}
-            v={plural(today.water, "log", "logs")} />
+        <Card T={T} style={{ ...CARD, padding: 15 }}>
+          <Stat T={T} big hue={DOMAIN.sleep.hue} k="Sleep"
+            note={night.sleepEstimated ? "estimated" : undefined}
+            v={night.sleepHours === null ? "-" : `${num(night.sleepHours)}h`}
+            of={`${goal}h goal`} fill={share(night.sleepHours, goal)} />
         </Card>
 
-        <p style={{
-          fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
-          margin: "0 4px 16px",
-        }}>{pat.movement}</p>
+        <Card T={T} style={{ ...CARD, padding: 15, display: "flex", gap: 14 }}>
+          <Stat T={T} hue={DOMAIN.caffeine.hue} k="Past cutoff"
+            v={night.cutoff === null ? "-" : lateDrinks}
+            of={night.cutoff === null ? "no cutoff" : plural(night.caffeine.length, "drink", "drinks")}
+            fill={night.cutoff === null ? null : share(lateDrinks, night.caffeine.length)} />
+          <Stat T={T} hue={DOMAIN.movement.hue} k="Resets"
+            v={night.moveDone} of={night.moveTotal} fill={share(night.moveDone, night.moveTotal)} />
+          <Stat T={T} hue={DOMAIN.recovery.hue} k="Rest"
+            v={night.restMin > 0 ? `${night.restMin}m` : "-"}
+            of={night.restKind === "nap" ? "nap" : night.restKind === "quiet" ? "quiet" : "none"}
+            fill={restTaken ? 1 : null} />
+        </Card>
+
+        <Lead T={T}>One night on its own is a snapshot, not a pattern.</Lead>
+
+        {/* the plan belongs to tonight, so it only shows on tonight */}
+        {off === 0 && (
+          <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
+        )}
+
+        <Head T={T}>In figures</Head>
+        <Card T={T} style={{ ...CARD, padding: "0 15px 4px" }}>
+          <Figure T={T} k="Caffeine"
+            v={night.cutoff === null
+              ? plural(night.caffeine.length, "drink", "drinks")
+              : `${plural(night.caffeine.length, "drink", "drinks")}, cutoff ${fmt(night.cutoff)}`} />
+          <Figure T={T} k="Water" v={plural(night.water, "log", "logs")} />
+          <Figure T={T} k="Movement resets" v={`${night.moveDone} of ${night.moveTotal} done`} />
+        </Card>
 
         <div style={{
-          display: "flex", alignItems: "flex-start", gap: 8, margin: "0 4px 8px",
-          fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, lineHeight: 1.45,
+          display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
+          fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
         }}>
-          <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-          Charts need more than one night. Switch to 3 days or wider to see them.
+          <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+          Charts need more than one night. Pick a window from Trends to see them.
         </div>
       </div>
     );
@@ -233,7 +264,7 @@ export default function Dashboard({
   /* ------------------------------- range ---------------------------------- */
   const chrono = [...hist].reverse();
   const thin = Math.max(0, Math.floor(hist.length / 7) - 1);
-  const axis = { fill: T.faint, fontSize: 10.5, fontFamily: FONT_TEXT };
+  const axis = { fill: T.faint, fontSize: 10, fontFamily: FONT_TEXT };
   const dayLabel = (h) => (h.dayOffset === 0 ? "Now" : `${h.dayOffset}d`);
 
   const sleep = chrono.filter((h) => h.sleepStart !== null && h.sleepHours !== null).map((h) => ({
@@ -253,49 +284,40 @@ export default function Dashboard({
     return row;
   });
 
-  /* Sleep start spread and wake drift measure the same instability from two
-     ends, so the panel reports whichever moved more rather than both. */
-  const timingLine = (st.wakeDrift ?? 0) > (st.spread ?? 0) ? pat.wakeDrift : pat.sleepTiming;
-
   return (
     <div style={{ padding: "4px 20px 0" }}>
-      <RangeControl T={T} value={rangeKey} onChange={setRangeKey} />
+      <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
 
-      <Eyebrow T={T}>{spec.label}</Eyebrow>
-      <Display T={T} size={32} style={{ marginBottom: 6 }}>
-        {st.avgSleep === null ? "No sleep logged yet." : `${num(st.avgSleep)}h average sleep.`}
-      </Display>
-      <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.muted, lineHeight: 1.45, marginBottom: 16 }}>
-        {pat.sleepAvgLine}
-      </p>
+      <Card T={T} style={{ ...CARD, padding: 15 }}>
+        <Stat T={T} big hue={DOMAIN.sleep.hue} k="Average sleep"
+          note={`${plural(st.n, "night", "nights")}`}
+          v={st.avgSleep === null ? "-" : `${num(st.avgSleep)}h`}
+          of={`${goal}h goal`} fill={share(st.avgSleep, goal)} />
+      </Card>
 
-      <div style={{
-        padding: "14px 16px", borderRadius: 18, marginBottom: 18,
-        background: tint(DOMAIN.recovery.hue, T.tintA),
-      }}>
-        <div style={{
-          fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
-          textTransform: "uppercase", color: DOMAIN.recovery.hue, marginBottom: 7,
-        }}>Main pattern</div>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.5, color: T.ink, margin: 0 }}>
-          {pat.mainPattern}
-        </p>
-      </div>
+      <Card T={T} style={{ ...CARD, padding: 15, display: "flex", gap: 14 }}>
+        <Stat T={T} hue={DOMAIN.caffeine.hue} k="Past cutoff"
+          v={st.lateCount} of={plural(st.n, "night", "nights")} fill={share(st.lateCount, st.n)} />
+        <Stat T={T} hue={DOMAIN.movement.hue} k="Resets"
+          v={st.movePct === null ? "-" : st.moveDone} of={st.moveTotal}
+          fill={st.movePct === null ? null : st.movePct / 100} />
+        <Stat T={T} hue={DOMAIN.recovery.hue} k="Rests"
+          v={rests} of={rests + st.missed || undefined} fill={share(rests, rests + st.missed)} />
+      </Card>
 
-      <Tiles T={T} st={st} />
+      <Lead T={T}>{pat.mainPattern}</Lead>
+
       <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
 
-      <Panel T={T} cat="sleep" title="When you slept" height={170}
-        sub={anyEstimated
-          ? "Each bar is one sleep block; faded bars are estimated"
-          : "Each bar is one sleep block, start to wake"}
-        line={`${timingLine} ${pat.fatigue}`}>
+      <div style={{ height: 8 }} />
+      <Panel T={T} title="When you slept" height={158}
+        sub={anyEstimated ? "faded bars are estimated" : "start to wake"}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={sleep} margin={{ left: -16, right: 8, top: 4, bottom: 0 }}>
+          <BarChart data={sleep} margin={{ left: -18, right: 8, top: 4, bottom: 0 }}>
             <CartesianGrid stroke={T.hair} vertical={false} />
             <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
             <YAxis domain={[lo, hi]} tickFormatter={nightTick} tick={axis}
-              axisLine={false} tickLine={false} width={40} />
+              axisLine={false} tickLine={false} width={38} />
             <Bar dataKey="base" stackId="a" fill="transparent" />
             <Bar dataKey="len" stackId="a" radius={[4, 4, 4, 4]}>
               {/* keyed by night id, not index: the range changes length as the
@@ -309,13 +331,12 @@ export default function Dashboard({
         </ResponsiveContainer>
       </Panel>
 
-      <Panel T={T} cat="caffeine" title="Caffeine against your cutoff"
-        sub="Dots above the line landed too late" line={pat.caffeine}>
+      <Panel T={T} title="Caffeine against cutoff" sub="dots above the line landed late">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={caff} margin={{ left: -14, right: 12, top: 8, bottom: 0 }}>
+          <ComposedChart data={caff} margin={{ left: -16, right: 12, top: 8, bottom: 0 }}>
             <CartesianGrid stroke={T.hair} vertical={false} />
             <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
-            <YAxis tickFormatter={nightTick} tick={axis} axisLine={false} tickLine={false} width={40} />
+            <YAxis tickFormatter={nightTick} tick={axis} axisLine={false} tickLine={false} width={38} />
             <Line dataKey="cutoff" stroke={DOMAIN.sleep.hue} strokeWidth={1.6}
               strokeDasharray="5 5" dot={false} />
             {["c1", "c2", "c3", "c4", "c5"].map((k) => (
@@ -326,54 +347,47 @@ export default function Dashboard({
         </ResponsiveContainer>
       </Panel>
 
-      <Panel T={T} cat="movement" title="Movement and rest"
-        sub={`${st.moveDone} of ${st.moveTotal} resets · ${st.naps} naps · ${st.quiets} quiet rests · ${st.missed} missed`}
-        line={`${pat.movement} ${pat.rest}`} />
-
-      <Panel T={T} cat="light" title="Light and food"
-        sub={`${st.lateLightDone} of ${st.n} late-light reminders done · ${num(st.waterAvg)} water logs per shift`}
-        line={`${pat.light} ${pat.foodHydration}`} />
-
-      <Eyebrow T={T}>What the plan noticed</Eyebrow>
-      <Card T={T} style={{ padding: "6px 18px", marginBottom: 18 }}>
+      <Head T={T}>What the plan noticed</Head>
+      <Card T={T} style={{ ...CARD, padding: "0 15px 2px" }}>
         {pat.noticed.map((nn, k) => (
           <div key={nn} style={{
-            display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 0",
+            display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 0",
             borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
           }}>
             <div style={{
-              width: 6, height: 6, borderRadius: 3, background: DOMAIN.recovery.hue,
+              width: 5, height: 5, borderRadius: 3, background: DOMAIN.recovery.hue,
               flexShrink: 0, marginTop: 7,
             }} />
-            <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{nn}</span>
+            <span style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.ink, lineHeight: 1.45 }}>{nn}</span>
           </div>
         ))}
+        <Figure T={T} k="Sleep window drift" v={st.spread === null ? "-" : `${num(st.spread)}h`} />
+        <Figure T={T} k="Water per shift" v={st.waterAvg === null ? "-" : num(st.waterAvg)} />
       </Card>
 
-      <Eyebrow T={T}>Next plan adjustment</Eyebrow>
-      <Card T={T} style={{ padding: 18, marginBottom: 16 }}>
-        <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
+      <Head T={T}>Next plan adjustment</Head>
+      <Card T={T} style={{ ...CARD, padding: 15 }}>
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.ink, margin: 0 }}>
           {pat.adjustment.text}
         </p>
         {pat.adjustment.apply && (
-          <div style={{ display: "flex", gap: 9, marginTop: 16 }}>
-            <Btn T={T} style={{ flex: 1.4, fontSize: 14.5 }} onClick={() => {
+          <div style={{ display: "flex", gap: 8, marginTop: 13 }}>
+            <Btn T={T} style={{ flex: 1.4, fontSize: 14, padding: "12px 16px" }} onClick={() => {
               setProfile(pat.adjustment.apply(profile));
               say(pat.adjustment.done);
             }}>Apply to next plan</Btn>
-            <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14.5 }}
+            <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14, padding: "12px 16px" }}
               onClick={() => say("Keeping your current plan.")}>Keep current</Btn>
           </div>
         )}
       </Card>
 
       <div style={{
-        display: "flex", alignItems: "flex-start", gap: 8, margin: "0 4px 8px",
-        fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, lineHeight: 1.45,
+        display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
+        fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
       }}>
-        <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-        Pattern tracking for sleep protection and recovery. Nothing here is a score,
-        and nothing here is graded.
+        <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+        Nothing here is a score, and nothing here is graded.
       </div>
     </div>
   );

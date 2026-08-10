@@ -1,6 +1,6 @@
 import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint } from "../tokens.js";
 import { CaretDown, Check } from "../icons.jsx";
-import { RANGES } from "../stats.js";
+import { RANGES, STRIP_DAYS, dayOffsetOf } from "../stats.js";
 
 /* ------------------------------ shared UI bits ---------------------------- */
 
@@ -181,35 +181,83 @@ export function Select({ T, label, value, onChange, options, placeholder = "Choo
   );
 }
 
-export function RangeControl({ T, value, onChange }) {
-  const inline = RANGES.filter((r) => !r.inMore);
-  const more = RANGES.filter((r) => r.inMore);
-  const activeMore = more.find((r) => r.key === value);
+/** What the current selection is called, which doubles as the screen's title. */
+export function selectionLabel(value) {
+  const off = dayOffsetOf(value);
+  if (off === null) return (RANGES.find((r) => r.key === value) || RANGES[1]).label;
+  if (off === 0) return "Tonight";
+  if (off === 1) return "Last night";
+  return `${off} nights ago`;
+}
+
+/* One night of the strip. The circle is the target, the label above it names
+   the night; both are one button so the tap area is the whole column. */
+function DayChip({ T, label, on, dim, onClick }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} aria-label={label} style={{
+      flex: 1, minWidth: 0, padding: "2px 0", background: "none", border: "none",
+      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
+    }}>
+      <span style={{
+        fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 500,
+        color: on ? T.ink : dim ? T.hair : T.faint,
+      }}>{label}</span>
+      <span style={{
+        width: 28, height: 28, borderRadius: 14, boxSizing: "border-box",
+        background: on ? T.ink : "transparent",
+        border: on ? "none" : `1.5px solid ${dim ? T.hair : T.faint}`,
+        opacity: dim && !on ? 0.5 : 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{on && <Check size={14} color={T.bg} weight="bold" />}</span>
+    </button>
+  );
+}
+
+/* The last seven nights as a strip, with the longer windows behind one select.
+   Nights carry an offset and no calendar date — a shift that starts Tuesday
+   evening and ends Wednesday morning has no honest weekday — so the strip
+   counts back in days the way the charts already do. */
+export function RangeControl({ T, value, onChange, have }) {
+  const range = RANGES.find((r) => r.key === value);
+  const days = Array.from({ length: STRIP_DAYS }, (_, i) => STRIP_DAYS - 1 - i);
 
   return (
-    <div style={{ display: "flex", gap: 7, alignItems: "center", marginBottom: 18 }}>
-      {inline.map((r) => (
-        <Pill key={r.key} T={T} hue={DOMAIN.sleep.hue} active={value === r.key}
-          onClick={() => onChange(r.key)}>{r.label}</Pill>
-      ))}
-      <div style={{ position: "relative" }}>
-        <select
-          value={activeMore ? activeMore.key : ""}
-          onChange={(e) => e.target.value && onChange(e.target.value)}
-          aria-label="More ranges"
-          style={{
-            appearance: "none", fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
-            color: activeMore ? T.bg : T.muted,
-            background: activeMore ? DOMAIN.sleep.hue : "transparent",
-            border: `1px solid ${activeMore ? DOMAIN.sleep.hue : T.hair}`,
-            borderRadius: 999, padding: "7px 26px 7px 13px",
-          }}
-        >
-          <option value="">More</option>
-          {more.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-        </select>
-        <CaretDown size={12} color={activeMore ? T.bg : T.muted}
-          style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <span style={{
+          fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700,
+          letterSpacing: "-0.03em", color: T.ink, flex: 1,
+        }}>{selectionLabel(value)}</span>
+        {/* held at "" so it always reads "Trends": which window is active is
+            already spelled out by the title next to it, and a select showing
+            "1 week" beside a title saying "1 week" is the same word twice */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <select
+            value=""
+            onChange={(e) => e.target.value && onChange(e.target.value)}
+            aria-label="Longer windows"
+            style={{
+              appearance: "none", fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600,
+              color: range ? T.bg : T.muted,
+              background: range ? DOMAIN.sleep.hue : "transparent",
+              border: `1px solid ${range ? DOMAIN.sleep.hue : T.hair}`,
+              borderRadius: 999, padding: "6px 25px 6px 12px",
+            }}
+          >
+            <option value="">Trends</option>
+            {RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+          <CaretDown size={11} color={range ? T.bg : T.muted}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 2 }}>
+        {days.map((off) => (
+          <DayChip key={off} T={T} label={off === 0 ? "Now" : `${off}d`}
+            on={value === `d${off}`} dim={have ? !have.has(off) : false}
+            onClick={() => onChange(`d${off}`)} />
+        ))}
       </div>
     </div>
   );

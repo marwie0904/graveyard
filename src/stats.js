@@ -14,14 +14,25 @@ import { DOMAIN } from "./tokens.js";
    be averaged in as a zero.
 ============================================================================ */
 
+/* Multi-night windows only. A single night is not a range: it is picked off
+   the day strip as "d<offset>", which is why "Today" is not in this list. */
 export const RANGES = [
-  { key: "today", label: "Today",    nights: 1,   inMore: false },
-  { key: "3d",    label: "3 days",   nights: 3,   inMore: false },
-  { key: "1w",    label: "1 week",   nights: 7,   inMore: false },
-  { key: "2w",    label: "2 weeks",  nights: 14,  inMore: true  },
-  { key: "1m",    label: "1 month",  nights: 30,  inMore: true  },
-  { key: "all",   label: "All time", nights: 999, inMore: true  },
+  { key: "3d",  label: "3 days",   nights: 3   },
+  { key: "1w",  label: "1 week",   nights: 7   },
+  { key: "2w",  label: "2 weeks",  nights: 14  },
+  { key: "1m",  label: "1 month",  nights: 30  },
+  { key: "all", label: "All time", nights: 999 },
 ];
+
+/* How many nights the strip offers, tonight included. */
+export const STRIP_DAYS = 7;
+
+/** "d3" -> 3, anything else -> null. The dashboard branches on this: a number
+    means one night, null means a window. */
+export const dayOffsetOf = (key) => {
+  const m = /^d(\d+)$/.exec(key || "");
+  return m ? Number(m[1]) : null;
+};
 
 export const SLEEPY_LABEL = {
   early: "Early shift", mid: "Mid-shift", deep: "Deep night", late: "Last hours",
