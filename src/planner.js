@@ -48,9 +48,14 @@ export function determineCurrentPhase(now, ph) {
   return { phase, inDeepNight: !!ph.deepNight && now >= ph.deepNight[0] && now < ph.deepNight[1] };
 }
 
+/* Nights already worked in this run. Profiles saved before this field existed
+   read as night one, which is the same plan they got before. */
+export const stretchNight = (profile) => profile.nightInStretch ?? 1;
+
 export function caffeineHours(profile) {
   let hours = { low: 5, normal: 6, high: 8 }[profile.caffeineSensitivity] ?? 6;
   if (profile.sleepGoalHours <= 5) hours += 1; // short sleep -> protect it harder
+  if (stretchNight(profile) >= 3) hours += 1;  // deficit compounds across a stretch
   return ov(profile, "caffeineHours", hours);
 }
 
@@ -59,10 +64,23 @@ export function calculateCaffeineCutoff(profile, ph) {
   return ph.sleepStart - caffeineHours(profile) * 60;
 }
 
+/* One answer covers both how much you sit and how freely you can break, because
+   the plan only ever asks two things of it: how often to prompt a reset, and
+   whether that reset has to be doable without leaving the desk. */
+export const MOVEMENT = {
+  desk:          { base: 90,  micro: true },
+  unpredictable: { base: 90,  micro: true },
+  seated:        { base: 90,  micro: false },
+  mixed:         { base: 120, micro: false },
+  active:        { base: 150, micro: false },
+};
+export const movementMode = (profile) => MOVEMENT[profile.movement] ?? MOVEMENT.mixed;
+
 export function movementInterval(profile) {
-  let base = 150;
-  if (profile.sedentary === "most" || profile.sedentary === "desk") base = 90;
-  else if (profile.sedentary === "some") base = 120;
+  let base = movementMode(profile).base;
+  const night = stretchNight(profile);
+  if (night >= 4) base -= 30;
+  else if (night >= 2) base -= 15;
   return ov(profile, "moveGap", base);
 }
 
@@ -188,9 +206,7 @@ export function generateTimeline(profile, logs, now) {
 
   const canNapBefore = profile.nap === "before" || profile.nap === "both";
   const canNapDuring = profile.nap === "during" || profile.nap === "both";
-  const microOnly = profile.breakControl === "low"
-    || profile.breakControl === "unpredictable"
-    || profile.sedentary === "desk";
+  const microOnly = movementMode(profile).micro;
 
   /* ---------- pre-shift ---------- */
   if (!s.wokeLate) {
@@ -402,7 +418,8 @@ export function generateTimeline(profile, logs, now) {
   }
 
   /* ---------- fatigue check-in, placed where the user says it bites ---------- */
-  const risky = s.poorSleep || s.wokeEarly || profile.sleepGoalHours <= 5;
+  const deepStretch = stretchNight(profile) >= 3;
+  const risky = s.poorSleep || s.wokeEarly || profile.sleepGoalHours <= 5 || deepStretch;
   add({
     id: "checkin-1", at: sleepiestWindow(profile, ph), category: "recovery",
     title: "Fatigue check-in",
@@ -414,7 +431,11 @@ export function generateTimeline(profile, logs, now) {
       end: "You said the end of the shift is hardest. That is also when the commute happens, so this check-in feeds the safety handling.",
       varies: "Your sleepiest time changes, so this sits in the back half of the shift where it is most often reported.",
     }[profile.sleepiestTime] || "Fatigue is easier to work with when it is caught early.",
-    changed: risky ? "Weighted heavier because your sleep was short or poor." : undefined,
+    changed: deepStretch
+      ? `Weighted heavier because this is night ${stretchNight(profile)} of your stretch.`
+      : risky
+      ? "Weighted heavier because your sleep was short or poor."
+      : undefined,
     actions: ["done", "skip"],
   });
 

@@ -1,14 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
-  deriveState,
+  deriveState, movementInterval,
 } from "./planner.js";
 
 const P = {
   shiftStart: "22:00", shiftEnd: "06:00", plannedSleep: "07:30",
   sleepGoalHours: 7, caffeine: "moderate", caffeineSensitivity: "normal",
-  nap: "both", sedentary: "some", breakControl: "high", lightEnv: "bright",
-  commute: "drive", mealPattern: "before", sleepiestTime: "deep", overrides: {},
+  nap: "both", movement: "mixed", lightEnv: "bright",
+  commute: "drive", sleepiestTime: "deep", overrides: {},
 };
 
 describe("calculateShiftPhases", () => {
@@ -77,8 +77,8 @@ describe("deriveState with a midnight cutoff", () => {
   const P0 = {
     shiftStart: "00:00", shiftEnd: "05:00", plannedSleep: "06:00",
     sleepGoalHours: 7, caffeine: "moderate", caffeineSensitivity: "normal",
-    nap: "both", sedentary: "some", breakControl: "high", lightEnv: "bright",
-    commute: "drive", mealPattern: "before", sleepiestTime: "deep", overrides: {},
+    nap: "both", movement: "mixed", lightEnv: "bright",
+    commute: "drive", sleepiestTime: "deep", overrides: {},
   };
 
   it("still flags caffeine logged after a cutoff of 0", () => {
@@ -92,5 +92,29 @@ describe("deriveState with a midnight cutoff", () => {
     const ph = calculateShiftPhases(P0);
     const logs = [{ id: "c", t: -120, type: "caffeine", value: 1 }];
     expect(deriveState(P0, logs, 120, ph).lateCaffeine).toBe(false);
+  });
+});
+
+describe("nightInStretch", () => {
+  const on = (n) => ({ ...P, nightInStretch: n });
+
+  it("treats a profile saved without the field as night one", () => {
+    expect(caffeineHours(P)).toBe(caffeineHours(on(1)));
+    expect(movementInterval(P)).toBe(movementInterval(on(1)));
+  });
+
+  it("stops caffeine an hour earlier from the third night", () => {
+    expect(caffeineHours(on(2))).toBe(caffeineHours(on(1)));
+    expect(caffeineHours(on(3))).toBe(caffeineHours(on(1)) + 1);
+  });
+
+  it("shortens the gap between resets as the stretch runs on", () => {
+    expect(movementInterval(on(2))).toBe(movementInterval(on(1)) - 15);
+    expect(movementInterval(on(4))).toBe(movementInterval(on(1)) - 30);
+  });
+
+  it("explains the heavier check-in by the stretch, not by sleep", () => {
+    const item = generateTimeline(on(3), [], 0).items.find((i) => i.id === "checkin-1");
+    expect(item.changed).toMatch(/night 3 of your stretch/);
   });
 });

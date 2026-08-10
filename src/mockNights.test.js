@@ -6,8 +6,8 @@ import { nightAxis } from "./time.js";
 const P = {
   shiftStart: "22:00", shiftEnd: "06:00", plannedSleep: "07:30",
   sleepGoalHours: 7, caffeine: "moderate", caffeineSensitivity: "normal",
-  nap: "both", sedentary: "some", breakControl: "high", lightEnv: "bright",
-  commute: "drive", mealPattern: "before", sleepiestTime: "deep", overrides: {},
+  nap: "both", movement: "mixed", lightEnv: "bright",
+  commute: "drive", sleepiestTime: "deep", overrides: {},
 };
 
 const isLate = (n) => n.cutoff !== null && n.caffeine.some((c) => nightAxis(c) >= nightAxis(n.cutoff));

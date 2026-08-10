@@ -1,6 +1,6 @@
 import { DAY, nightAxis } from "./time.js";
 import {
-  calculateShiftPhases, calculateCaffeineCutoff, movementInterval, caffeineHours, ov,
+  calculateShiftPhases, calculateCaffeineCutoff, movementInterval, movementMode, caffeineHours, ov,
 } from "./planner.js";
 import { Moon, Coffee, Pulse, Bed, Car, Trophy, Lightning } from "./icons.jsx";
 import { DOMAIN } from "./tokens.js";
@@ -219,7 +219,7 @@ export function readPatterns(profile, st) {
        the Tile reads "-" rather than a premature 0%. */
     st.n === 1 && st.moveDone === 0 ? "Tonight has only just started, so there are no resets to read yet."
     : st.movePct === null ? "No movement resets have been logged in this period yet."
-    : profile.breakControl === "low" || profile.breakControl === "unpredictable"
+    : movementMode(profile).micro
       ? `${st.movePct}% of resets were completed, and since breaks are hard to control the plan uses 30 to 60 second micro-resets.`
     : st.movePct >= 70 ? "You completed most movement resets, so the plan will keep the current reset frequency."
     : st.movePct >= 40 ? "You completed some resets, so the plan may group them around natural break times."

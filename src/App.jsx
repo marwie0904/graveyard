@@ -252,7 +252,7 @@ function quickAdvice(kind, profile, plan, now) {
     return "You are close to sleep protection. Skip caffeine now and use movement, water, and wind-down.";
   }
   if (kind === "stress") {
-    return profile.breakControl === "high" || profile.breakControl === "fixed"
+    return !movementMode(profile).micro
       ? "Lower your shoulders, unclench your jaw, three slow breaths. If you can step away, take a three to five minute quiet reset."
       : "Lower your shoulders, unclench your jaw, and take three slow breaths where you are.";
   }
@@ -465,6 +465,16 @@ const QUESTIONS = [
     ],
   },
   {
+    key: "nightInStretch", kind: "choice", q: "Which night of your stretch is tonight?",
+    help: "Alertness and attention drop with each night worked in a row, so the plan asks less of you the deeper into a stretch you are.",
+    options: [
+      { v: 1, l: "First night", s: "Standard plan" },
+      { v: 2, l: "Second night", s: "Slightly shorter gaps between resets" },
+      { v: 3, l: "Third night", s: "Earlier caffeine cutoff, rest weighted heavier" },
+      { v: 4, l: "Fourth or later", s: "Shortest resets, strongest sleep protection" },
+    ],
+  },
+  {
     key: "caffeine", kind: "choice", q: "How much caffeine on a typical shift?",
     options: [
       { v: "none", l: "None", s: "Caffeine stays off the plan" },
@@ -483,23 +493,23 @@ const QUESTIONS = [
     ],
   },
   {
-    key: "sedentary", kind: "choice", part: 2, q: "How much of your shift is spent sitting?",
-    help: "This decides whether you get standing breaks, walking breaks, or small desk stretches.",
+    key: "caffeineSensitivity", kind: "choice", part: 2, q: "How sensitive are you to caffeine?",
+    help: "This moves your cutoff by up to three hours. High sensitivity stops caffeine about eight hours before sleep; low, about five.",
     options: [
-      { v: "most", l: "Mostly seated", s: "Adds regular movement resets." },
-      { v: "some", l: "About half seated", s: "Adds lighter movement reminders." },
-      { v: "little", l: "Mostly moving", s: "Keeps movement reminders minimal." },
-      { v: "desk", l: "I cannot leave my desk much", s: "Uses desk-based resets instead." },
+      { v: "low", l: "Not very", s: "Cutoff about five hours before sleep" },
+      { v: "normal", l: "Average", s: "Cutoff about six hours before sleep" },
+      { v: "high", l: "Very sensitive", s: "Cutoff about eight hours before sleep" },
     ],
   },
   {
-    key: "breakControl", kind: "choice", part: 2, q: "How much control do you have over your breaks?",
-    help: "The plan should not suggest naps or walks you cannot realistically take.",
+    key: "movement", kind: "choice", part: 2, q: "How freely can you move during your shift?",
+    help: "This sets how often resets are prompted, and whether they have to be doable without leaving your desk.",
     options: [
-      { v: "high", l: "I can take breaks when needed", s: "Plan can use flexible resets." },
-      { v: "fixed", l: "I have fixed breaks", s: "Plan works around your break times." },
-      { v: "unpredictable", l: "Breaks are unpredictable", s: "Plan uses short backup resets." },
-      { v: "low", l: "I rarely get breaks", s: "Plan uses 30\u201360 second micro-resets." },
+      { v: "desk", l: "I can rarely leave my desk", s: "Uses 30\u201360 second desk resets." },
+      { v: "unpredictable", l: "Mostly seated, breaks are unpredictable", s: "Uses short backup resets." },
+      { v: "seated", l: "Mostly seated, breaks when I need them", s: "Adds regular movement resets." },
+      { v: "mixed", l: "About half seated", s: "Adds lighter movement reminders." },
+      { v: "active", l: "Up and moving most of the shift", s: "Keeps movement reminders minimal." },
     ],
   },
   {
@@ -510,26 +520,6 @@ const QUESTIONS = [
       { v: "bright", l: "Bright workplace lighting", s: "Adds late-shift light reduction." },
       { v: "dim", l: "Dim workplace lighting", s: "Adds alertness checks during sleepy hours." },
       { v: "mixed", l: "Mixed lighting", s: "Uses balanced light prompts." },
-    ],
-  },
-  {
-    key: "mealPattern", kind: "choice", part: 2, q: "How do you usually eat during a night shift?",
-    help: "This helps head off heavy eating in the deep night or right before sleep.",
-    options: [
-      { v: "before", l: "A full meal before work", s: "Plan adds lighter snacks during the shift." },
-      { v: "during", l: "Main meal during the shift", s: "Plan helps time it earlier when possible." },
-      { v: "snack", l: "I mostly snack through the night", s: "Plan adds planned snack windows." },
-      { v: "skip", l: "I often skip meals", s: "Plan adds a simple food reminder." },
-    ],
-  },
-  {
-    key: "hydration", kind: "choice", part: 2, q: "How often do you drink water during your shift?",
-    help: "Water works well as a routine anchor, especially paired with movement breaks.",
-    options: [
-      { v: "lots", l: "Often", s: "Keeps hydration reminders light." },
-      { v: "some", l: "Sometimes", s: "Adds water checks with breaks." },
-      { v: "little", l: "Rarely", s: "Adds regular water reminders." },
-      { v: "caffeine", l: "Mostly coffee or energy drinks", s: "Adds water swaps after caffeine." },
     ],
   },
   {
@@ -554,49 +544,22 @@ const QUESTIONS = [
       { v: "varies", l: "It changes" },
     ],
   },
-  {
-    key: "goal", kind: "choice", part: 2, multi: true,
-    q: "What do you want the planner to help with most?",
-    help: "Pick as many as apply. This changes what gets shown first, not what gets planned.",
-    options: [
-      { v: "sleep", l: "Better sleep" },
-      { v: "energy", l: "More energy" },
-      { v: "caffeine", l: "Less caffeine dependence" },
-      { v: "movement", l: "More movement" },
-      { v: "eating", l: "Healthier eating" },
-      { v: "stress", l: "Less stress" },
-      { v: "routine", l: "A steadier routine" },
-    ],
-  },
 ];
-
-const GOAL_LABEL = {
-  sleep: "Better sleep", energy: "More energy", caffeine: "Less caffeine dependence",
-  movement: "More movement", eating: "Healthier eating", stress: "Less stress",
-  routine: "A steadier routine",
-};
 
 const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 const toggleIn = (v, x) => {
   const arr = asList(v);
   return arr.includes(x) ? arr.filter((y) => y !== x) : [...arr, x];
 };
-const goalLabel = (profile) => {
-  const g = asList(profile.goal).map((k) => GOAL_LABEL[k]).filter(Boolean);
-  if (!g.length) return "No focus set";
-  if (g.length <= 2) return g.join(" and ");
-  return `${g[0]} and ${g.length - 1} more`;
-};
-
 function Quiz({ onDone, onBack }) {
   const T = WARM;
   const [i, setI] = useState(0);
   const [a, setA] = useState({
     shiftStart: "22:00", shiftEnd: "07:00", plannedSleep: "08:00",
-    sleepGoalHours: 7.5, caffeine: "moderate", nap: "during",
-    sedentary: "most", breakControl: "high", lightEnv: "screens",
-    mealPattern: "before", hydration: "some", commute: "drive",
-    sleepiestTime: "deep", goal: ["sleep"],
+    sleepGoalHours: 7.5, nightInStretch: 1, caffeine: "moderate",
+    caffeineSensitivity: "normal", nap: "during",
+    movement: "seated", lightEnv: "screens",
+    commute: "drive", sleepiestTime: "deep",
   });
   /* The progress bar tracks the tap; the question body lags by one exit. */
   const [qi, qAnim] = useStepSwap(i);
@@ -707,47 +670,29 @@ const REVIEW = [
     lines: (p, ph) => [
       `Bottle filled ${fmt(ph.start - 45)}`,
       "Water paired with every movement reset",
-      p.bathroom === "yes" ? "Large drinks stop early to protect your sleep" : "Lighter drinks close to your sleep window",
+      "Lighter drinks close to your sleep window",
     ],
     why: "Mild dehydration feels a lot like fatigue, and drinking steadily early means fewer bathroom trips breaking up the sleep you are protecting.",
-    controls: [
-      {
-        key: "hydration", q: "How often do you drink water during your shift?",
-        options: [
-          { v: "lots", l: "Often" }, { v: "some", l: "Sometimes" },
-          { v: "little", l: "Rarely" }, { v: "caffeine", l: "Mostly coffee" },
-        ],
-      },
-      {
-        key: "bathroom", q: "Do bathroom trips interrupt your sleep?",
-        help: "If yes, the plan moves hydration earlier and keeps late prompts small.",
-        options: [{ v: "yes", l: "Yes, often" }, { v: "no", l: "Not really" }],
-      },
-    ],
+    /* Nothing left to choose here: the timing numbers are adjustable instead. */
+    controls: [],
   },
   {
     key: "movement", cat: "movement", title: "How often you get up",
     rule: "Short resets, often, rather than long breaks you will not take.",
     lines: (p) => [
       `A reset every ${movementInterval(p)} minutes`,
-      p.breakControl === "low" ? "Kept under a minute, no need to leave your desk" : "Two to three minutes each",
+      movementMode(p).micro ? "Kept under a minute, no need to leave your desk" : "Two to three minutes each",
       "Shortened automatically if you start skipping them",
     ],
     why: "Long unbroken sitting adds stiffness and drowsiness on top of the night's own fatigue, and frequent short resets work better because they are the ones people actually do.",
     controls: [
       {
-        key: "sedentary", q: "How much of your shift is spent sitting?",
+        key: "movement", q: "How freely can you move during your shift?",
+        help: "Being stuck at your desk, or never knowing when a break lands, switches every reset to something you can do seated.",
         options: [
-          { v: "most", l: "Mostly seated" }, { v: "some", l: "About half" },
-          { v: "little", l: "Mostly moving" }, { v: "desk", l: "Stuck at my desk" },
-        ],
-      },
-      {
-        key: "breakControl", q: "How much control do you have over your breaks?",
-        help: "Low or unpredictable control switches every reset to something you can do without leaving your desk.",
-        options: [
-          { v: "high", l: "When I need one" }, { v: "fixed", l: "Fixed breaks" },
-          { v: "unpredictable", l: "Unpredictable" }, { v: "low", l: "Rarely any" },
+          { v: "desk", l: "Rarely leave my desk" }, { v: "unpredictable", l: "Breaks unpredictable" },
+          { v: "seated", l: "Seated, breaks when needed" }, { v: "mixed", l: "About half seated" },
+          { v: "active", l: "Up and moving" },
         ],
       },
     ],
@@ -778,14 +723,8 @@ const REVIEW = [
       `Keep it light after ${fmt(ph.end - 60)}`,
     ],
     why: "This is about timing rather than what you eat, because heavy food in the deep night or close to sleep tends to sit badly and make your sleep lighter.",
-    controls: [{
-      key: "mealPattern", q: "How do you usually eat during a night shift?",
-      help: "If you tend to skip meals, the plan adds a planned snack rather than leaving a gap.",
-      options: [
-        { v: "before", l: "Full meal before work" }, { v: "during", l: "Main meal on shift" },
-        { v: "snack", l: "I snack through" }, { v: "skip", l: "I often skip meals" },
-      ],
-    }],
+    /* Nothing left to choose here: the timing numbers are adjustable instead. */
+    controls: [],
   },
   {
     key: "recovery", cat: "recovery", title: "Getting home and recovering",
@@ -793,7 +732,6 @@ const REVIEW = [
     lines: (p, ph) => [
       p.commute === "drive" ? "Safety check before you drive, with no skip option" : "Light kept low on the way home",
       `Sleep preparation at ${fmt(ph.sleepStart - 30)}`,
-      `Shown first: ${goalLabel(p).toLowerCase()}`,
     ],
     why: "Sleepiness peaks toward the end of a night shift, exactly when most people commute, so the plan treats it as a safety matter.",
     controls: [
@@ -805,17 +743,7 @@ const REVIEW = [
           { v: "driven", l: "Someone drives me" }, { v: "walk", l: "Walk or bike" },
         ],
       },
-      {
-        key: "goal", multi: true, q: "What matters most to you right now?",
-        help: "Pick as many as apply. This decides what gets shown first, not what gets planned.",
-        options: [
-          { v: "sleep", l: "Better sleep" }, { v: "energy", l: "More energy" },
-          { v: "caffeine", l: "Less caffeine" }, { v: "movement", l: "More movement" },
-          { v: "eating", l: "Healthier eating" }, { v: "stress", l: "Less stress" },
-          { v: "routine", l: "Steadier routine" },
-        ],
-      },
-    ],
+],
   },
 ];
 
@@ -1047,11 +975,12 @@ function buildRecommendation(profile, ph) {
   }[profile.nap];
 
   const movement = {
-    most: { t: "Your plan breaks up sitting often.", b: "Since most of your shift is seated, the plan adds regular micro-resets: short breaks to stand, stretch, rest your eyes, and drink water. These are interruptions to sitting, not workouts." },
-    some: { t: "Your plan adds moderate movement checks.", b: "Since your shift is partly seated, the plan adds movement reminders at the points that matter without crowding your checklist." },
-    little: { t: "Movement reminders stay light.", b: "Since your shift already includes movement, the plan keeps movement prompts minimal and puts more weight on rest, hydration, and sleep protection." },
     desk: { t: "Your resets stay desk-friendly.", b: "Since leaving your desk is difficult, the plan uses short seated resets: posture check, wrist stretch, neck release, eye rest, and breathing." },
-  }[profile.sedentary];
+    unpredictable: { t: "Your resets work without warning.", b: "Since you cannot count on when a break lands, the plan keeps every reset short enough to take at your desk the moment you get a gap." },
+    seated: { t: "Your plan breaks up sitting often.", b: "Since most of your shift is seated but you can step away, the plan adds regular micro-resets: short breaks to stand, stretch, rest your eyes, and drink water. These are interruptions to sitting, not workouts." },
+    mixed: { t: "Your plan adds moderate movement checks.", b: "Since your shift is partly seated, the plan adds movement reminders at the points that matter without crowding your checklist." },
+    active: { t: "Movement reminders stay light.", b: "Since your shift already includes movement, the plan keeps movement prompts minimal and puts more weight on rest, hydration, and sleep protection." },
+  }[profile.movement];
 
   const light = {
     screens: { t: "Screen care becomes part of the plan.", b: "Since your work is mostly screen-based, the plan adds eye breaks and screen comfort checks. Closer to sleep it will suggest lower brightness or a warmer display where that is possible." },
@@ -1061,18 +990,11 @@ function buildRecommendation(profile, ph) {
   }[profile.lightEnv];
 
   const food = {
-    before: { t: "Your main meal is already anchored.", b: "Since you eat before work, the plan uses lighter snacks during the shift and keeps heavy food away from your sleep window." },
-    during: { t: "Your shift meal gets timed earlier.", b: "Since your main meal happens during work, the plan tries to place it earlier in the shift and keeps late-shift food lighter." },
-    snack: { t: "Snacks become planned instead of random.", b: "Since you tend to snack through the night, the plan adds planned snack windows and hydration checks to cut down fatigue-driven grazing." },
-    skip: { t: "The plan adds simple food reminders.", b: "Since you often skip meals, the plan adds a basic food check so hunger does not build through the hardest part of the night." },
-  }[profile.mealPattern];
+    t: "Eating gets decided in advance, not at 3 AM.",
+    b: "The plan anchors your main meal before the shift, places one planned snack rather than leaving you to graze, and keeps late food light so digestion is not still working when you lie down.",
+  };
 
-  const water = {
-    lots: "You already drink plenty, so hydration reminders stay light.",
-    some: "Water checks are paired with movement breaks.",
-    little: "Regular water reminders are added, paired with breaks.",
-    caffeine: "Water swaps are added after caffeine, since most of your fluid is currently coffee or energy drinks.",
-  }[profile.hydration];
+  const water = "Water checks are paired with movement resets, and a long gap without one adds a prompt of its own.";
 
   const startHere = {
     under5: "You usually sleep under five hours after a night shift, so this starts as a high-fatigue protection plan. Rest, safety, and sleep protection come first, and it will lean further that way if you log poor sleep or high sleepiness.",
@@ -1555,7 +1477,7 @@ function ReflectionBlock({ T, reflection, setReflection, push, profile, setProfi
           setProfile({ ...profile, caffeineSensitivity: "high" });
           say("Caffeine cutoff moved earlier for the next shift.");
         } else if (reflection.adjust === "Fewer resets") {
-          setProfile({ ...profile, sedentary: "little" });
+          setProfile({ ...profile, movement: "active" });
           say("Resets spaced further apart for the next shift.");
         } else say("Saved. The next plan will use this.");
       }}>Save reflection</Btn>
@@ -1941,9 +1863,6 @@ function ProfileSheet({
       <ProfileRow T={T} Icon={FileText} hue={DOMAIN.light.hue} l="Why this plan"
         sub={planSummary(profile).type}
         onClick={() => { setProfileOpen(false); setScreen("recommendation-revisit"); }} />
-      <ProfileRow T={T} Icon={Target} hue={DOMAIN.movement.hue} l="Goal"
-        sub={goalLabel(profile)}
-        onClick={() => { setProfileOpen(false); setReview({ index: 6, single: true, back: "app" }); setScreen("review"); }} />
       <ProfileRow T={T} Icon={Bed} hue={DOMAIN.recovery.hue} l="Sleep schedule"
         sub={`${dur(profile.sleepGoalHours * 60)} from ${fmt(ph.sleepStart)}`}
         onClick={() => { setProfileOpen(false); setReview({ index: 0, single: true, back: "app" }); setScreen("review"); }} />
@@ -2436,7 +2355,7 @@ export default function App() {
   const say = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
 
   const finishQuiz = (a) => {
-    const p = { ...a, caffeineSensitivity: "normal", chronotype: "neither", bathroom: "no" };
+    const p = { ...a, chronotype: "neither" };
     setProfile(p);
     setNow(realNow(calculateShiftPhases(p)));
     setScreen("generating");
