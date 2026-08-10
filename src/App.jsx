@@ -6,7 +6,7 @@ import {
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
-import { DAY, toMin, fmt, nextAfter, dur } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, dur, nightOf } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
@@ -290,20 +290,6 @@ function planChanges(profile, plan, now) {
   return out;
 }
 
-/** Map the wall clock onto this plan's absolute-minute scale, choosing the
-    occurrence nearest the planned window. */
-function realNow(ph) {
-  const d = new Date();
-  const clock = d.getHours() * 60 + d.getMinutes();
-  const day0 = Math.floor(ph.start / DAY) * DAY;
-  let best = null;
-  for (let k = -1; k <= 2; k++) {
-    const t = day0 + k * DAY + clock;
-    const dist = t < ph.start - 180 ? (ph.start - 180) - t : t > ph.sleepEnd ? t - ph.sleepEnd : 0;
-    if (!best || dist < best.dist) best = { t, dist };
-  }
-  return best.t;
-}
 
 /* Holds the outgoing view mounted for one exit animation, then swaps in the
    new one. The class flips out -> in, and a changed animation-name is what
@@ -2314,7 +2300,7 @@ export default function App() {
      there is no backend, no database, and no storage of any kind. */
   useEffect(() => {
     if (!profile) return;
-    const tick = () => setNow(realNow(calculateShiftPhases(profile)));
+    const tick = () => setNow(nightOf(calculateShiftPhases(profile)).now);
     tick();
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
@@ -2357,7 +2343,7 @@ export default function App() {
   const finishQuiz = (a) => {
     const p = { ...a, chronotype: "neither" };
     setProfile(p);
-    setNow(realNow(calculateShiftPhases(p)));
+    setNow(nightOf(calculateShiftPhases(p)).now);
     setScreen("generating");
   };
 
