@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Interactive Planner — Sample Chapter Excerpts</title>
+<style>
+  @page { size: letter; margin: 0.9in 0.9in 0.9in 1.2in; }
+  @page { @bottom-center { content: counter(page); } }
+
+  html { font-size: 12pt; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 2;
+    color: #000;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  /* ---- annotated layout: float sidenotes into a reserved right gutter ---- */
+  body.annotated { padding-right: 2.45in; }
+  aside {
+    float: right; clear: right; width: 2.05in;
+    margin-right: -2.45in; margin-top: 4pt; margin-bottom: 11pt;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 7.7pt; line-height: 1.45;
+    text-align: left; color: #1a1a1a;
+    background: #FFF8E6; border-left: 2.5pt solid #C8912A;
+    padding: 6pt 7pt; break-inside: avoid; hyphens: none;
+  }
+  aside b { display: block; font-size: 7.2pt; letter-spacing: .04em;
+            text-transform: uppercase; color: #8A5F12; margin-bottom: 2.5pt; }
+  aside .q { color: #444; font-style: italic; }
+
+  h1, h2, h3, h4 { font-weight: bold; page-break-after: avoid; text-align: left; }
+  h1 { font-size: 13pt; text-align: center; text-transform: uppercase;
+       letter-spacing: .02em; margin: 0 0 6pt 0; line-height: 1.5; }
+  h2 { font-size: 12pt; text-align: center; text-transform: uppercase;
+       margin: 26pt 0 4pt 0; }
+  h3 { font-size: 12pt; margin: 18pt 0 0 0; }
+  h4 { font-size: 12pt; margin: 14pt 0 0 0; font-style: italic; font-weight: normal; }
+
+  p { margin: 0; text-indent: 0.5in; }
+  p.flush { text-indent: 0; }
+
+  blockquote {
+    margin: 6pt 0 6pt 0.5in;
+    line-height: 2;
+    text-indent: 0;
+  }
+  blockquote p { text-indent: 0; }
+
+  .titleblock { text-align: center; margin-bottom: 4pt; }
+  .titleblock .sub { font-size: 11pt; font-style: italic; line-height: 1.5; }
+  .rule { border: none; border-top: 0.6pt solid #000; margin: 10pt 0 16pt 0; }
+
+  .note {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 9pt; line-height: 1.5; text-align: left;
+    background: #F2F2F2; border: 0.5pt solid #BBB;
+    padding: 9pt 11pt; margin: 0 0 14pt 0; hyphens: none;
+  }
+  .note b { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 10pt;
+          line-height: 1.3; margin: 8pt 0 4pt 0; break-inside: avoid; }
+  caption { caption-side: top; text-align: left; font-size: 11pt;
+            line-height: 1.5; padding-bottom: 4pt; }
+  caption i { font-style: italic; }
+  th, td { border-top: 0.5pt solid #000; padding: 4pt 5pt;
+           vertical-align: top; text-align: left; }
+  thead th { border-bottom: 0.5pt solid #000; font-style: italic; font-weight: normal; }
+  tbody tr:last-child td { border-bottom: 0.5pt solid #000; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.5pt; }
+
+  .refs p { text-indent: 0; padding-left: 0.5in; margin-bottom: 6pt; line-height: 2; }
+  .refs p { text-indent: -0.5in; }
+
+  .pb { page-break-before: always; }
+  h2, h3, h4 { break-after: avoid; }
+</style>
+</head>
+<body class="annotated">
+
+
+<div class="titleblock">
+  <h1>Interactive Planner: A Circadian-Aware Planner for<br>Night-Shift Workers — Timing Caffeine, Naps, and Micro-Care</h1>
+  <p class="sub flush">Gabrella C. Ang<br>
+  Bachelor of Arts in Multimedia Studies<br>
+  University of the Philippines Open University</p>
+</div>
+
+<hr class="rule">
+
+<div class="note">
+<b>About this document</b><br>
+This is a <b>sample excerpt</b>, not the full manuscript. It contains the two sections that change most once prior coursework is admitted as source material: the design-foundations portion of Chapter II, and the development and validation portions of Chapter III. Existing circadian content (Kervezee, Burke, Oriyama, Dall'Ora, and related sources) is summarized in brackets rather than reproduced. Two versions of this file exist: a clean draft, and an annotated draft in which every citation carries a margin comment explaining why it was used.
+</div>
+
+<h2>II. Study Framework</h2>
+
+<h3>Design Foundations of the Planner Interface</h3>
+
+<p class="flush">[Preceding sections establish the health risks of sedentary night-shift work, the evidence base for caffeine timing, napping strategies, and micro-care interventions, and the four theories anchoring the study.]</p>
+
+<aside id="c1"><b>Comment 1 — the hinge</b>This sentence is the bridge between the circadian half of the thesis and the design half. Everything before it justifies <i>what</i> the app says; everything after justifies <i>how</i>. Without this paragraph a panelist can fairly ask why a Multimedia Studies thesis spends four chapters on sleep science. <span class="q">Source: MMS 149 Module 4, "Software Design Aspects."</span></aside><p>The literature reviewed thus far establishes <i>what</i> a circadian-aware planner should recommend and <i>when</i> it should recommend it. It does not establish how those recommendations should be presented. This distinction matters because the intervention proposed by this study is not a set of guidelines but an artifact that a fatigued worker must operate at three o'clock in the morning; the evidence base determines the content of the recommendation, while design determines whether the recommendation is received at all. Software engineering literature states the point plainly: "a highly-efficient system might still not be accepted if the interface is rejected by the users" (MMS 149 Module 4, 2023). Accordingly, this section reviews the design principles that govern how timing-based guidance is rendered into an interface.</p>
+
+<h4>Effectiveness in visual communication</h4>
+
+<aside id="c2"><b>Comment 2 — why a course study guide</b>Course materials are legitimate sources when they are the actual origin of the framework being applied. The five-factor model is used here as an organizing structure for design decisions, so citing the guide is more honest than citing a general design textbook the study did not use. <span class="q">Flagged: confirm whether the panel accepts unpublished course materials in the reference list.</span></aside><p>Goli-Cruz (2023b) identifies five factors that determine whether a visual communication material succeeds with its intended audience: relevance, clarity, visual appeal, inclusivity, and language. Relevance is described in terms of perceived personal consequence — "we tend to give more attention to messages/information that we think can impact our lives" — while clarity is constrained by the medium, since "there is limited time (for video) and space (for static visual material)," so "the message should be concise and direct to the point" (Goli-Cruz, 2023b).</p>
+
+<p>Three of these factors carry direct consequences for a night-shift planner. Relevance implies that a plan which does not visibly respond to the user's own reported state will be read as generic advice and disregarded. Clarity implies that guidance competing with an active work task must be short enough to absorb during a break rather than studied. Inclusivity, defined as attention to "the diverse needs, perspectives, experiences, and characteristics of the audience" (Goli-Cruz, 2023b), extends beyond accessibility compliance to the recognition that night-shift populations vary in shift length, break autonomy, and commute mode — a variation this study addresses through user-adjustable planning parameters rather than a single fixed schedule.</p>
+
+<aside id="c3"><b>Comment 3 — naming what already exists</b>The prototype's timeline was built before this vocabulary was applied to it. Using the terms retroactively is not dishonest — it is documentation. What would be dishonest is claiming the principles <i>generated</i> the design. The prose deliberately says the principles "carry the weight of" the view rather than "produced" it.</aside><p>The elements and principles of design supply the vocabulary for the resulting layout. Goli-Cruz (2023a) identifies the elements as "color, typography, line, space, shape, texture, and depth" and the principles as "balance, contrast, emphasis, hierarchy, movement, pattern, proportion, repetition, and unity," noting that the principles "provide a framework for organizing and arranging the elements in a harmonious and pleasing composition." Three principles carry the weight of the planner's timeline view: hierarchy, which distinguishes an item's title from its rationale; contrast, which separates one intervention domain from another; and proximity, which groups items belonging to the same phase of the shift.</p>
+
+<aside id="c4"><b>Comment 4 — pre-empting a question</b>A panel will ask whether a Western-derived color-and-icon vocabulary suits a Filipino user base. Raising it first, and routing it to expert validation, converts an unanswerable objection into a stated limitation. Cheaper than defending the choice.</aside><p>Goli-Cruz (2023a) further observes that "visual codes are important aspects of visual design as they can convey meanings that are culturally bound," and that "knowing your audience is an important consideration when developing your graphic design." Since the target population of this study is composed largely of Filipino business process outsourcing workers, the study treats color semantics and iconography as culturally situated rather than universal, and identifies this as a matter for expert review rather than one settled by the researcher.</p>
+
+<h4>Aesthetic grounding</h4>
+
+<aside id="c5"><b>Comment 5 — the strongest aesthetic citation</b>Heinrich is peer-reviewed (<i>Evolutionary Psychology</i>, 2013), unlike the course guides. More importantly he ties aesthetics to <i>well-being</i>, which is this thesis's actual subject. That single link is why MMS 170 belongs here at all: it turns "the app looks calm" into an argument continuous with the circadian chapters.</aside><p>The decision to render the interface as calm, low-contrast, and visually restrained rather than gamified requires justification beyond preference. Heinrich (2013) argues that aesthetic response is an evolved adaptation to environment rather than an arbitrary cultural overlay, concluding that "if aesthetic tastes refer to adaptive responses to living in a certain environment, then this suggests that we should make efforts to retain and create environments that we find beautiful and pleasing because our well-being depends on it" (p. 752). This study extends that claim to the digital environment: for a worker whose physical setting is already misaligned with their biology, an interface that adds visual noise compounds the misalignment, while one that reduces it performs a small corrective function.</p>
+
+<aside id="c6"><b>Comment 6 — a citation used defensively</b>Reviewers commonly suggest making a health app "more engaging." This quote is held in reserve for that feedback: restraint is defended as a design position with a source behind it, not as an absence of effort.</aside><p>Heinrich (2013) also notes that "the aesthetic environment includes not only our visual cues but also an aural landscape" (p. 752), which supports the inclusion of audio-based breathing guidance among the planner's micro-care content on grounds independent of the cognitive-load argument advanced in Chapter III. On novelty, Heinrich cautions that although "the 'new' catches our eye and so variety and complexity as such may be aesthetic," there are "discrete limits to the novel that are beautiful," since "making something ugly is not innovation" (p. 755) — a constraint this study reads as an argument against decorative elaboration in an interface used under fatigue.</p>
+
+<aside id="c7"><b>Comment 7 — citing a source against yourself</b>Dutton supplies the palette argument and then undercuts how far it can be pushed. Including both halves is deliberate: a panel that spots the limitation unaided will treat the whole aesthetic section as naïve. Stating it first converts a weakness into evidence of critical reading.</aside><p>Dutton (2005) reports cross-cultural evidence bearing on palette selection, noting that in a ten-country survey of art preferences "blue turned out to be the favourite colour worldwide, with green in second place" (p. 698), alongside consistent preferences for water, vegetation, and open landscape. The planner's color assignments for hydration and movement follow this pattern. Dutton is equally clear about the limits of such reasoning, however, distinguishing Kant's category of the agreeable — "the straightforward subjective sensations of things that we like in direct experience: the taste of sweet, for example, or the colour blue" — from the beautiful, and observing that a theory of inherited landscape preference offers little help in explaining "what distinguishes a popular calendar landscape from a great landscape painting" (p. 703). Evolutionary accounts are therefore used in this study to justify broad choices such as palette and visual calm, and not to adjudicate finer compositional decisions, which were settled instead by the design principles above and by expert review.</p>
+
+<h4>Content architecture</h4>
+
+<aside id="c8"><b>Comment 8 — a real paper, not a handout</b>DeRose et al. (1990) is peer-reviewed and thirty-five years old, which is exactly why it is useful: it makes the content/presentation separation an established principle rather than a contemporary web-development convention. It is also the only source in the folder that speaks to <i>data structure</i>. <span class="q">Note: the available copy is a reprint with its own pagination; journal pages are 3–26.</span></aside><p>Because the planner delivers guidance in several media — text, audio breathing exercises, short movement videos, and visual timelines — the representation of that content is itself a design question. DeRose, Durand, Mylonas, and Renear (1990) argue that a document is properly modeled as "an ordered hierarchy of content objects," in which each object carries a semantic type rather than formatting instructions, since an object's "appearance is superficial and transient rather than essential." They observe that systems storing appearance rather than structure cannot answer natural questions about their own content, "because there is no explicit indication of what part of the text is poetry," and that a hierarchical content model can "integrate a wide variety of different types of data or media into a 'compound document'" (DeRose et al., 1990).</p>
+
+<p>This study adopts that model for its plan items. Each item is stored as a structured object carrying its identifier, scheduled time, intervention category, instruction, and rationale, with visual treatment resolved at presentation time from the category rather than embedded in the item. The consequence is that one item definition can be rendered as a timeline entry, a reminder notification, or a printed plan without duplication — a requirement that follows directly from the study's commitment to multimodal delivery.</p>
+
+<h2 class="pb">III. Methodology</h2>
+
+<h3>Research Design</h3>
+
+<p class="flush">[Preceding subsections establish the qualitative, design-oriented research design and the literature-synthesis procedure.]</p>
+
+<h3>Software Development Life Cycle</h3>
+
+<aside id="c9"><b>Comment 9 — answering the question in its own vocabulary</b>Chapter III already cited Domínguez (2017) for the research stance. That does not answer "what SDLC did you follow?", which is how the question will actually be asked in a Multimedia Studies defense. This paragraph answers it in the panel's terms.</aside><p>The prototype was developed under the Prototype Model of the software development life cycle. This model "focuses on developing a prototype version of the project" and "is applicable if the customer does not have yet specific details about the software they want to have," proceeding by presenting an early build for feedback and applying "necessary changes… based on clients' comments and suggestions"; it is characterized as iterative and as adopting "a trial-and-error method between the client and the developer" (MMS 149 Module 1, 2023).</p>
+
+<aside id="c10"><b>Comment 10 — justify by exclusion</b>Naming the chosen model is weak on its own. Naming the rejected model and quoting its stated disadvantages shows the choice was made rather than defaulted. Two sentences, noticeably more credible.</aside><p>The model was selected on the grounds the same source gives for model selection generally: "finding the right one greatly depends on the circumstances and factors including but not limited to the scope of the project, size of the team, budget, and client preferences" (MMS 149 Module 1, 2023). Three circumstances of this study favor the Prototype Model. First, its requirements were derived from literature rather than elicited from a client, so no fixed specification existed at the outset. Second, it was developed by a single researcher, for whom the coordination overhead that justifies heavier models does not arise. Third, the Waterfall Model was rejected because its documented disadvantages — that "output is delivered late, severe errors were not detected early" and that it "does not support iterative development" (MMS 149 Module 1, 2023) — are precisely the risks a literature-derived prototype must avoid, since a timing rule misread from a study should surface during construction rather than after it.</p>
+
+<aside id="c11"><b>Comment 11 — two disciplines, one conclusion</b>Engineering and design arrive at iteration independently. For a degree that sits between the two, showing the convergence is stronger than either citation alone — and it demonstrates the program's own integration, which is what a capstone is meant to show.</aside><p>The same iterative commitment is independently supported from the design side, where graphic design is described as "an iterative process" in which "before a graphic design is approved, produced, and used, revisions after revisions may happen," and where proceeding directly to production is discouraged "so as not to waste human and non-human resources" (Goli-Cruz, 2023b).</p>
+
+<h3>Requirements Specification</h3>
+
+<aside id="c12"><b>Comment 12 — the cheapest section to write</b>The requirements already exist implicitly in the prototype's code. This section documents them rather than inventing them, which is why it is worth including: high credibility, low effort. It also converts the artifact from "a thing that was made" into "a system with a specification."</aside><p>Requirements were specified in two classes. Functional requirements describe "what the system should do, what functionalities and features are, what are the actions to be performed," while non-functional requirements, also termed quality attributes, describe "the general properties of the system aside from the functionalities" and "provide directions and restrictions to the overall system architecture" (MMS 149 Module 3, 2023). Table 1 records the non-functional requirements adopted for the prototype and the mechanism through which each is addressed.</p>
+
+<table>
+  <caption><b>Table 1</b><br><i>Non-Functional Requirements of the Prototype and Their Implementation</i></caption>
+  <thead><tr><th style="width:22%">Quality attribute</th><th style="width:40%">Definition adopted</th><th>Implementation mechanism</th></tr></thead>
+  <tbody>
+    <tr><td>Usability</td><td>Ease of learning and operating the system from the end-user's perspective, including intuitiveness of controls</td><td>Reduction of the in-shift logging interface to the five events that alter the plan</td></tr>
+    <tr><td>Reliability</td><td>Ability of the system to perform its task without failure over a period</td><td>Automated unit tests over the scheduling, statistics, and time-arithmetic modules</td></tr>
+    <tr><td>Performance</td><td>Quality of system response to the end-user, on which user experience depends</td><td>Plan generation implemented as a pure function of profile, logs, and current time</td></tr>
+    <tr><td>Security</td><td>Assurance that only authorized users access the system and its data</td><td>Local-only persistence of sleep, fatigue, and caffeine records; no transmission to a server</td></tr>
+    <tr><td>Availability</td><td>System accessible to end-users when required</td><td>Client-side operation, so plan access does not depend on connectivity during a shift</td></tr>
+  </tbody>
+</table>
+
+<aside id="c13"><b>Comment 13 — a gap the reference work exposed</b>The original draft stated that no sensitive data is collected. That is true of the <i>research</i> and false of the <i>application</i>. Applying Module 3's quality attributes surfaced the inconsistency. Naming it is not a weakness in the paper — leaving it for the panel to find would be.</aside><p>Security warrants specific comment. The prototype records sleep duration, fatigue reports, and caffeine intake, which constitute health information about an identifiable individual even though the study itself collects no data from end-users. The scope of the study excludes deployment, but the specification records local-only storage as a requirement so that any subsequent deployment inherits the constraint rather than reconsidering it.</p>
+
+<h3>Software Design</h3>
+
+<aside id="c14"><b>Comment 14 — a quotable justification for module count</b>"Why four modules and not one, or twelve?" is a fair question with no obvious answer. This quote gives one: complexity is minimized across modules <i>and</i> their integration, not within modules alone.</aside><p>Design proceeded across the four aspects identified in the reference framework, where design is understood as the stage that "link[s] the requirement analysis phase to the actual system implementation" and, where requirements analysis "answers the question 'what', software design answers 'how'" (MMS 149 Module 4, 2023). Data design specifies the plan item structure described in Chapter II. Architectural design partitions the system into four modules — time arithmetic, planning rules, statistics, and presentation — on the principle that "overall complexity is the sum of the complexity of each module plus the complexity of the actual integration," and that "complexity represents cost" (MMS 149 Module 4, 2023).</p>
+
+<p>Procedural design is expressed as the rule set that transforms a user profile and event log into a timed plan. The rule set exhibits both patterns the framework describes: it is transform-centered, in that "the input data is then transformed into an output data," and transaction-centered, in that "the input data is evaluated and alternative paths will be selected based on the result of the evaluation" (MMS 149 Module 4, 2023) — the latter accounting for the conditional adjustments through which a logged skipped break, failed nap, or late caffeine dose alters subsequent recommendations. Interface design is treated in Chapter II.</p>
+
+<h3>Accessibility as a Design Requirement</h3>
+
+<p>Accessibility is treated in this study as a functional requirement rather than an optional enhancement, following the position that "it is your responsibility to ensure that the digital products you produce are accessible to people of all abilities" (Esteves, 2025). The conventional justification for accessible design rests on permanent disability. This study advances an additional justification specific to its population.</p>
+
+<aside id="c15"><b>Comment 15 — the strongest argument available</b>This connects Chapter II's own cited evidence (Wickwire) to a discipline the thesis had not yet used. It reframes accessibility from a compliance chapter into a restatement of the study's central problem, which is both true and unusually persuasive. If one paragraph from this integration survives, it should be this one.</aside><p>Night-shift workers exhibit measurable declines in attention, working memory, and response inhibition that accumulate across consecutive shifts (Wickwire et al., 2021). An interface operated under those conditions faces constraints functionally similar to those that accessibility standards are constructed to accommodate, differing in origin — situational rather than permanent — but not in kind. Conformance to WCAG 2.2 at Level AA (World Wide Web Consortium, 2023) is therefore adopted as a design requirement responding directly to the cognitive profile documented in Chapter II, and not as an ancillary compliance activity.</p>
+
+<aside id="c16"><b>Comment 16 — report the failures</b>An audit that finds nothing reads as an audit that was not run. Two named findings, one fixed and one resolved by existing redundancy, is far more credible than a bare claim of conformance — and costs nothing, since both were real.</aside><p>Conformance is assessed by the audit procedure set out in the Website Accessibility Conformance Evaluation Methodology (World Wide Web Consortium, 2014), restricted to the prototype's implemented screens. Two findings from the initial audit are recorded here rather than silently corrected. First, the lowest-emphasis text color in each theme fell below the 4.5:1 contrast ratio required at Level AA and was adjusted. Second, the prototype distinguishes eight intervention domains by hue, a scheme under which two domain colors converge under deuteranopia; because each domain also carries a distinct icon, color is a redundant rather than sole channel, satisfying the relevant success criterion.</p>
+
+<h3>Verification and Validation</h3>
+
+<aside id="c17"><b>Comment 17 — the single most useful correction</b>The original Chapter III used "validation" for everything. Splitting the terms costs one paragraph and reorganizes the whole section: the test suite and traceability check become verification, the expert review becomes validation. Both were already being done; only the vocabulary was missing.</aside><p>This study distinguishes verification from validation following Boehm, where verification asks "are we building the product right?" and validation asks "are we building the right product?", the latter being necessary because "there are times when the specification requirements do not represent the real needs of the customers" (MMS 149 Module 5, 2023). The distinction reorganizes the study's assessment activities into two groups.</p>
+
+<aside id="c18"><b>Comment 18 — the traceability promise, made operational</b>Chapter III already promised a traceability check. Storing citation keys on each plan item turns that promise from an appendix maintained by hand into something the system can report on. It is also the clearest evidence that the circadian literature genuinely governs the artifact.</aside><p>Verification comprises two procedures. Automated unit tests exercise the scheduling, statistics, and time-arithmetic modules, unit testing being the strategy that "focuses on checking if the unit of code (smallest testable part) is fit to use" and is "done by the developer itself" (MMS 149 Module 5, 2023). The traceability check confirms that each planning rule corresponds to at least one supporting study, and is performed against citation identifiers recorded on each plan item alongside its user-facing rationale, so that the check is executed against the running system rather than against separately maintained documentation.</p>
+
+<aside id="c19"><b>Comment 19 — legitimizing the method most open to challenge</b>Expert review instead of user testing is the study's most contestable choice. This citation establishes heuristic evaluation as taught disciplinary practice, making it a deliberate selection rather than a substitute for testing that could not be arranged.</aside><p>Validation comprises expert heuristic review and scenario-based testing. Heuristic evaluation is adopted as an established interface assessment method in multimedia practice, taught alongside usability testing as a means to "evaluate a user interface using heuristics and usability tests" and to "create user interfaces based on heuristic and human-centered principles" (Clariño, 2024). Its use here is a methodological selection appropriate to a prototype whose scope excludes end-user trials, and is not offered as equivalent to them.</p>
+
+<aside id="c20"><b>Comment 20 — an instrument with provenance</b>Chapter III requires a "structured evaluation guide." Adapting a rubric that already exists and citing it is stronger than composing one at submission time, and it takes an afternoon rather than a week.</aside><p>The evaluation instrument adapts the criteria of an established design-analysis rubric — context and purpose, enumeration of visual elements and design principles applied or violated, assessment of effectiveness against intended purpose, and improvement recommendations (Goli-Cruz, 2023c) — with numerical scoring removed in favor of qualitative judgment, consistent with the instrument requirements stated earlier in this chapter.</p>
+
+<h3>Limitations of the Assessment Approach</h3>
+
+<aside id="c21"><b>Comment 21 — the limitation that also justifies the tests</b>This quote does two jobs: it bounds the claims that can be made, and it explains why a student prototype has an automated test suite at all. Health-adjacent software warrants a higher confidence level — that is the argument, and it comes from the source.</aside><p>Two limitations follow from the approach above. First, testing establishes the presence of defects but not their absence: it "discloses the presence of bugs, but not their absence," so that "we can only address the problems that we have encountered but we cannot do something about the ones we did not discover" (MMS 149 Module 5, 2023). The point carries additional weight for this study, since "systems concerning health should have a higher level of confidence than that of supply inventory" (MMS 149 Module 5, 2023), and a prototype validated by expert review alone therefore retains residual risk that the study does not claim to eliminate.</p>
+
+<p>Second, acceptance testing — the strategy that verifies "if the requirements of the clients are all satisfied" and is "usually carried out by the end-users" (MMS 149 Module 5, 2023) — falls outside the declared scope of this study. Accordingly, no claim is advanced regarding the prototype's effectiveness in improving health outcomes or altering behavior, consistent with the scope and limitations set out in Chapter I.</p>
+
+<h2 class="pb">References</h2>
+
+<div class="refs">
+<p class="flush">[Circadian and occupational health sources from Chapters I–II are omitted from this excerpt. The entries below are those introduced by the sections reproduced here.]</p>
+
+<p>Clariño, M. K. (2024). <i>MMS 150: User interface and user experience design</i> [Course syllabus, A.Y. 2024–2025]. University of the Philippines Open University.</p>
+
+<p>DeRose, S. J., Durand, D. G., Mylonas, E., &amp; Renear, A. H. (1990). What is text, really? <i>Journal of Computing in Higher Education, 1</i>(2), 3–26.</p>
+
+<p>Dutton, D. (2005). Aesthetics and evolutionary psychology. In J. Levinson (Ed.), <i>The Oxford handbook of aesthetics</i> (pp. 693–705). Oxford University Press.</p>
+
+<p>Esteves, K. (2025). <i>MMS 151: Introduction to web accessibility</i> [Course guide, 3rd Trimester A.Y. 2025–2026]. University of the Philippines Open University.</p>
+
+<p>Goli-Cruz, M. J. (2023a). <i>Module 2: Graphic design elements and principles</i> [Study guide]. MMS 174: Graphics in Multimedia, University of the Philippines Open University.</p>
+
+<p>Goli-Cruz, M. J. (2023b). <i>Module 4: The graphic design process</i> [Study guide]. MMS 174: Graphics in Multimedia, University of the Philippines Open University.</p>
+
+<p>Goli-Cruz, M. J. (2023c). <i>Rubrics for MMS 174 assessment tasks</i> [Assessment rubric]. MMS 174: Graphics in Multimedia, University of the Philippines Open University.</p>
+
+<p>Heinrich, B. (2013). The biological roots of aesthetics and art. <i>Evolutionary Psychology, 11</i>(3), 743–761.</p>
+
+<p><i>Module 1: Software development basics</i> [Course module]. (2023). MMS 149: Software Engineering in Multimedia Practice, University of the Philippines Open University.</p>
+
+<p><i>Module 3: Requirements engineering</i> [Course module]. (2023). MMS 149: Software Engineering in Multimedia Practice, University of the Philippines Open University.</p>
+
+<p><i>Module 4: Software design and implementation</i> [Course module]. (2023). MMS 149: Software Engineering in Multimedia Practice, University of the Philippines Open University.</p>
+
+<p><i>Module 5: Software testing and maintenance</i> [Course module]. (2023). MMS 149: Software Engineering in Multimedia Practice, University of the Philippines Open University.</p>
+
+<p>World Wide Web Consortium. (2014). <i>Website accessibility conformance evaluation methodology (WCAG-EM) 1.0</i>. https://www.w3.org/TR/WCAG-EM/</p>
+
+<p>World Wide Web Consortium. (2023). <i>Web content accessibility guidelines (WCAG) 2.2</i>. https://www.w3.org/TR/WCAG22/</p>
+</div>
+
+</body>
+</html>
