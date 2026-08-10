@@ -181,8 +181,10 @@ fields are the entire contract, so the tests need no planner import.
 | midnight `{0, 990}` | 02:00 | today, `now 120` — boundary collapses to midnight |
 | pathological `{1320, 2820}` | 22:00 | today, `now 1320` — capped at shift start |
 
-The Jan 1 case doubles as the UTC guard: run east of UTC, `toISOString().slice(0,10)`
-would return `2025-12-31` for a `2026-01-01` local date and the test fails.
+These double as the UTC guard. `day` is always a local-midnight `Date`, so east
+of UTC its `toISOString().slice(0, 10)` is the day before — every row above fails
+against a `toISOString` implementation. West of UTC it would not, which is why
+the format is spelled out rather than tested for.
 
 Run: `npx vitest run`.
 
