@@ -5,7 +5,7 @@ const KEY = "gy.v1";
 
 /** Everything saved, or {} if there is nothing readable there. */
 const load = () => {
-  try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : {}; }
+  try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) ?? {} : {}; }
   catch { return {}; }
 };
 

@@ -2290,15 +2290,20 @@ function AdjustSheet({
    The try/catch covers more than JSON. A blob that parses but is missing
    shiftStart throws inside calculateShiftPhases, at module scope, where no error
    boundary can catch it — a white screen before React has mounted. Falling back
-   to the quiz is the honest failure, and it is the whole of schema validation
-   for this phase. */
+   to the quiz is the honest failure. That catch guards only a throw, and a
+   profile missing sleepGoalHours does not throw: calculateShiftPhases returns
+   sleepEnd = NaN, nightOf returns a NaN axis, and boot would otherwise render a
+   plan that looks booted and re-persists its own NaN stamp on every mount, so
+   the finite check below is the other half of schema validation for this
+   phase. */
 const boot = (() => {
   try {
     const s = load();
     if (!s.profile) return {};
     const { id, now } = nightOf(calculateShiftPhases(s.profile));
+    if (!Number.isFinite(now)) return {};
     return { ...forNight(s, id), now };
-  } catch { return {}; }
+  } catch (e) { console.warn("gy: discarding saved state", e); return {}; }
 })();
 
 export default function App() {

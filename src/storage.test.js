@@ -18,4 +18,11 @@ describe("forNight", () => {
     // last night's logs and reflection must not reach tonight's plan
     expect(forNight(saved, "2026-08-12")).toEqual({ profile: saved.profile, theme: true });
   });
+
+  it("keeps only the profile and the theme when night is absent", () => {
+    // a blob written before the field existed, or a truncated write, has no
+    // night — that must fall into the "not tonight" branch, not "is tonight"
+    const { night, ...withoutNight } = saved;
+    expect(forNight(withoutNight, "2026-08-12")).toEqual({ profile: saved.profile, theme: true });
+  });
 });

@@ -138,8 +138,23 @@ call `boot` already makes for `id`.
 That document's `try/catch` guards `JSON.parse`. That is the easy failure. The
 dangerous one is a blob that parses cleanly and is the wrong shape:
 `toMin(undefined)` throws inside `calculateShiftPhases`, from module scope,
-before React exists. One `catch` around the whole boot expression is the entire
-schema validation this phase needs, and it is enough.
+before React exists. The `catch` around the whole boot expression covers that
+half — anything that throws.
+
+It does not cover a shape that parses cleanly, resolves to real numbers, and is
+still wrong. A profile missing `sleepGoalHours` does not throw: `sleepEnd`
+comes out `NaN`, `nightOf` returns a `NaN` axis, and boot would render a plan
+that looks booted and re-persist that `NaN` stamp on every mount it runs.
+`Number.isFinite(now)`, checked right after the `nightOf` call, closes that
+half.
+
+One shape is still open. A `logs` field that is not an array does not throw
+here — it throws later, inside the `generateTimeline` useMemo, after mount,
+which is a blank page with no in-app recovery. It is reachable only by
+hand-editing the blob or importing a foreign one, never by anything the app
+itself writes, and closing it means an `Array.isArray` guard or its
+equivalent — which starts down the schema-validation road this phase
+deliberately declined. That is named as a ceiling, not fixed here.
 
 ---
 
@@ -240,10 +255,27 @@ artifact rather than the write-up.
 
 ## Known ceilings
 
-- **The app left open across the boundary.** The stamp is written from the
-  current night, so a log written at 17:00 the next night lands under the new ID
-  beside yesterday's. The boot rule only fires on a fresh load. This is Phase 2's
-  named case, unchanged by this phase.
+- **The app left open across the boundary.** This is worse than one misfiled
+  entry. The tick effect rolls `now` onto the new night's axis on its own
+  30-second clock, but the write effect does not depend on `now` — it fires on
+  the next change to `[profile, logs, reflection, themeOverride]` after that
+  roll. When it fires, it re-derives the stamp from the current clock and
+  writes the *entire accumulated log set*, last night's and tonight's together,
+  under the new night ID. On the next reload, `forNight` sees that ID match and
+  keeps all of it — every night after is "tonight" until the app is closed and
+  reopened. That is exactly the harm `forNight` exists to prevent, arriving
+  through the write side instead of the read side. The boot rule still only
+  fires on a fresh load, and the choice not to hold the night ID in state
+  stays; this remains Phase 2's named case. But it makes Phase 2's rollover
+  check load-bearing rather than a refinement.
+- **A screen mid-flow does not survive a reload.** `screen` initialises to
+  `"app"` whenever `boot.profile` exists, so a reload during `generating`,
+  `recommendation` or `review` lands on the Dashboard instead of back where the
+  reload found it. Concretely: finish the quiz, refresh before reading the
+  recommendation page, and it is gone — the app has already moved on.
+  `screen` is transient UI and a later phase owns which transients survive a
+  refresh, but this is the one transient on that list with a user-facing
+  consequence.
 - **A quiz in progress is not saved.** `Quiz` holds its answers locally; a
   refresh at question seven restarts onboarding. Persisting mid-quiz state buys
   nothing once the profile is the thing that sticks.
