@@ -147,8 +147,9 @@ schema validation this phase needs, and it is enough.
 
 ```js
 useEffect(() => {
+  if (!profile) return;                        // nothing to save before the quiz
   save({
-    night: profile ? nightOf(calculateShiftPhases(profile)).id : null,
+    night: nightOf(calculateShiftPhases(profile)).id,
     profile, logs, reflection, theme: themeOverride,
   });
 }, [profile, logs, reflection, themeOverride]);
@@ -157,11 +158,10 @@ useEffect(() => {
 The night ID is derived at write time rather than held in state. Nothing renders
 it, and Phase 2 reads it from the tick, which is where the comparison belongs.
 
-There is no `if (!profile) return` guard, on purpose. Writing a null profile is
-exactly what Start over needs, so that button needs no `removeItem` and
-`storage.js` needs no third function. The cost is a key on disk holding
-`{"night":null,"profile":null,"logs":[],"reflection":{},"theme":null}` after a
-reset, which contains nothing.
+The guard is one line and it means nothing is written to the device until the
+quiz is finished. For an app whose stated ethical position is about what it
+stores, writing an empty record before the disclaimer has been read is a bad
+look even when the record is empty.
 
 ---
 
@@ -174,15 +174,31 @@ Export. For a prototype that has to be demonstrated, that is a real gap.
 One `ProfileRow` beside Export. `ArrowCounterClockwise` is already imported
 (`App.jsx:5`); the hue is `DOMAIN.food.hue`, the only red in `tokens.js`.
 
-**Two taps, not a dialog.** The first tap swaps the row's subtitle to "Tap again
-to erase everything"; the second clears the four values and sets
-`screen: "welcome"`, and the write effect overwrites the blob. One `useState`
-inside `ProfileSheet`, no new component, no native `confirm()`.
+**Two taps, not a dialog.** The first tap changes the row to "Tap again to erase
+everything"; the second calls `save({})` and then `location.reload()`. One
+`useState` inside `ProfileSheet`, no new component, no native `confirm()`. The
+sheet is conditionally rendered (`App.jsx:2661`), so closing it disarms the row.
 
-A no-confirm version would be shorter and would match the existing destructive
-control (Delete, `App.jsx:1638`). Not taken: that deletes one log entry, this
-deletes a profile, a night of logs and a reflection. The second tap is the
-cheapest thing standing between a mis-tap and all of it.
+**Reload, rather than nulling the state.** The obvious version —
+`setProfile(null)` plus `setScreen("welcome")` — white-screens the app.
+`useScreenSwap` holds the previous screen for `SCREEN_OUT_MS` (300ms,
+`App.jsx:298`) while it animates out, so for those 300ms `shownScreen` is still
+`"app"`, no early return fires, and the render reaches
+`const { ph, state: s } = plan;` (`App.jsx:2431`) with `plan` null. Destructuring
+null unmounts the tree.
+
+Reloading sidesteps that with fewer lines than guarding it: no `!plan` early
+return, no `setLogs`/`setReflection` threaded into `ProfileSheet`'s props, and
+every other piece of state — open sheet, toast, tab, range — is gone by
+construction rather than by remembering to reset it. No state changes between
+`save({})` and the navigation, so the write effect cannot overwrite the cleared
+blob on the way out. The cost is a full-page flash instead of the app's animated
+swap, which for "erase everything" is the honest sound to make.
+
+A no-confirm version would be shorter still and would match the existing
+destructive control (Delete, `App.jsx:1638`). Not taken: that deletes one log
+entry, this deletes a profile, a night of logs and a reflection. The second tap
+is the cheapest thing standing between a mis-tap and all of it.
 
 ---
 
