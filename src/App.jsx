@@ -14,6 +14,7 @@ import {
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements } from "./stats.js";
+import { load, save, forNight } from "./storage.js";
 import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 
@@ -2267,17 +2268,37 @@ function AdjustSheet({
   );
 }
 
+/* Read once, at import. A blob stamped with a different night is a previous
+   night's: the profile and the theme survive it, the logs and the reflection do
+   not, so tonight's plan starts clean. Folding them into an archive instead is
+   Phase 2.
+   The try/catch covers more than JSON. A blob that parses but is missing
+   shiftStart throws inside calculateShiftPhases, at module scope, where no error
+   boundary can catch it — a white screen before React has mounted. Falling back
+   to the quiz is the honest failure, and it is the whole of schema validation
+   for this phase. */
+const boot = (() => {
+  try {
+    const s = load();
+    if (!s.profile) return {};
+    const { id, now } = nightOf(calculateShiftPhases(s.profile));
+    return { ...forNight(s, id), now };
+  } catch { return {}; }
+})();
+
 export default function App() {
-  const [screen, setScreen] = useState("welcome");
+  const [screen, setScreen] = useState(boot.profile ? "app" : "welcome");
   const [tab, setTab] = useState("dashboard");
-  const [profile, setProfile] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [now, setNow] = useState(0);
+  const [profile, setProfile] = useState(boot.profile ?? null);
+  const [logs, setLogs] = useState(boot.logs ?? []);
+  /* seeded, not left at 0: the tick effect below only runs after the first
+     paint, so without this the restored plan renders one frame at minute zero */
+  const [now, setNow] = useState(boot.now ?? 0);
   const [sheet, setSheet] = useState(null);
   const [toast, setToast] = useState(null);
   const [answer, setAnswer] = useState(null);
-  const [themeOverride, setThemeOverride] = useState(null);
-  const [reflection, setReflection] = useState({});
+  const [themeOverride, setThemeOverride] = useState(boot.theme ?? null);
+  const [reflection, setReflection] = useState(boot.reflection ?? {});
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -2295,8 +2316,18 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [shownScreen, screenAnim] = useScreenSwap(screen);
 
-  /* Nothing is persisted. The app boots to the quiz every time, by design:
-     there is no backend, no database, and no storage of any kind. */
+  /* One key, one blob, one write. The night stamp is derived here rather than
+     held in state: nothing renders it, and Phase 2 reads it from the tick below,
+     which is where the rollover comparison belongs. The guard also means nothing
+     reaches the device until the quiz is finished. */
+  useEffect(() => {
+    if (!profile) return;
+    save({
+      night: nightOf(calculateShiftPhases(profile)).id,
+      profile, logs, reflection, theme: themeOverride,
+    });
+  }, [profile, logs, reflection, themeOverride]);
+
   useEffect(() => {
     if (!profile) return;
     const tick = () => setNow(nightOf(calculateShiftPhases(profile)).now);
