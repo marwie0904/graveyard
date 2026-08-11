@@ -84,7 +84,7 @@ describe("forNight", () => {
 });
 ```
 
-Two cases and no more. `load` and `save` get none: asserting that `JSON.parse` round-trips is testing the standard library, and asserting that an empty `catch` is empty needs a fake `localStorage` to throw from. Worse, such a stub covers only the safe half of the trust boundary — the dangerous half is a blob that parses cleanly but is missing `shiftStart`, which throws in Task 2's boot expression where no storage-level test reaches. Task 2 Step 8 verifies that path by hand.
+Two cases and no more. `load` and `save` get none: asserting that `JSON.parse` round-trips is testing the standard library, and asserting that an empty `catch` is empty needs a fake `localStorage` to throw from. Worse, such a stub covers only the safe half of the trust boundary — the dangerous half is a blob that parses cleanly but is missing `shiftStart`, which throws in Task 2's boot expression where no storage-level test reaches. Task 2 Step 7 verifies that path by hand.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -277,13 +277,12 @@ with:
 
 The `useEffect` that follows — the 30s tick — is untouched: its body, its `setInterval`, its cleanup and its dependency array all stay exactly as they are.
 
-- [ ] **Step 5: Run the whole suite**
+- [ ] **Step 5: Verify a refresh restores the plan**
 
-Run: `npm test`
-
-Expected: PASS. `App.jsx` has no component tests, so this only proves `time`, `planner`, `stats`, `mockNights`, `share` and `storage` still pass. Steps 6–9 are what prove the wiring.
-
-- [ ] **Step 6: Verify a refresh restores the plan**
+There is no `npm test` step here. Nothing in the suite imports `App.jsx` —
+`share.test.js` reaches `screens/Dashboard.jsx` and no test goes further — so the
+suite is structurally blind to this task. The dev server failing to compile is
+the real check, and it happens on the next line.
 
 Run: `npm run dev` and open the printed URL.
 
@@ -294,13 +293,13 @@ Run: `npm run dev` and open the printed URL.
 
 Expected: the app comes back on the Dashboard — no welcome, no disclaimer, no quiz — and the Plan tab still shows the ticked item done and the skipped one skipped. The Reflection tab lists both logs.
 
-- [ ] **Step 7: Verify a stale night drops the logs but keeps the profile**
+- [ ] **Step 6: Verify a stale night drops the logs but keeps the profile**
 
 In devtools → Application → Local Storage, find the `gy.v1` key and change its `"night"` value to `"2020-01-01"`. Refresh.
 
 Expected: still no quiz — the profile survived — but the Plan tab's items are all untouched again and the Reflection tab is empty. That is `forNight` doing its job.
 
-- [ ] **Step 8: Verify a corrupt blob falls back to the quiz rather than a white screen**
+- [ ] **Step 7: Verify a corrupt blob falls back to the quiz rather than a white screen**
 
 Two separate checks, refreshing after each:
 
@@ -309,12 +308,12 @@ Two separate checks, refreshing after each:
 
 If check 2 shows a blank page and a `Cannot read properties of undefined` in the console, the `try/catch` is in the wrong place — it must wrap the `nightOf(calculateShiftPhases(...))` call, not just the `load()`.
 
-- [ ] **Step 9: Verify the theme and the adjusted parameters stick**
+- [ ] **Step 8: Verify the theme and the adjusted parameters stick**
 
 1. Open the profile sheet → Personalize → set the theme to "Always dark". Refresh. Expected: still dark.
 2. On the Plan tab, open an item with an Adjust option, change a parameter, save. Refresh. Expected: the adjusted value is still in force. This one needs no code — `overrides` lives inside `profile` (`App.jsx:2242`) — and it closes the roadmap's note that tuning a parameter is currently pointless.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/App.jsx
@@ -397,12 +396,9 @@ insert:
 
 Run: `npm run dev` if it is not still running. With a completed profile and at least one log:
 
-1. Open the profile sheet, scroll to "Your data". Expected: a red Start over row under Export.
-2. Tap it once. Expected: the label becomes "Tap again to erase everything" and the subtitle names what goes. Nothing is erased.
-3. Close the sheet with the X, reopen it. Expected: the row reads "Start over" again — the arming did not survive.
-4. Tap it twice. Expected: the page reloads to the welcome screen.
-5. Refresh again. Expected: still the welcome screen — the blob is gone, not just the state.
-6. In devtools → Application → Local Storage, check `gy.v1`. Expected: `{}`.
+1. Open the profile sheet → "Your data", tap the red Start over row once. Expected: the label becomes "Tap again to erase everything" and the subtitle names what goes. Nothing is erased.
+2. Close the sheet with the X, reopen it. Expected: the row reads "Start over" again — the arming did not survive.
+3. Tap it twice, then refresh once more. Expected: the welcome screen both times, and `gy.v1` reads `{}` in devtools → Application → Local Storage. The blob is gone, not just the state.
 
 - [ ] **Step 4: Commit**
 
@@ -418,7 +414,7 @@ git commit -m "feat: start over, two taps, from the profile sheet"
 - `npm test` passes, including 2 new `forNight` cases.
 - A refresh mid-shift restores the plan with its done and skipped items, its logs, and its reflection.
 - Editing the stored `night` to a past date drops the logs and the reflection and keeps the profile.
-- Both corrupt-blob cases in Task 2 Step 8 land on the quiz, not a blank page.
+- Both corrupt-blob cases in Task 2 Step 7 land on the quiz, not a blank page.
 - The theme choice and an adjusted planning parameter both survive a refresh.
 - Start over needs two taps and leaves `{}` behind.
 - Nothing is archived. Phase 2 has not been started.
