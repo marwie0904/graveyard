@@ -1779,6 +1779,8 @@ function ProfileSheet({
   themeOverride, setThemeOverride, setReview, setScreen, exportData, exportText,
 }) {
   const badges = achievements(profile, logs, history);
+  /* two taps, because this erases a profile rather than one log entry */
+  const [armed, setArmed] = useState(false);
 
   return (
     <div style={{
@@ -1984,6 +1986,19 @@ function ProfileSheet({
       <Eyebrow T={T}>Your data</Eyebrow>
       <ProfileRow T={T} Icon={DownloadSimple} hue={DOMAIN.water.hue} l="Export data"
         sub="Everything logged, as a JSON file" onClick={exportData} />
+      <ProfileRow T={T} Icon={ArrowCounterClockwise} hue={DOMAIN.food.hue}
+        l={armed ? "Tap again to erase everything" : "Start over"}
+        sub={armed
+          ? "Your profile, tonight's logs and your reflection. This cannot be undone."
+          : "Erase everything and retake the quiz"}
+        onClick={() => {
+          if (!armed) { setArmed(true); return; }
+          /* clear and reload rather than null the state: setProfile(null) leaves
+             useScreenSwap rendering the app for another 300ms, and that render
+             destructures a null plan */
+          save({});
+          location.reload();
+        }} />
       {exportText && (
         <textarea readOnly value={exportText} style={{
           width: "100%", height: 150, borderRadius: 14, padding: 12, marginBottom: 8,
