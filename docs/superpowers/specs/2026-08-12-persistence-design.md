@@ -72,14 +72,16 @@ const KEY = "gy.v1";
 
 /** Everything saved, or {} if there is nothing readable there. */
 const load = () => {
-  try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : {}; }
-  catch { return {}; }                       // private mode, quota, corrupt JSON
+  try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) ?? {} : {}; }
+  catch { return {}; }
 };
 
 const save = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} };
 
 /** Last night's blob keeps the profile and the theme; tonight's keeps everything.
-    Phase 2 replaces the drop with a fold into the archive. */
+    Dropping stale logs loses nothing a refresh does not already lose today, and
+    it keeps last night's ticked items off tonight's plan.
+    ponytail: Phase 2 replaces the drop with a fold into the archive, here. */
 const forNight = (s, id) => (s.night === id ? s : { profile: s.profile, theme: s.theme });
 
 export { load, save, forNight };
@@ -105,14 +107,18 @@ Read once, at import, above the component:
    The try/catch covers more than JSON. A blob that parses but is missing
    shiftStart throws inside calculateShiftPhases, at module scope, where no
    error boundary can catch it — a white screen before React has mounted.
+   The finite check covers the half that does not throw: a profile missing
+   sleepGoalHours yields a NaN axis, which would boot a plan that only looks
+   rendered and re-stamp NaN to disk on every mount.
    Falling back to the quiz is the honest failure. */
 const boot = (() => {
   try {
     const s = load();
     if (!s.profile) return {};
     const { id, now } = nightOf(calculateShiftPhases(s.profile));
+    if (!Number.isFinite(now)) return {};
     return { ...forNight(s, id), now };
-  } catch { return {}; }
+  } catch (e) { console.warn("gy: discarding saved state", e); return {}; }
 })();
 ```
 
@@ -219,12 +225,17 @@ is the cheapest thing standing between a mis-tap and all of it.
 
 ## Tests
 
-`src/storage.test.js`, two assertions on `forNight`:
+`src/storage.test.js`, three assertions on `forNight`:
 
 | Case | Expect |
 |---|---|
 | `forNight(s, s.night)` | returns `s` whole |
 | `forNight(s, "2020-01-01")` | `{profile, theme}` only — no `logs`, no `reflection` |
+| `s` with no `night` field at all | same — the "not tonight" branch |
+
+The third is a blob written before the field existed, or a truncated write. It
+lands in the right branch by construction; the assertion is what makes that
+intentional rather than incidental.
 
 Pure, no globals, no stub, runs in the existing `environment: "node"`
 (`vitest.config.js`).
