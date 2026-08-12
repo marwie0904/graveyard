@@ -180,27 +180,34 @@ useEffect(() => {
   tick();
   const id = setInterval(tick, 30000);
   return () => clearInterval(id);
-}, [profile && profile.shiftStart, profile && profile.shiftEnd, profile && profile.plannedSleep,
-    profile && profile.sleepGoalHours, logs, reflection, archive]);
+}, [profile, logs, reflection, archive]);
 ```
 
 The night ID is destructured as `night` because `id` is already the interval
-handle two lines down. `sleepGoalHours` joins the profile deps: `nightOf` reads
-it, and the existing three-term list predates that.
+handle two lines down.
+
+**The dependency list collapses rather than growing.** It reads
+`[profile && profile.shiftStart, ...]` today, naming three fields to avoid
+rebuilding the interval when an unrelated part of the profile changes. Adding
+`logs`, `reflection` and `archive` — which the roll reads — rebuilds it on every
+log tap anyway, so the field list is now an optimisation that optimises nothing.
+`profile` whole is one term instead of four, and it cannot miss a field `nightOf`
+starts reading; the existing list already missed `sleepGoalHours`.
+
+The cost is that the interval restarts its 30-second countdown on each log tap,
+and the immediate `tick()` on each re-run is a `setNow` to the same value, which
+React bails out of. When the app sits idle across the boundary — the case this
+exists for — no render happens, the effect does not re-run, and the closure holds
+the logs that were current when the night ended.
+
+The adopt effect above keeps its field list, and that asymmetry is deliberate:
+see the ceiling below.
 
 **The toast fires only when a record was folded.** A night with nothing logged
 rolls silently: "Last night is saved" would be a lie, and nothing visibly
 unticks, because there was nothing ticked. `say` already exists
 (`App.jsx:2391`) and the roll is one call to it — no new component, no sheet to
 dismiss for an event that fires roughly once.
-
-**The dependency array grows by three,** because the roll reads all three. The
-cost is that the interval is torn down and recreated on each log tap, restarting
-its 30-second countdown; the immediate `tick()` on each re-run is a `setNow` to
-the same value, which React bails out of. When the app sits idle across the
-boundary — the case this exists for — no render happens, the effect does not
-re-run, and the closure holds the logs that were current when the night ended.
-Correct in the case that matters, chatty in the case that does not.
 
 ---
 
@@ -320,9 +327,18 @@ verified by hand in the plan.
   items.
 - **A time edit within 30 seconds of the boundary absorbs the rollover.** The
   adopt effect moves the ref to the newly computed night, so the tick that would
-  have folded now sees a match and the night simply continues. That is the right
-  trade against the alternative — a mis-detected roll archives a live night and
-  wipes the plan, while this one loses a boundary nobody but the clock noticed.
+  have folded now sees a match and the night simply continues — and because the
+  write then stamps the merged logs under the new ID, the next boot sees a match
+  too and does not catch it either. That is still the right trade against the
+  alternative, where a mis-detected roll archives a live night and wipes the
+  plan; this one loses a boundary nobody but the clock noticed.
+
+  **It is also why the adopt effect keeps its four-field dependency list while
+  the tick collapses to `profile`.** Collapsing both would save a line and widen
+  this window from "edited a shift time" to "touched anything on the profile" —
+  an adjusted planning parameter writes a new `profile` object, and that would
+  be enough to swallow a rollover. The tick has no such hazard: it never adopts,
+  so re-running it costs an interval rebuild and nothing else.
 - **Multi-tab.** Last write still wins, and two tabs crossing the boundary can
   each fold the same night — the same Phase 1 ceiling, presenting as a duplicate
   record rather than as lost logs. A `storage` event listener is the fix when
