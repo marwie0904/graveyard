@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick, nightOf } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, overlap, dur, nightAxis, nightTick, nightOf, forward } from "./time.js";
 
 describe("toMin", () => {
   it("converts HH:MM to minutes past midnight", () => {
@@ -112,5 +112,40 @@ describe("nightOf", () => {
     const midnight = { start: 0, sleepEnd: 990 };
     expect(nightOf(midnight, new Date(2026, 7, 10, 22, 0)))
       .toEqual({ id: "2026-08-11", now: -120 });
+  });
+});
+
+describe("forward", () => {
+  /* Ids are zero-padded local dates, so lexicographic order is chronological
+     order and a bare > is the whole rule. */
+  it("advances to a later night", () => {
+    expect(forward("2026-08-12", "2026-08-13")).toBe("2026-08-13");
+  });
+
+  it("refuses a backward step, which is the entire point", () => {
+    // a shift-time edit can walk nightOf backward; the ref must not follow
+    expect(forward("2026-08-13", "2026-08-12")).toBe("2026-08-13");
+  });
+
+  it("holds when the night has not changed", () => {
+    expect(forward("2026-08-13", "2026-08-13")).toBe("2026-08-13");
+  });
+
+  it("seeds from undefined, which a bare > gets wrong", () => {
+    /* boot.night is undefined on a fresh install and every relational
+       comparison against undefined is false, so without the !cur clause the
+       ref would stay undefined forever and the first night would be dropped
+       on every reload. */
+    expect(forward(undefined, "2026-08-13")).toBe("2026-08-13");
+  });
+
+  it("advances across a year boundary", () => {
+    expect(forward("2026-12-31", "2027-01-01")).toBe("2027-01-01");
+  });
+
+  it("orders single-digit days correctly, because the ids are padded", () => {
+    // "2026-08-9" > "2026-08-10" lexicographically; "2026-08-09" is not
+    expect(forward("2026-08-09", "2026-08-10")).toBe("2026-08-10");
+    expect(forward("2026-08-10", "2026-08-09")).toBe("2026-08-10");
   });
 });

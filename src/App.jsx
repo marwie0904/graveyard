@@ -6,7 +6,7 @@ import {
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
-import { DAY, toMin, fmt, nextAfter, dur, nightOf } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
@@ -2302,7 +2302,11 @@ const boot = (() => {
     if (!s.profile) return {};
     const { id, now } = nightOf(calculateShiftPhases(s.profile));
     if (!Number.isFinite(now)) return {};
-    return { ...forNight(s, id), night: id, now };
+    /* forward, not id: a stored night ahead of the computed one means the
+       boundary moved backward under an edit, and re-folding the night we are
+       standing in would duplicate a record the archive already holds. */
+    const stamp = forward(s.night, id);
+    return { ...forNight(s, stamp), night: stamp, now };
   } catch (e) { console.warn("gy: discarding saved state", e); return {}; }
 })();
 
@@ -2352,7 +2356,7 @@ export default function App() {
      night that never happened. Declared first on purpose: effects run in order,
      so the ref is correct before anything below reads it. */
   useEffect(() => {
-    if (profile) nightRef.current = nightOf(calculateShiftPhases(profile)).id;
+    if (profile) nightRef.current = forward(nightRef.current, nightOf(calculateShiftPhases(profile)).id);
   }, [profile && profile.shiftStart, profile && profile.shiftEnd,
       profile && profile.plannedSleep, profile && profile.sleepGoalHours]);
 
@@ -2370,8 +2374,12 @@ export default function App() {
   useEffect(() => {
     if (!profile) return;
     const tick = () => {
-      const { id: night, now } = nightOf(calculateShiftPhases(profile));
+      /* `seen` rather than `id`: `const id = setInterval(...)` is in scope below
+         and the immediate tick() call runs before that initialiser, so a bare
+         `id` here is a TDZ ReferenceError on the first call. */
+      const { id: seen, now } = nightOf(calculateShiftPhases(profile));
       setNow(now);
+      const night = forward(nightRef.current, seen);
       if (night === nightRef.current) return;
       /* the night ended while the app was open: fold it, then start clean */
       const next = archived({ night: nightRef.current, profile, logs, reflection, archive });
