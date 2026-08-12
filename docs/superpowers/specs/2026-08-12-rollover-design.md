@@ -415,8 +415,17 @@ consecutive nights and a real archive is neither.
   `start + DAY` — ticking every fifteen minutes: the id goes `2026-10-31` →
   `2026-11-01` at 01:30 EDT, back to `2026-10-31` at 01:00 EST, and forward again
   at 01:30 EST. Three rolls where there should be one, so `setLogs([])` and
-  `setReflection({})` fire twice more and anything logged in the repeated hour is
-  wiped; a duplicate `2026-10-31` id is the same hazard as above.
+  `setReflection({})` fire twice more.
+
+  Driven end to end against the running app — Playwright with a faked clock,
+  `timezoneId: "America/New_York"`, ticking fifteen minutes at a time from 00:45
+  — the three crossings reproduce exactly, and the damage is smaller than the
+  count suggests: **three rolls, but one record and one toast.** The first roll
+  empties the logs, so the two that follow hand `archived` an empty night and it
+  returns the archive untouched. The duplicate id needs something logged *inside*
+  the repeated hour to exist at all, and that is also the only way to lose data
+  here. Worth stating plainly, because "folds three times" reads worse than it
+  is.
 
   The profile that reaches it is narrow. The boundary is
   `min(sleepEnd, shiftStart + 24h)`, and for that to land strictly inside
@@ -426,11 +435,19 @@ consecutive nights and a real archive is neither.
   `time.js` mentions DST nowhere, and the fix is a directional check — roll only
   when the new id sorts after the old — which is a real rule about time this
   phase does not have the tests to hold up.
-- **Multi-tab.** Last write still wins, and two tabs crossing the boundary can
-  each fold the same night — the same Phase 1 ceiling, presenting as a duplicate
-  record rather than as lost logs. A `storage` event listener is the fix when
-  anyone is running two tabs, which nobody is. It is no longer the only way to
-  get a duplicate id, which is why the two bullets above exist.
+- **Multi-tab loses a night rather than duplicating one.** This bullet used to
+  predict a duplicate record. Driving two tabs across one boundary says
+  otherwise: both roll, both toast, and both write the *whole blob* — so the
+  second write replaces the first, and the archive ends up one record long, not
+  two. Whichever tab ticked last decides what that night was.
+
+  With both tabs holding the same state that is invisible. With divergent state —
+  logs tapped in one tab and not the other, which is the only reason to have two
+  open — the losing tab's version of the night is gone, and so are the logs only
+  it saw. That is the Phase 1 ceiling exactly, not a new shape of it: last write
+  wins over one blob. A `storage` event listener is still the fix, and still not
+  worth building for a use nobody has. The two bullets above remain the reachable
+  ways to get a genuine duplicate id; this is not one of them.
 - **A hand-edited `archive` that is not an array** fails one of two ways, and
   neither is the one Phase 1's `logs` case fails. It throws inside `archived`,
   reached from `forNight` inside the `boot` expression at *module scope* — inside
