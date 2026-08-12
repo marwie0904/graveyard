@@ -58,12 +58,11 @@ stops the boot rule being routed around.
 ```js
 import { foldNight } from "./stats.js";
 
-/** Last night folded onto the front of the archive, newest first — the order
-    every range slice in the app already assumes.
+/** Last night folded onto the front of the archive, newest first, which is the
+    order every range slice in the app already assumes.
     dayOffset is dropped rather than stored: it is relative to tonight, so a
-    stored one is wrong by morning, and `nights.find(x => x.dayOffset === off)`
-    (Dashboard.jsx:179) would match every archived night against the strip's
-    "Today" chip. Phase 3 computes it from the id.
+    stored one is wrong by morning and Dashboard.jsx would match every archived
+    night against the strip's "Today" chip. Phase 3 computes it from the id.
     No night stamp means nothing to name the record; a night with neither logs
     nor a reflection has nothing to record. Both leave the archive alone, and
     the gap in the id sequence is the only trace an unworked night gets. */
@@ -124,8 +123,8 @@ Phase 1 declined to hold the night ID in React state on the grounds that nothing
 renders it. That still holds. It becomes a ref, because now something *reads* it.
 
 ```js
-const nightRef = useRef(boot.night);
 const [archive, setArchive] = useState(boot.archive ?? []);
+const nightRef = useRef(boot.night);
 ```
 
 `archive` is state rather than a ref: the write effect must fire when it changes.
@@ -153,7 +152,7 @@ safe:
    sleep times can change which night the current clock belongs to. That is a
    re-labelling, not a rollover: adopt the new id without folding. Without this,
    changing your shift time at 3am looks exactly like a boundary crossing to the
-   tick below — it would archive the night you are standing in and clear the
+   tick below, which would archive the night you are standing in and clear the
    plan under you. */
 useEffect(() => {
   if (profile) nightRef.current = nightOf(calculateShiftPhases(profile)).id;
@@ -345,8 +344,10 @@ verified by hand in the plan.
 ## What Phase 3 inherits
 
 The shape is clean. An archived record is field-for-field what
-`materializeNights` produces minus `dayOffset`, because both come out of the
-same `foldNight`, so the swap is `history` reading `archive` and computing
+`materializeNights` produces minus `dayOffset` — not because the two come out
+of the same function, but because `foldNight` was written to reproduce the
+mock's shape, field for field (`stats.js:12`), and nothing enforces that they
+stay in sync. So the swap is `history` reading `archive` and computing
 `dayOffset` from the id. No mapping layer, no migration.
 
 The sequencing is not, and both problems are in `Dashboard.jsx` rather than in
