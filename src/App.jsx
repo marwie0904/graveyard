@@ -14,7 +14,7 @@ import {
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements } from "./stats.js";
-import { load, save, forNight } from "./storage.js";
+import { load, save, forNight, archived } from "./storage.js";
 import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 
@@ -2284,9 +2284,9 @@ function AdjustSheet({
 }
 
 /* Read once, at import. A blob stamped with a different night is a previous
-   night's: the profile and the theme survive it, the logs and the reflection do
-   not, so tonight's plan starts clean. Folding them into an archive instead is
-   Phase 2.
+   night's: the profile, the theme and the archive survive it, and its logs and
+   reflection are folded onto the front of that archive rather than dropped, so
+   tonight's plan starts clean and last night is still on record.
    The try/catch covers more than JSON. A blob that parses but is missing
    shiftStart throws inside calculateShiftPhases, at module scope, where no error
    boundary can catch it — a white screen before React has mounted. Falling back
@@ -2302,7 +2302,7 @@ const boot = (() => {
     if (!s.profile) return {};
     const { id, now } = nightOf(calculateShiftPhases(s.profile));
     if (!Number.isFinite(now)) return {};
-    return { ...forNight(s, id), now };
+    return { ...forNight(s, id), night: id, now };
   } catch (e) { console.warn("gy: discarding saved state", e); return {}; }
 })();
 
@@ -2319,6 +2319,12 @@ export default function App() {
   const [answer, setAnswer] = useState(null);
   const [themeOverride, setThemeOverride] = useState(boot.theme ?? null);
   const [reflection, setReflection] = useState(boot.reflection ?? {});
+  /* The archive is state because the write effect must fire when it grows.
+     The night id is a ref because nothing renders it — only the three effects
+     below read it, and re-rendering the app to change a string it never shows
+     is work for nobody. */
+  const [archive, setArchive] = useState(boot.archive ?? []);
+  const nightRef = useRef(boot.night);
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -2336,25 +2342,51 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [shownScreen, screenAnim] = useScreenSwap(screen);
 
-  /* One key, one blob, one write. The night stamp is derived here rather than
-     held in state: nothing renders it, and Phase 2 reads it from the tick below,
-     which is where the rollover comparison belongs. The guard also means nothing
-     reaches the device until the quiz is finished. */
+  /* nightOf reads the wake boundary out of the profile, so editing your shift
+     or sleep times can change which night the current clock belongs to. That is
+     a re-labelling, not a rollover: adopt the new id without folding. Without
+     this, changing your shift time at 3am looks exactly like a boundary
+     crossing to the tick below, which would archive the night you are standing
+     in and clear the plan under you. It covers the quiz too — profile goes null
+     to set, this fires, and the first tick sees a match rather than rolling a
+     night that never happened. Declared first on purpose: effects run in order,
+     so the ref is correct before anything below reads it. */
+  useEffect(() => {
+    if (profile) nightRef.current = nightOf(calculateShiftPhases(profile)).id;
+  }, [profile && profile.shiftStart, profile && profile.shiftEnd,
+      profile && profile.plannedSleep, profile && profile.sleepGoalHours]);
+
+  /* One key, one blob, one write. The stamp comes off the ref rather than the
+     clock: between the boundary and the tick that answers it, the logs in hand
+     are still last night's and have to be written under last night's name.
+     Deriving it here from the clock is what let a single log tapped in that
+     window carry a whole night across the boundary. The guard also means
+     nothing reaches the device until the quiz is finished. */
   useEffect(() => {
     if (!profile) return;
-    save({
-      night: nightOf(calculateShiftPhases(profile)).id,
-      profile, logs, reflection, theme: themeOverride,
-    });
-  }, [profile, logs, reflection, themeOverride]);
+    save({ night: nightRef.current, profile, logs, reflection, theme: themeOverride, archive });
+  }, [profile, logs, reflection, themeOverride, archive]);
 
   useEffect(() => {
     if (!profile) return;
-    const tick = () => setNow(nightOf(calculateShiftPhases(profile)).now);
+    const tick = () => {
+      const { id: night, now } = nightOf(calculateShiftPhases(profile));
+      setNow(now);
+      if (night === nightRef.current) return;
+      /* the night ended while the app was open: fold it, then start clean */
+      const next = archived({ night: nightRef.current, profile, logs, reflection, archive });
+      nightRef.current = night;
+      setArchive(next);
+      setLogs([]);
+      setReflection({});
+      /* only when something was actually folded — "last night is saved" is a
+         lie for a night with nothing logged, and nothing visibly unticks */
+      if (next.length > archive.length) say("Last night is saved. Tonight's plan starts fresh.");
+    };
     tick();
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
-  }, [profile && profile.shiftStart, profile && profile.shiftEnd, profile && profile.plannedSleep]);
+  }, [profile, logs, reflection, archive]);
 
   const plan = useMemo(
     () => (profile ? generateTimeline(profile, logs, now) : null),
