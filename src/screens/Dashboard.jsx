@@ -164,7 +164,7 @@ function MiniPlan({ T, plan, status, now, onOpenPlan }) {
 
 export default function Dashboard({
   T, profile, nights, rangeKey, setRangeKey, say, setProfile,
-  plan, status, now, onOpenPlan,
+  plan, status, now, onOpenPlan, seeded,
 }) {
   /* A number means one night off the strip, null means a multi-night window. */
   const off = dayOffsetOf(rangeKey);
@@ -392,7 +392,12 @@ export default function Dashboard({
         fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
       }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
-        Nothing here is a score, and nothing here is graded.
+        {/* Not decoration: this screen's rule is that no figure is ever
+            fabricated, and 45 invented nights presented as history is the
+            largest possible violation of it. */}
+        {seeded
+          ? "Demo data — 45 sample nights. Reload without ?seed for your own."
+          : "Nothing here is a score, and nothing here is graded."}
       </div>
     </div>
   );
