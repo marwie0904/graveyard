@@ -3,6 +3,7 @@ dist
 .superpowers
 *.png
 drive*.mjs
+!drive-history.mjs
 shot-plan.mjs
 check.mjs
 docs/*.pdf
