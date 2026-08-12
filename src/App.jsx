@@ -1989,7 +1989,7 @@ function ProfileSheet({
       <ProfileRow T={T} Icon={ArrowCounterClockwise} hue={DOMAIN.food.hue}
         l={armed ? "Tap again to erase everything" : "Start over"}
         sub={armed
-          ? "Your profile, tonight's logs and your reflection. This cannot be undone."
+          ? "Your profile, every night on record and tonight's logs. This cannot be undone."
           : "Erase everything and retake the quiz"}
         onClick={() => {
           if (!armed) { setArmed(true); return; }
@@ -2544,7 +2544,7 @@ export default function App() {
 
   /* ------------------------------ profile sheet ---------------------------- */
   const exportData = () => {
-    const payload = JSON.stringify({ app: "GraveYard", profile, logs, history, reflection }, null, 2);
+    const payload = JSON.stringify({ app: "GraveYard", profile, logs, history, reflection, archive }, null, 2);
     try {
       const blob = new Blob([payload], { type: "application/json" });
       const url = URL.createObjectURL(blob);
