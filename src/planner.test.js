@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
-  deriveState, movementInterval,
+  deriveState, movementInterval, stretchNight,
 } from "./planner.js";
 
 const P = {
@@ -95,10 +95,29 @@ describe("deriveState with a midnight cutoff", () => {
   });
 });
 
-describe("nightInStretch", () => {
-  const on = (n) => ({ ...P, nightInStretch: n });
+/* The quiz answer is still read — it is the seed for the nights that were
+   already behind you before the archive starts — but it is no longer the only
+   thing that can name the night. `stretch` is what stats.countStretch measured,
+   it is never stored, and it wins. */
+describe("stretchNight", () => {
+  it("prefers the counted night to the told one", () => {
+    expect(stretchNight({ stretch: 4, nightInStretch: 1 })).toBe(4);
+  });
 
-  it("treats a profile saved without the field as night one", () => {
+  it("falls back to the quiz answer when nothing has been counted", () => {
+    expect(stretchNight({ nightInStretch: 3 })).toBe(3);
+  });
+
+  it("reads as night one for a profile that has neither", () => {
+    expect(stretchNight({})).toBe(1);
+  });
+});
+
+describe("the night of the stretch, driven by the counted field", () => {
+  const on = (n) => ({ ...P, stretch: n });
+  const told = (n) => ({ ...P, nightInStretch: n });
+
+  it("treats a profile saved without either field as night one", () => {
     expect(caffeineHours(P)).toBe(caffeineHours(on(1)));
     expect(movementInterval(P)).toBe(movementInterval(on(1)));
   });
@@ -113,8 +132,30 @@ describe("nightInStretch", () => {
     expect(movementInterval(on(4))).toBe(movementInterval(on(1)) - 30);
   });
 
-  it("explains the heavier check-in by the stretch, not by sleep", () => {
+  it("explains the heavier check-in by the counted night, not by sleep", () => {
     const item = generateTimeline(on(3), [], 0).items.find((i) => i.id === "checkin-1");
     expect(item.changed).toMatch(/night 3 of your stretch/);
+  });
+
+  /* The seed still drives everything when there is no count — a profile that
+     has never been through the memo, which is every profile boot folds. */
+  it("drives the same three behaviours off the quiz answer when there is no count", () => {
+    expect(caffeineHours(told(3))).toBe(caffeineHours(told(1)) + 1);
+    expect(movementInterval(told(4))).toBe(movementInterval(told(1)) - 30);
+  });
+
+  /* Load-bearing: the "default" the adjust sheet offers to return to is the
+     plan's own default FOR TONIGHT, stretch included. */
+  it("keeps the count and drops the overrides in baseProfile", () => {
+    const b = baseProfile({ ...P, stretch: 4, overrides: { caffeineHours: 9 } });
+    expect(b.stretch).toBe(4);
+    expect(b.overrides).toEqual({});
+  });
+
+  /* `ov` sits above the stretch by design: a number the user set by hand beats
+     one the app derived. */
+  it("lets an explicit override beat the derived count", () => {
+    expect(caffeineHours({ ...P, stretch: 4, overrides: { caffeineHours: 9 } })).toBe(9);
+    expect(movementInterval({ ...P, stretch: 4, overrides: { moveGap: 60 } })).toBe(60);
   });
 });

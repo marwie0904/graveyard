@@ -48,9 +48,10 @@ export function determineCurrentPhase(now, ph) {
   return { phase, inDeepNight: !!ph.deepNight && now >= ph.deepNight[0] && now < ph.deepNight[1] };
 }
 
-/* Nights already worked in this run. Profiles saved before this field existed
-   read as night one, which is the same plan they got before. */
-export const stretchNight = (profile) => profile.nightInStretch ?? 1;
+/* Counted, else told, else one. `stretch` is what the archive counted tonight
+   and is never stored; `nightInStretch` is the quiz's seed and is. Profiles
+   saved before either field existed still read as night one. */
+export const stretchNight = (p) => p.stretch ?? p.nightInStretch ?? 1;
 
 export function caffeineHours(profile) {
   let hours = { low: 5, normal: 6, high: 8 }[profile.caffeineSensitivity] ?? 6;

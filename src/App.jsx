@@ -10,10 +10,10 @@ import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
-  movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE,
+  movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
-import { foldNight, achievements } from "./stats.js";
+import { foldNight, achievements, countStretch } from "./stats.js";
 import { load, save, forNight, archived } from "./storage.js";
 import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
@@ -452,7 +452,7 @@ const QUESTIONS = [
   },
   {
     key: "nightInStretch", kind: "choice", q: "Which night of your stretch is tonight?",
-    help: "Alertness and attention drop with each night worked in a row, so the plan asks less of you the deeper into a stretch you are.",
+    help: "Alertness and attention drop with each night worked in a row, so the plan asks less of you the deeper into a stretch you are. Just tonight. After this the app counts it from the nights you log.",
     options: [
       { v: 1, l: "First night", s: "Standard plan" },
       { v: 2, l: "Second night", s: "Slightly shorter gaps between resets" },
@@ -1397,7 +1397,7 @@ function PlanTab({
             Why this plan
           </div>
           <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
-            {planSummary(profile).type}
+            {planSummary(profile).type} · Night {stretchNight(profile)} of your stretch
           </div>
         </div>
         <CaretRight size={17} color={T.faint} />
@@ -2316,6 +2316,14 @@ const boot = (() => {
    work in the room where it is needed. */
 const seeded = new URLSearchParams(location.search).has("seed");
 
+/* The counted night is not something the user told the app, so it is not
+   something the app keeps. undefined is dropped by JSON.stringify, so this is
+   the whole guard — and it is a trust boundary, not tidiness: a stored `stretch`
+   comes back through forNight -> archived -> foldNight on boot, the one fold
+   that never sees the memo, and would be inherited by any future reader as
+   ground truth. Module scope because it closes over nothing. */
+const stored = ({ stretch, ...p }) => p;
+
 export default function App() {
   const [screen, setScreen] = useState(boot.profile ? "app" : "welcome");
   const [tab, setTab] = useState("dashboard");
@@ -2369,6 +2377,18 @@ export default function App() {
   }, [profile && profile.shiftStart, profile && profile.shiftEnd,
       profile && profile.plannedSleep, profile && profile.sleepGoalHours]);
 
+  /* What the archive says tonight is. Derived on every render, never stored:
+     `stretch` beats `nightInStretch` in stretchNight, so a stored copy would be
+     read back by the one fold that does not go through this memo (forNight on
+     boot) and inherited by every future reader as a number nobody counted.
+     `now` is in the list for the same reason the history memo has it: the ref is
+     not reactive, and a boundary can pass with nothing logged, at which point the
+     count must go up by one with nothing else here moving. */
+  const planProfile = useMemo(
+    () => (profile ? { ...profile, stretch: countStretch(archive, nightRef.current, profile.nightInStretch) } : null),
+    [profile, archive, now]
+  );
+
   /* One key, one blob, one write. The stamp comes off the ref rather than the
      clock: between the boundary and the tick that answers it, the logs in hand
      are still last night's and have to be written under last night's name.
@@ -2377,7 +2397,7 @@ export default function App() {
      nothing reaches the device until the quiz is finished. */
   useEffect(() => {
     if (!profile) return;
-    save({ night: nightRef.current, profile, logs, reflection, theme: themeOverride, archive });
+    save({ night: nightRef.current, profile: stored(profile), logs, reflection, theme: themeOverride, archive });
   }, [profile, logs, reflection, themeOverride, archive]);
 
   useEffect(() => {
@@ -2391,7 +2411,13 @@ export default function App() {
       const night = forward(nightRef.current, seen);
       if (night === nightRef.current) return;
       /* the night ended while the app was open: fold it, then start clean */
-      const next = archived({ night: nightRef.current, profile, logs, reflection, archive });
+      /* planProfile, and the dependency list below deliberately does NOT gain
+         it: at the instant of the roll nightRef.current is still last night, so
+         the captured value holds the count for the night being folded, which is
+         the right one. planProfile changes identity every time `now` advances a
+         minute, so listing it would tear down and re-register this interval once
+         a minute and buy nothing. */
+      const next = archived({ night: nightRef.current, profile: planProfile, logs, reflection, archive });
       nightRef.current = night;
       setArchive(next);
       setLogs([]);
@@ -2416,12 +2442,12 @@ export default function App() {
   }, [profile, logs, reflection, archive]);
 
   const plan = useMemo(
-    () => (profile ? generateTimeline(profile, logs, now) : null),
-    [profile, logs, now]
+    () => (planProfile ? generateTimeline(planProfile, logs, now) : null),
+    [planProfile, logs, now]
   );
   const advice = useMemo(
-    () => (plan ? generateAdvice(profile, logs, now, plan) : null),
-    [plan, profile, logs, now]
+    () => (plan ? generateAdvice(planProfile, logs, now, plan) : null),
+    [plan, planProfile, logs, now]
   );
 
   /* Nights are derived, never stored. The archive supplies the past and carries
@@ -2436,14 +2462,17 @@ export default function App() {
      would put 45 fictional nights through the write effect and onto the user's
      disk, where they would outlive the flag. */
   const history = useMemo(() => {
-    if (!profile) return [];
+    if (!planProfile) return [];
     const anchor = nightRef.current;
     const past = seeded
-      ? materializeNights(profile)
+      ? materializeNights(planProfile)
       : archive.map((r) => ({ ...r, dayOffset: daysBetween(anchor, r.id) }));
-    const tonight = foldNight(profile, logs, reflection);
+    /* planProfile: foldNight writes moveTotal from movementInterval and cutoff
+       from caffeineHours, so a record folded at the seed disagrees with the plan
+       that produced it. */
+    const tonight = foldNight(planProfile, logs, reflection);
     return tonight ? [tonight, ...past] : past;
-  }, [profile, logs, reflection, archive, now]);
+  }, [planProfile, logs, reflection, archive, now]);
 
   const inShift = plan && now >= plan.ph.start && now < plan.ph.end;
   const autoTheme = inShift || (plan && now >= plan.ph.sleepStart && now < plan.ph.sleepEnd);
@@ -2521,7 +2550,7 @@ export default function App() {
     return (
       <Frame T={RT} anim={screenAnim}>
         <Recommendation
-          T={RT} profile={profile} revisit={revisit}
+          T={RT} profile={planProfile} revisit={revisit}
           onDone={() => setScreen("app")}
           onAdjust={(idx) => {
             setReview({ index: idx, single: true, back: shownScreen });
@@ -2536,7 +2565,7 @@ export default function App() {
     return (
       <Frame T={RT} anim={screenAnim}>
         <Review
-          T={RT} profile={profile} onSave={setProfile}
+          T={RT} profile={planProfile} onSave={setProfile}
           startAt={review.index} single={review.single}
           onDone={() => {
             const back = review.back || "app";
@@ -2581,7 +2610,7 @@ export default function App() {
 
   /* ------------------------------ profile sheet ---------------------------- */
   const exportData = () => {
-    const payload = JSON.stringify({ app: "GraveYard", profile, logs, reflection, archive }, null, 2);
+    const payload = JSON.stringify({ app: "GraveYard", profile: stored(profile), logs, reflection, archive }, null, 2);
     try {
       const blob = new Blob([payload], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -2610,7 +2639,7 @@ export default function App() {
     } else {
       entry = push(kind, 1);
     }
-    setQuickResult({ kind, id: entry.id, advice: quickAdvice(kind, profile, plan, now) });
+    setQuickResult({ kind, id: entry.id, advice: quickAdvice(kind, planProfile, plan, now) });
   };
 
   /* -------------------------------- chrome -------------------------------- */
@@ -2643,13 +2672,13 @@ export default function App() {
       {/* the only scrolling region */}
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 12, paddingBottom: 28 }}>
         {tab === "dashboard" && (
-          <Dashboard T={T} profile={profile} nights={history} seeded={seeded}
+          <Dashboard T={T} profile={planProfile} nights={history} seeded={seeded}
             rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile}
             plan={plan} status={s.itemStatus} now={now} onOpenPlan={() => setTab("plan")} />
         )}
         {tab === "plan" && (
           <PlanTab
-            T={T} plan={plan} s={s} ph={ph} profile={profile} now={now}
+            T={T} plan={plan} s={s} ph={ph} profile={planProfile} now={now}
             showAllPlan={showAllPlan} setShowAllPlan={setShowAllPlan}
             hideDone={hideDone} setHideDone={setHideDone}
             setScreen={setScreen} onAct={onAct}
@@ -2658,14 +2687,14 @@ export default function App() {
         )}
         {tab === "log" && (
           <LogTab
-            T={T} logs={logs} setLogs={setLogs} profile={profile} plan={plan} now={now}
+            T={T} logs={logs} setLogs={setLogs} profile={planProfile} plan={plan} now={now}
             s={s} ph={ph} editingLog={editingLog} setEditingLog={setEditingLog} say={say}
             saveManualLog={saveManualLog} clockToAbs={clockToAbs}
             logDraft={logDraft} setLogDraft={setLogDraft}
             reflection={reflection} setReflection={setReflection} push={push} setProfile={setProfile}
           />
         )}
-        {tab === "live" && <LiveTab T={T} profile={profile} plan={plan} now={now} setPlaying={setPlaying} />}
+        {tab === "live" && <LiveTab T={T} profile={planProfile} plan={plan} now={now} setPlaying={setPlaying} />}
       </div>
 
       {toast && (
@@ -2701,7 +2730,7 @@ export default function App() {
         setTab={setTab} now={now} quickLog={quickLog} setLogs={setLogs}
       />
       <AdjustSheet
-        T={T} adjusting={adjusting} setAdjusting={setAdjusting} plan={plan} profile={profile}
+        T={T} adjusting={adjusting} setAdjusting={setAdjusting} plan={plan} profile={planProfile}
         adjustDraft={adjustDraft} setAdjustDraft={setAdjustDraft} logs={logs} now={now}
         setProfile={setProfile} say={say} setReview={setReview} setScreen={setScreen}
       />
@@ -2751,8 +2780,8 @@ export default function App() {
                     fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600,
                     color: T.ink, marginBottom: 8,
                   }}>{f.l}</div>
-                  <TimeWheel T={T} value={profile[f.k]}
-                    onChange={(v) => setProfile({ ...profile, [f.k]: v })} />
+                  <TimeWheel T={T} value={planProfile[f.k]}
+                    onChange={(v) => setProfile({ ...planProfile, [f.k]: v })} />
                 </div>
               ))}
               {timeEdit === "sleep" && (
@@ -2763,8 +2792,8 @@ export default function App() {
                   }}>How long you usually sleep</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {[4.5, 5.5, 7.5, 9.5].map((h) => (
-                      <Pill key={h} T={T} hue={DOMAIN.sleep.hue} active={profile.sleepGoalHours === h}
-                        onClick={() => setProfile({ ...profile, sleepGoalHours: h })}>
+                      <Pill key={h} T={T} hue={DOMAIN.sleep.hue} active={planProfile.sleepGoalHours === h}
+                        onClick={() => setProfile({ ...planProfile, sleepGoalHours: h })}>
                         {h === 4.5 ? "Under 5h" : h === 5.5 ? "5 to 6h" : h === 7.5 ? "7 to 9h" : "Over 9h"}
                       </Pill>
                     ))}
@@ -2780,7 +2809,7 @@ export default function App() {
       })()}
       {profileOpen && (
         <ProfileSheet
-          T={T} profile={profile} logs={logs} history={history} ph={ph}
+          T={T} profile={planProfile} logs={logs} history={history} ph={ph}
           setProfileOpen={setProfileOpen} setProfile={setProfile} setTimeEdit={setTimeEdit}
           themeOverride={themeOverride} setThemeOverride={setThemeOverride}
           setReview={setReview} setScreen={setScreen} exportData={exportData} exportText={exportText}
