@@ -121,6 +121,20 @@ function Lead({ T, children }) {
   );
 }
 
+/* The muted row this screen explains itself with, written out by hand three
+   times before the fourth use asked for it. */
+function Note({ T, children }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
+      fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
+    }}>
+      <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+      {children}
+    </div>
+  );
+}
+
 /* The next few things due tonight, so the home screen answers "what now?"
    without making the user cross to the Plan tab to find out. */
 function MiniPlan({ T, plan, status, now, onOpenPlan }) {
@@ -239,9 +253,15 @@ export default function Dashboard({
 
         <Lead T={T}>One night on its own is a snapshot, not a pattern.</Lead>
 
-        {/* the plan belongs to tonight, so it only shows on tonight */}
-        {off === 0 && (
+        {/* the plan belongs to tonight, so it only shows on tonight — and the
+            slot it would have filled is where a past night gets told why */}
+        {off === 0 ? (
           <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
+        ) : (
+          <Note T={T}>
+            Only tonight has a plan. A finished night is kept as what you logged, not as
+            the plan it came from.
+          </Note>
         )}
 
         <Head T={T}>In figures</Head>
@@ -254,13 +274,7 @@ export default function Dashboard({
           <Figure T={T} k="Movement resets" v={`${night.moveDone} of ${night.moveTotal} done`} />
         </Card>
 
-        <div style={{
-          display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
-          fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
-        }}>
-          <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
-          Charts need more than one night. Pick a window from Trends to see them.
-        </div>
+        <Note T={T}>Charts need more than one night. Pick a window from Trends to see them.</Note>
       </div>
     );
   }
@@ -377,13 +391,9 @@ export default function Dashboard({
       )}
 
       {st.n < MIN_TREND && (
-        <div style={{
-          display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
-          fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
-        }}>
-          <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+        <Note T={T}>
           {plural(MIN_TREND - st.n, "more night", "more nights")} and these charts start reading as trends.
-        </div>
+        </Note>
       )}
 
       <Head T={T}>What the plan noticed</Head>
@@ -421,18 +431,14 @@ export default function Dashboard({
         )}
       </Card>
 
-      <div style={{
-        display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
-        fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
-      }}>
-        <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
-        {/* Not decoration: this screen's rule is that no figure is ever
-            fabricated, and 45 invented nights presented as history is the
-            largest possible violation of it. */}
+      {/* Not decoration: this screen's rule is that no figure is ever
+          fabricated, and 45 invented nights presented as history is the largest
+          possible violation of it. */}
+      <Note T={T}>
         {seeded
           ? "Demo data — 45 sample nights. Reload without ?seed for your own."
           : "Nothing here is a score, and nothing here is graded."}
-      </div>
+      </Note>
     </div>
   );
 }

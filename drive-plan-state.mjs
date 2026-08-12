@@ -38,6 +38,19 @@ const LOGS = [
   { id: "item-1", t: 1370, type: "item", value: { id: "move-1", status: "done", category: "movement" } },
 ];
 
+/* One full NightRecord as `archived` writes one — every field the Dashboard
+   reads, and deliberately no dayOffset, which App.jsx computes from the id.
+   Same shape as drive-history.mjs's REC, flat rather than a factory: this file
+   has exactly one caller and never varies a field. */
+const PAST = {
+  id: "2026-08-10", sleepStart: 450, wake: 900, sleepHours: 7.5, sleepEstimated: false,
+  cutoff: 1290, caffeine: [1140, 1230], moveDone: 2, moveTotal: 4,
+  restKind: "nap", restMin: 20, groggy: false, water: 3, screenStrain: 0,
+  sleepyWindow: "deep", heavyMeal: false, lateLightDone: true, endShift: true,
+};
+
+const LINE = "Only tonight has a plan.";
+
 const results = [];
 const record = (name, pass, detail) => {
   results.push({ name, pass, detail });
@@ -234,6 +247,37 @@ const browser = await chromium.launch({ channel: "chrome" });
     !after.text.includes("Showing everything") && !after.text.includes("Resets expanded") &&
     !errors.length,
     `toggledTo="${["Showing everything", "Resets expanded"].filter((p) => toggled.text.includes(p)).join("+")}" keys=${stored} back="${["Remaining only", "Resets grouped"].filter((p) => after.text.includes(p)).join("+")}" err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
+/* ---- P5/P6: a past night says where its plan went ------------------------- */
+{
+  /* The anchor is 2026-08-12 (PROFILE at 02:00 on Aug 13), so this record
+     answers the "2d" chip and the "4d" chip has nothing. Tonight has logs, so
+     the "Now" chip has a record too and its MiniPlan renders — which is the
+     half of P5 that proves the ternary did not replace the plan everywhere. */
+  const { ctx, page, errors } = await open(browser, {
+    time: new Date("2026-08-13T02:00:00"), blob: { ...STALE, archive: [PAST] },
+  });
+  await page.getByRole("button", { name: "2d", exact: true }).click();
+  await page.waitForTimeout(300);
+  const past = (await read(page)).text;
+  await page.getByRole("button", { name: "Now", exact: true }).click();
+  await page.waitForTimeout(300);
+  const tonight = (await read(page)).text;
+  record("P5 a finished night explains where its plan went, and tonight still has one",
+    past.includes(LINE) && past.includes("not as the plan it came from") &&
+    !past.includes("See all") && past.includes("In figures") &&
+    tonight.includes("See all") && !tonight.includes(LINE) && !errors.length,
+    `past: line=${past.includes(LINE)} seeAll=${past.includes("See all")} figures=${past.includes("In figures")} | now: seeAll=${tonight.includes("See all")} line=${tonight.includes(LINE)} err=${errors.join(" || ") || "none"}`);
+
+  await page.getByRole("button", { name: "4d", exact: true }).click();
+  await page.waitForTimeout(300);
+  const empty = (await read(page)).text;
+  record("P6 a past night with no record explains itself once, not twice",
+    empty.includes("No record for this night.") && !empty.includes(LINE) &&
+    !empty.includes("In figures") && !errors.length,
+    `noRecord=${empty.includes("No record for this night.")} line=${empty.includes(LINE)} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 
