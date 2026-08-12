@@ -205,6 +205,38 @@ const browser = await chromium.launch({ channel: "chrome" });
   await ctx.close();
 }
 
+/* ---- P4: the view flags are transient, and stay that way ------------------ */
+{
+  // STALE is only "stale" at 14:59; at 02:00 it is an ordinary mid-night blob
+  const { ctx, page, errors } = await open(browser, {
+    time: new Date("2026-08-13T02:00:00"), blob: STALE,
+  });
+  await planTab(page);
+  await page.getByRole("button", { name: "Remaining only" }).click();
+  await page.waitForTimeout(200);
+  await page.getByRole("button", { name: "Resets grouped" }).click();
+  await page.waitForTimeout(300);
+  const toggled = await read(page);
+  /* Read the KEY LIST before the reload, not after: this context's init script
+     re-seeds gy.v1 on every navigation, so a flag written into the blob would be
+     wiped by the seed and a reload-only check would pass with the bug in place.
+     The two halves are complementary — the key list catches a flag written into
+     gy.v1, the reload catches one written anywhere else. */
+  const stored = toggled.keys;
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(400);
+  await planTab(page);
+  const after = await read(page);
+  record("P4 both view flags are transient: nothing stored, defaults on reload",
+    toggled.text.includes("Showing everything") && toggled.text.includes("Resets expanded") &&
+    stored === "night,profile,logs,reflection,theme,archive" &&
+    after.text.includes("Remaining only") && after.text.includes("Resets grouped") &&
+    !after.text.includes("Showing everything") && !after.text.includes("Resets expanded") &&
+    !errors.length,
+    `toggledTo="${["Showing everything", "Resets expanded"].filter((p) => toggled.text.includes(p)).join("+")}" keys=${stored} back="${["Remaining only", "Resets grouped"].filter((p) => after.text.includes(p)).join("+")}" err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
 await browser.close();
 
 const failed = results.filter((r) => !r.pass);

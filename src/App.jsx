@@ -2338,6 +2338,9 @@ export default function App() {
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  /* Where you are standing in tonight's plan, not something you told the app:
+     not persisted, and not reset at the roll. The pills name their own mode, so
+     neither one needs remembering. Decided, not overlooked. */
   const [showAllPlan, setShowAllPlan] = useState(false);
   const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
