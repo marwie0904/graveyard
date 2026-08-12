@@ -32,8 +32,12 @@ gap suggests.
 - **The Plan page on live state** — Phase 4, shipped. It survives a refresh, a
   rollover, and a tab that slept through the boundary.
 
-**Missing:** nothing on the original chain. What is left is Phase 5 — the app
-reading its own archive instead of the quiz — and Phase 6's citation field.
+- **The loop** — Phase 5, shipped. The night of the stretch counts itself from
+  the archive, the reflection's answer writes an override instead of rewriting a
+  quiz answer, and the sleep goal is proposed against what was measured.
+
+**Missing:** nothing on the original chain. What is left is Phase 6's citation
+field.
 
 So this was not a build-from-zero. It was: give time an identity, save it, roll it
 over, and swap the mock for the real thing. All four are done.
@@ -327,25 +331,86 @@ all. Add it the first time a real device comes back stale.
 
 ---
 
-## Phase 5 — The loop
+## Phase 5 — The loop ✅ done
 
-With persistence, the quiz answers stop being ground truth and the app can start
-learning from itself. This is what makes it worth opening a second time.
+The quiz answers stop being ground truth. Three inputs start being what the app
+measured instead, and this is the first phase that changes what the plan tells a
+shift worker to do rather than where the plan lives.
 
-- `nightInStretch` should count itself from the archive, not be asked nightly.
-  It already drives real behavior (caffeine cutoff +1h at night 3, reset gap
-  −30min at night 4) — it just currently depends on the user remembering. The
-  raw material is there now: every record carries its night ID, so a stretch is a
-  run of consecutive IDs and a gap is a break in that run. What a gap *means* is
-  still the open question Phase 0 named — an off-night and a night you forgot to
-  open the app look identical — but it can now be measured before being guessed.
-- The reflection already asks "what should the plan change next shift?"
-  (`REFLECT_QS`, `App.jsx:1439`) and the answer currently goes nowhere. Wire it
-  to the `overrides` map that `ADJUSTABLE` already reads.
-- Reflected sleep duration vs. the profile's claimed `sleepGoalHours` — after a
-  week of archive, the app knows better than the quiz did.
+What shipped:
 
-**Depends on:** Phase 2 and 3. Do not attempt before there is an archive to read.
+- **The stretch counts itself, and the quiz answer becomes its seed.**
+  `countStretch(archive, tonight, seed)` walks back from tonight: one missing
+  night is bridged, two end the run. The roadmap said `nightInStretch` "depends on
+  the user remembering" — it was worse than that. It is written in exactly one
+  place, `finishQuiz`, and **nothing ever wrote it again**: not `REVIEW`, not the
+  profile sheet, not the adjust sheet. The default is 1, so every user was frozen
+  on night one permanently and the two rules it drives had never fired for anyone.
+  The bar was therefore not "derived beats remembered", it was "sometimes wrong
+  beats wrong every night after the first". On the test fixture the difference is
+  real: night 1 is a 120-minute reset gap and a 1:30 AM cutoff, night 4 is 90
+  minutes and 12:30 AM.
+- **The quiz answer is a seed, not a fallback.** A fallback counts 3, 2, 3, 4 for
+  someone who installed on night three — the number goes *down* while the stretch
+  goes up, relaxing the cutoff by an hour on night four. The seed is "nights
+  already behind you when the archive starts", it applies only while nothing on
+  record contradicts it, and the first measured break kills it forever.
+- **The count is derived, never stored.** `planProfile` is `{ ...profile, stretch }`
+  built on every render and handed to everything that plans, renders or folds —
+  not a subset, because `PlanTab` renders the reset gap and `readPatterns` builds
+  its caffeine adjustment from the same two functions the plan does. `stored()`
+  strips the key at the write and at the export. That is a trust boundary rather
+  than tidiness: a stored count comes back through the one fold that never sees
+  the memo, and would be inherited by every future reader as ground truth.
+- **The reflection writes an `overrides` entry instead of rewriting the user.**
+  The answer did not go nowhere — it went somewhere worse. "Earlier caffeine
+  cutoff" set `caffeineSensitivity: "high"`, a two-hour move under a toast
+  implying one, on a value `REVIEW` shows back as something the user said. "Fewer
+  resets" set `movement: "active"`, rewriting a statement of fact about the job.
+  Neither was recorded and neither was undoable. `reflectionAdjust` now maps the
+  answer to an override set from the plan's own default and clamped to the
+  slider's ceiling — idempotent under a double tap, bounded under four nights of
+  the same answer, and never below a number the user set by hand.
+- **Two answers are refused out loud** rather than written anyway: "More rest" on
+  `nap: "none"` and "Earlier caffeine cutoff" on `caffeine: "none"` reach no plan
+  item, and the toast is the only thing the user sees at the moment it happens.
+- **A receipt, because an override the user cannot see or undo is a trap.** The
+  adjust sheet reaches a key only through a plan item that carries it, and several
+  of those items are conditional — so an override can be live, changing the plan,
+  and unreachable from every screen. One card in the profile sheet lists them with
+  one blanket undo. Its filter is the validation, not a formality.
+- **The sleep goal is proposed, once.** Past `MIN_TREND` nights, a measured
+  average in a different band than the goal offers the change through the
+  adjustment card that already exists. Not silent: `sleepGoalHours` sets
+  `sleepEnd`, which is the night boundary itself, so a quiet change redefines when
+  the user's day ends. Not repeated either: `sleepGoalAsked` persists the refusal,
+  because the disagreement between a quiz bucket and a real average lasts months
+  and the card lives on the screen the app opens first. `planSummary` now reads
+  `sleepBand` so the proposal and the plan type cannot drift apart.
+
+Spec: `docs/superpowers/specs/2026-08-13-the-loop-design.md`. Summary:
+`docs/phase-5-summary.md`. Covered by 146 unit tests (up from 96) and 12
+end-to-end checks in `drive-loop.mjs`, with Phase 3's 15 and Phase 4's 6 as the
+regression gate. Seventeen deliberate breaks, seventeen reds, seventeen reverts —
+two worth naming: a NaN floor on the override gives a shift **zero** movement
+resets under a toast reading "A reset every NaN minutes now", and dropping the
+receipt card's key filter white-screens the profile sheet so hard the driver
+never reaches its own assertion.
+
+**What it cost, and what it deferred.** `drive-plan-state.mjs`'s two post-roll
+item counts moved 20 → 21: those checks roll the night, the roll writes a record,
+and from that instant the plan is night two's. The bridge is an unmeasured
+heuristic argued from rosters, and two or more unlogged nights inside a real
+stretch still reset the count to 1 — the recourse is the two adjustable numbers,
+the fix is `workDays`, and Phase 0's condition for building it (an archive showing
+unlogged nights distorting a real number) is still not met. A night folded on boot
+is still folded at the seed's count, because `forNight` runs at module scope with
+no memo; do not fix it by storing the count. An override outlives the reason it
+was written. `caff-cutoff` still does not say why it moved an hour — three lines
+of the right copy, ruled out because it edits `generateTimeline`. A hand-edited
+`gy.v1` is still unvalidated, three specific poisoning paths narrower.
+
+**Depends on:** Phases 2 and 3 — both done.
 
 ---
 
@@ -364,26 +429,25 @@ central methodological claim true of the running system.
 
 ```
 0 Night identity ──► 1 Persist ──► 2 Rollover ──► 3 Real history ──► 5 The loop
-      ✅ done          ✅ done       ✅ done         ✅ done            next
+      ✅ done          ✅ done       ✅ done         ✅ done            ✅ done
                           │
                           └──────► 4 Plan page hardening ✅ done
 
-6 Traceability ── independent, do it whenever
+6 Traceability ── independent, do it whenever ── next
 ```
 
-0 → 1 → 2 → 3 is a strict chain and all four links are in. 4 came nearly free
-with 1 and 2 between them — two of its three items needed only verifying, and the
-third turned out to be a real bug that verifying is what found. 5 needs an
-archive with some nights in it, and now there is one. 6 is still unblocked.
+0 → 1 → 2 → 3 → 5 is a strict chain and every link is in. 4 came nearly free with
+1 and 2 between them — two of its three items needed only verifying, and the third
+turned out to be a real bug that verifying is what found. 5 needed an archive with
+nights in it and a Plan page that stays honest across a boundary, which is exactly
+what 3 and 4 delivered. 6 was never blocked by any of it.
 
-**Next is 5,** and it is the first phase that changes what the plan says rather
-than where the plan lives. The raw material is finally there: every record
-carries its night ID, so a stretch is a run of consecutive IDs and a gap is a
-break in that run. Start with `nightInStretch` counting itself, because it
-already drives real behavior and is the one input the quiz is worst at. What a
-gap *means* is still the open question from Phase 0 — an off-night and a night
-you forgot to open the app look identical — but it can now be measured before
-being guessed.
+**Next is 6,** and it is the only one left. One `src` field on each plan item and
+one test that fails the build when an item has no citation. It is orthogonal to
+the whole chain above — it touches no stored state, no boundary and no derived
+number — and it is a thesis deliverable, which is what makes it the last thing
+worth doing here: it is what makes the paper's central methodological claim true
+of the running system rather than true of the design document.
 
 ---
 
