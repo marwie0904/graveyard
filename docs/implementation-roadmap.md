@@ -27,14 +27,16 @@ gap suggests.
   profile, the logs and the reflection under one key, and folds a finished night
   onto the front of an archive instead of dropping it.
 
-**Missing:**
+- **Real history** — Phase 3, shipped. `history` is `[tonight, ...archive]`. The
+  45 authored mock nights are a dev seed behind `?seed` and nothing else.
+- **The Plan page on live state** — Phase 4, shipped. It survives a refresh, a
+  rollover, and a tab that slept through the boundary.
 
-- Real history. `history` is still 45 authored mock nights + tonight
-  (`App.jsx:2404`). The archive exists and fills up; nothing reads it yet.
+**Missing:** nothing on the original chain. What is left is Phase 5 — the app
+reading its own archive instead of the quiz — and Phase 6's citation field.
 
-So this is not a build-from-zero. It is: give time an identity, save it, roll it
-over, and swap the mock for the real thing. The first three are done, and only
-the swap is left.
+So this was not a build-from-zero. It was: give time an identity, save it, roll it
+over, and swap the mock for the real thing. All four are done.
 
 **Plan generation is not on this roadmap because it is finished.** No phase below
 changes `generateTimeline` or its signature — it stays a pure function of
@@ -201,73 +203,127 @@ profile edit re-labels the night; it does not end it.
 
 ---
 
-## Phase 3 — Real history replaces the mock ← next
+## Phase 3 — Real history replaces the mock ✅ done
 
-`history` becomes `[tonight, ...archive]` instead of
-`[tonight, ...materializeNights(profile)]`.
+The Dashboard stops reading 45 authored nights and starts reading yours.
 
-**Do one thing first: make the night ID only move forward.** The adopt effect
-recomputes the ID from the edited profile and the tick only asks whether it
-*differs*, so a shift-time edit across a boundary can walk the ref backward and
-fold the same night twice. Nothing dedupes. That is harmless while nothing reads
-the archive, and stops being harmless the moment this phase does:
-`nights.find(x => x.dayOffset === off)` (`Dashboard.jsx:179`) silently takes one
-copy, and `rangeStats` counts the night twice in every average. Roll only when
-the new ID sorts after the old — a small change, but it is a real rule about
-time and deserves its own tests rather than being bolted onto the swap.
+The swap itself is one line: `history` is `[tonight, ...archive]` instead of
+`[tonight, ...materializeNights(profile)]`. Everything else in the phase is what
+that line exposed.
 
-Demote the mock to a dev seed behind a flag rather than deleting it — 45 authored
-nights is how the Dashboard, the ranges, and `stats.js` stay testable. It is a
-good dataset; it just should not be the default.
+What shipped:
 
-**The real work in this phase is empty states,** not the swap. Day one shows one
-night. Everything downstream currently assumes a populated array:
+- **The night ID only moves forward.** `forward(current, next)` in `time.js`, and
+  one rule: the ID may move to a later night, never an earlier one. The IDs are
+  zero-padded dates, so string comparison already puts them in time order and no
+  date maths is involved. Landed *before* the swap, on purpose — the adopt effect
+  recomputes the ID from an edited profile and the tick only asked whether it
+  *differed*, so a shift-time edit across a boundary walked the ref backward and
+  folded the same night twice. Harmless while nothing read the archive; a night
+  counted twice in every average the moment something did. The guard sits at the
+  one place the ID is stored, which three callers read.
+- **The mock became a dev seed behind `?seed`.** Not deleted — 45 authored nights
+  is how the Dashboard, the ranges and `stats.js` stay testable. Two rules: the
+  seeded nights are never written to disk, and the screen labels itself "Demo
+  data — 45 sample nights." This screen's standing rule is that no figure is ever
+  fabricated, and 45 invented nights presented as history is the largest possible
+  breach of it.
+- **`dayOffset` is computed, not read.** Archived records deliberately do not
+  carry it, because a night that was "1 day ago" when it was saved is "2 days ago"
+  by morning. `daysBetween` derives it at render time against tonight.
+- **A range is N *nights*, not N records.** `nights.slice(0, spec.nights)` was
+  exact against 45 dense mock nights and wrong against a sparse archive — an
+  intermittent worker's "1 week" could span a month. A window is now a span of
+  days ending tonight. Three nights logged this week reads as three nights, which
+  is thinner and true.
+- **Empty states, which were the real work.** Day one has one night or none, and
+  everything downstream assumed a populated array. A window with nothing in it
+  says so and stops; a chart with nothing to draw is not drawn, because an empty
+  frame is not a chart; below `MIN_TREND` (five, a number the app already used
+  internally and now has a name for) one quiet line counts down.
 
-- The 7-night strip on the Dashboard
-- The `RANGES` selector (3d / 1w / 2w / 1m / all time)
-- `achievements(profile, logs, history)`
-- Every average and trend in `stats.js`
+Spec: `docs/superpowers/specs/2026-08-13-real-history-design.md`. Summary:
+`docs/phase-3-summary.md`. Covered by 96 unit tests (up from 69) and 15
+end-to-end checks in `drive-history.mjs`.
 
-`stats.js` is already disciplined about nulls (`avgOf` drops them, `spanHours`
-guards the `Infinity` case), so this is mostly UI copy — "three more nights and
-this chart starts working" — rather than math.
+**What it cost, and what it deferred.** Editing your shift backward now merges
+two nights into one record that reads as one long night. That is the accepted
+price of the forward-only rule, and it is the better half of the trade: a merged
+night reads long, where a duplicated night is wrong twice over and invisible. The
+charts' bottom axis still treats a four-day gap as no gap, which needs a real
+time scale rather than an empty-state phase. A hand-edited `gy.v1` is still
+unvalidated, and last night is still summarised against tonight's profile —
+both inherited, both untouched.
 
-Two things the mock hid, which a real archive exposes:
-
-- **`dayOffset` has to be computed, not read.** Archived records deliberately do
-  not carry it. Derive it from the night ID against tonight, or the day strip
-  matches nothing.
-- **A range is N *records*, not N nights.** `nights.slice(0, spec.nights)`
-  (`Dashboard.jsx:181`) was exact against 45 dense mock nights and is not against
-  a sparse archive — an intermittent worker's "1 week" can span a month, which
-  makes `wakeDrift` and the spread figures mean something other than they say.
-  The `have` set at `:174` goes sparse for the same reason, so the strip needs
-  real empty chips rather than the mock's always-present ones.
+**Depends on:** Phases 0, 1 and 2 — all done.
 
 ---
 
-## Phase 4 — Plan page on live persisted state
+## Phase 4 — Plan page on live persisted state ✅ done
 
-Largely free now that Phase 1 has landed, because `PlanTab` already renders real
-data. What this phase covers is what *breaks* once state stops being ephemeral —
-and two of the three are already answered:
+Two of the three items really were absorbed by earlier phases. Checking the third
+against the running app turned up a bug nobody knew about, and that became the
+phase.
 
-- ~~`realNow` clamps toward the plan window~~ — gone. `nightOf` places the clock
-  honestly, including negative pre-shift minutes, so opening the app at 14:00 no
-  longer insists you are mid-shift.
-- ~~Last night's done/skipped items leaking into tonight~~ — gone, both ways.
-  `forNight` folds stale logs into the archive on boot, and Phase 2's tick does
-  the same for an app left open across the boundary.
-- Transient UI state (`hideDone`, `showAllPlan`) — currently not persisted, by
-  omission rather than decision. Confirm that is what we want.
+- ~~`realNow` clamps toward the plan window~~ — **verified gone.** `nightOf`
+  places the clock honestly, including negative pre-shift minutes. Driven against
+  the real functions: 21:00 the evening before an 04:00 shift gives `now = −180`,
+  reaches `determineCurrentPhase` unmodified, and comes back "Before plan" with
+  nothing marked current. Nothing to do.
+- ~~Last night's items leaking into tonight~~ — **two of three paths held.** Boot
+  folds stale logs, and an app that is open and ticking rolls on the tick. The
+  third path did not: a page that is open but whose *timers did not run*.
+  `setInterval` does not accumulate missed fires and `App.jsx` contained no
+  `addEventListener` at all, so a phone locked at 03:00 and unlocked at 15:20 came
+  back to last night's plan. Worse than a stale screen — the first tap on it set
+  `logs`, re-ran the tick effect, and its immediate `tick()` folded the whole
+  array *including the new tap* under the night that had already ended. Driven,
+  that read `moveDone: 2` in yesterday's record with tonight showing "0 of 20
+  done": a fact in your history that never happened, and one missing from tonight
+  that did.
+- **Transient UI state — confirmed as a decision.** `hideDone` and `showAllPlan`
+  stay unpersisted and are not reset at the roll. The blob stores what you told
+  the app, not where you were standing in it; `theme` is persisted precisely
+  because it is a preference and not a position. The pills name their own mode,
+  persisting one buys a tap and costs a validated schema field forever, and the
+  defaults are the right opening state. The whole diff is the comment that says
+  so, because "nobody has decided this" is what makes a reviewer persist it next
+  year.
 
-Then the additive part: reading a **past** night's plan, not just tonight's. The
-archive holds folded NightRecords, not plan items, so this is a real decision —
-either archive the item list too, or accept that history is a summary and the
-Plan page is always "tonight."
+**The fix is two lines** inside the effect that already owns the roll: a
+`visibilitychange` listener and its removal. `tick` is untouched, so the write
+stamp still reads `nightRef.current` — the window was the bug, not the rule.
+Phase 2's 30 seconds are right; the unbounded version of them was not.
+Unguarded on `document.hidden` on purpose: firing on hide as well costs one tick
+that returns at the ID comparison, and it rolls a page hidden after an unnoticed
+boundary on the way out. The removal is load-bearing — the effect re-registers on
+every log tap, and a leaked closure folds its own stale logs.
 
-Recommend: history is a summary. Archiving full item lists doubles storage for a
-view nobody has asked for yet.
+**On reading a past night's plan: history stays a summary,** and the roadmap
+undersold the reason. Measured on this repo's own fixture, a folded record is 296
+bytes and that night's `plan.items` are 6,914 — **23×**, not double. A year of
+records is 106KB; a year of item lists is 2.4MB against a ~5MB budget, and the
+whole blob is re-serialised on every log tap. The change is one sentence in the
+slot the plan would have occupied: "Only tonight has a plan. A finished night is
+kept as what you logged, not as the plan it came from." Silence was not a
+user-facing answer.
+
+Spec: `docs/superpowers/specs/2026-08-13-plan-live-state-design.md`. Summary:
+`docs/phase-4-summary.md`. Covered by 6 end-to-end checks in
+`drive-plan-state.mjs`, driven on `page.clock.setFixedTime` — which moves the
+wall clock *without* running a timer, and is the only idiom that can see this bug
+at all. Every check was mutation-tested: six deliberate breaks, six reds, six
+reverts.
+
+**What it cost, and what it deferred.** No new unit tests, because nothing pure
+changed — the 96 existing tests and Phase 3's 15 checks were the regression gate.
+A visible tab still has up to 30 seconds of stale plan, deliberately. The
+rollover toast can be spent on a hidden page. `pageshow` is the named escalation
+for Safari's bfcache restore and was not written: that hole self-corrects inside
+the 30 seconds the app already accepts, where the hidden-tab hole had no bound at
+all. Add it the first time a real device comes back stale.
+
+**Depends on:** Phases 1 and 2 — both done.
 
 ---
 
@@ -308,22 +364,26 @@ central methodological claim true of the running system.
 
 ```
 0 Night identity ──► 1 Persist ──► 2 Rollover ──► 3 Real history ──► 5 The loop
-      ✅ done          ✅ done       ✅ done          next
+      ✅ done          ✅ done       ✅ done         ✅ done            next
                           │
-                          └──────► 4 Plan page hardening (mostly absorbed)
+                          └──────► 4 Plan page hardening ✅ done
 
 6 Traceability ── independent, do it whenever
 ```
 
-0 → 1 → 2 → 3 is a strict chain, and the first three links are in. 4 came nearly
-free with 1 and 2 between them. 5 needs an archive with some nights in it. 6 is
-unblocked today.
+0 → 1 → 2 → 3 is a strict chain and all four links are in. 4 came nearly free
+with 1 and 2 between them — two of its three items needed only verifying, and the
+third turned out to be a real bug that verifying is what found. 5 needs an
+archive with some nights in it, and now there is one. 6 is still unblocked.
 
-**Next is 3,** and it is the first phase whose real work is UI rather than data.
-The swap itself is one line; the empty states behind it are the phase. Land the
-forward-only night check before the swap, not after — it is the one defect that
-gets harder to fix once the archive is being read, because by then a
-double-counted night is a number on screen rather than a row nobody looks at.
+**Next is 5,** and it is the first phase that changes what the plan says rather
+than where the plan lives. The raw material is finally there: every record
+carries its night ID, so a stretch is a run of consecutive IDs and a gap is a
+break in that run. Start with `nightInStretch` counting itself, because it
+already drives real behavior and is the one input the quiz is worst at. What a
+gap *means* is still the open question from Phase 0 — an off-night and a night
+you forgot to open the app look identical — but it can now be measured before
+being guessed.
 
 ---
 
@@ -337,6 +397,6 @@ Tracked in `app-design-basis.md`, not here:
 
 Worth noting: the export at `App.jsx:2547` serializes
 `{profile, logs, history, reflection, archive}`. Now that persistence and the
-archive exist, an import path is nearly free — but it is a Phase 3+
-nice-to-have, not a phase. Until Phase 3 swaps the mock out, the export is also
-the only way to see the archive without opening devtools.
+archive exist, an import path is nearly free — but it is a nice-to-have, not a
+phase. Since Phase 3 the Dashboard reads the archive directly, so the export is
+no longer the only way to see it without opening devtools.

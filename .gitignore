@@ -4,6 +4,7 @@ dist
 *.png
 drive*.mjs
 !drive-history.mjs
+!drive-plan-state.mjs
 shot-plan.mjs
 check.mjs
 docs/*.pdf

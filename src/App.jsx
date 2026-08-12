@@ -2338,6 +2338,9 @@ export default function App() {
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  /* Where you are standing in tonight's plan, not something you told the app:
+     not persisted, and not reset at the roll. The pills name their own mode, so
+     neither one needs remembering. Decided, not overlooked. */
   const [showAllPlan, setShowAllPlan] = useState(false);
   const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
@@ -2399,7 +2402,17 @@ export default function App() {
     };
     tick();
     const id = setInterval(tick, 30000);
-    return () => clearInterval(id);
+    /* A hidden page is the one whose timers the browser stops, so being shown
+       again is the only resume the interval cannot answer by itself — and it
+       fires before a finger can reach an item. Unguarded on purpose: firing on
+       hide too costs one tick that returns at the id comparison above. The
+       removal is load-bearing, not tidiness — this effect re-registers on every
+       log tap, and a listener left behind folds its own stale logs. */
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [profile, logs, reflection, archive]);
 
   const plan = useMemo(
