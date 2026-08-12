@@ -15,21 +15,26 @@ gap suggests.
 **Already done:**
 
 - `generateTimeline(profile, logs, now)` — the real planner, pure, tested.
-- `PlanTab` (`App.jsx:1379`) — already renders real `plan.items`, real statuses,
+- `PlanTab` (`App.jsx:1365`) — already renders real `plan.items`, real statuses,
   real recurring-reset collapsing. The Plan page is not a mockup.
-- `foldNight(profile, logs, reflection)` (`stats.js:66`) — already folds live logs
-  into the same NightRecord shape the mock produces. Half of "real history" exists.
+- `foldNight(profile, logs, reflection)` (`stats.js:69`) — folds live logs into
+  the same NightRecord shape the mock produces, and since Phase 2 it folds
+  finished nights into the archive through the same call.
 - `deriveState` reactivity — skipped resets, late caffeine, groggy naps all
   already mutate the plan.
+- **Night identity, persistence and rollover** — Phases 0, 1 and 2, shipped.
+  `nightOf` (`time.js`) answers which night it is; `storage.js` keeps it, the
+  profile, the logs and the reflection under one key, and folds a finished night
+  onto the front of an archive instead of dropping it.
 
 **Missing:**
 
-- Any persistence at all. `App.jsx:2313` says so in a comment.
-- Any notion of *which night* a log belongs to.
-- Real history. `history` is 45 authored mock nights + tonight (`App.jsx:2336`).
+- Real history. `history` is still 45 authored mock nights + tonight
+  (`App.jsx:2404`). The archive exists and fills up; nothing reads it yet.
 
 So this is not a build-from-zero. It is: give time an identity, save it, roll it
-over, and swap the mock for the real thing.
+over, and swap the mock for the real thing. The first three are done, and only
+the swap is left.
 
 **Plan generation is not on this roadmap because it is finished.** No phase below
 changes `generateTimeline` or its signature — it stays a pure function of
@@ -41,31 +46,39 @@ the engine at all:
 - `nightInStretch` already drives real behavior (caffeine cutoff +1h from night 3,
   reset gap −30min at night 4). The rule is correct; the input is self-reported
   from the quiz. Phase 5 makes it count itself.
-- The `overrides` map that `ADJUSTABLE` reads works today, but dies on refresh —
-  so tuning a parameter is currently pointless. Phase 1 makes it stick.
+- The `overrides` map that `ADJUSTABLE` reads used to die on refresh, which made
+  tuning a parameter pointless. It rides on the profile, so Phase 1 persisting
+  the profile made it stick for free.
 
 ---
 
-## Phase 0 — Night identity
+## Phase 0 — Night identity ✅ done
 
 **The foundation. Nothing else is correct without it.**
 
-Today `now` is minutes on an axis anchored to the profile's own shift start, and
-`push()` stores `t: now`. That number is meaningless outside the current session
+`now` was minutes on an axis anchored to the profile's own shift start, and
+`push()` stored `t: now`. That number was meaningless outside the current session
 — a caffeine log at `t: 1350` could be tonight or eleven nights ago.
 
-What this phase establishes:
+What shipped — `nightOf(phases, date)` in `src/time.js`, replacing `realNow`:
 
-- A **night ID**: the calendar date the shift *starts* on. Derived from the wall
-  clock and the profile, not stored per-log.
-- The rule for **which night "now" belongs to** — including the awkward cases: a
-  shift that starts at 22:00 Monday and ends 07:00 Tuesday is one night, not two.
-  Opening the app at 15:00 on a day off belongs to a night too; see below.
-- Where the **night boundary** sits. Candidate: the plan's own `sleepEnd`, not
-  midnight. Midnight falls in the middle of every shift this app exists for.
+- A **night ID**: the local calendar date the shift *starts* on, derived from the
+  wall clock and the profile, not stored per-log. Local dates on purpose;
+  `toISOString` would report the UTC date, which is the wrong night for half the
+  world for part of every day.
+- One answer to **which night "now" belongs to**, and its position on the plan
+  axis, from the same call. A shift starting 22:00 Monday and ending 07:00
+  Tuesday is one night. The clock resolves forward into last night's arc or back
+  into a pre-shift block that starts before midnight — `now` goes negative there,
+  which is the axis working, not an error.
+- The **night boundary** sits at the plan's own wake (`sleepEnd`), not midnight,
+  capped at the next shift start so a profile whose planned sleep runs past it
+  cannot file the first hour of a shift under the night before.
 
-**Days off — deferred, on purpose.** Settled in
-`superpowers/specs/2026-08-11-night-identity-design.md`: there is no "neither".
+Spec: `docs/superpowers/specs/2026-08-11-night-identity-design.md`. Covered by
+20 tests in `time.test.js`.
+
+**Days off — deferred, on purpose.** Settled in that spec: there is no "neither".
 The profile records shift times and nothing else, so the app cannot know a
 Tuesday was not worked without inventing data. Every instant belongs to some
 night; a night nobody worked simply accumulates no logs, and `foldNight` already
@@ -93,60 +106,115 @@ A log's night is "the current one" while live, and "whichever archive record it
 was folded into" afterwards. Adding a timestamp to every log is a bigger change
 that buys nothing the night ID doesn't.
 
-**Unblocks:** everything below. Do not start Phase 1 before this is settled.
+**Unblocked:** everything below.
 
 ---
 
-## Phase 1 — Persist
+## Phase 1 — Persist ✅ done
 
-Profile, logs, reflection, and the current night ID. Local only.
+Profile, logs, reflection, theme, and the current night ID. Local only.
 
-The module is already written out in `app-design-basis.md` §2 — ~10 lines,
-`try/catch` on both sides (Safari private mode throws on `setItem`, corrupt JSON
-would white-screen the app on boot). That try/catch is the trust boundary; it is
-not defensive padding.
+`src/storage.js` — one key (`gy.v1`), one blob, ~15 lines, `try/catch` on both
+sides (Safari private mode throws on `setItem`, corrupt JSON would white-screen
+the app on boot). That try/catch is the trust boundary; it is not defensive
+padding. One write effect in `App.jsx`, one read at import.
 
-What changes visibly:
+What changed visibly:
 
 - Boot with a saved profile → straight to the app, no quiz.
 - Refresh mid-shift → the plan comes back with your done/skipped items intact.
+- **Start over** in the profile sheet: two taps, wipes the key and reloads.
 
 That second one is the point of the whole roadmap. It is the first moment the
 plan is a real object rather than a render.
 
+Two decisions worth recording, because Phase 2 inherited both:
+
+- A blob stamped with a *different* night keeps the profile and the theme and
+  drops the logs and the reflection (`forNight`). Tonight starts clean rather
+  than inheriting last night's ticked items. Phase 2 replaced the drop with a
+  fold into the archive, inside that same function — the one place the rule
+  lived, so both of its callers got it at once.
+- Boot validates more than JSON. A profile that parses but throws inside
+  `calculateShiftPhases`, or one that yields a non-finite `now` (missing
+  `sleepGoalHours` → `sleepEnd = NaN`), is discarded back to the quiz. Without
+  the finite check the app rendered a plan that only *looked* booted and
+  re-persisted its own NaN stamp on every mount.
+
 Also closes the paper's false claim #8 ("local-only persistence of sleep,
-fatigue, and caffeine records"), which `app-design-basis.md:28` flags as the one
-gap that breaks the artifact rather than the write-up.
+fatigue, and caffeine records"), which `app-design-basis.md:28` flagged as the
+one gap that broke the artifact rather than the write-up.
 
 **Skipped:** IndexedDB, schema migrations, encryption, sync. Add migrations the
 first time the log shape changes after someone real is using it.
 
+Spec: `docs/superpowers/specs/2026-08-12-persistence-design.md`.
+
 ---
 
-## Phase 2 — Rollover
+## Phase 2 — Rollover ✅ done
 
 The night ends and becomes history.
 
-On boot and on the existing 30s tick: computed night ID ≠ stored night ID →
-fold the finished night, append it to an archive, clear live logs, start clean.
+What shipped — `archived(s)` in `storage.js`, and three effects in `App.jsx`
+declared in a load-bearing order:
 
-Most of the work here is already done — `foldNight` exists and is tested. This
-phase is the trigger, the archive write, and the edge cases:
+- **The fold.** `forNight` stops dropping a stale night's logs and folds them
+  onto the *front* of an archive, newest first. The record is stamped with the
+  night ID it came from and `dayOffset` is stripped, because that field is
+  relative to tonight and would be wrong by morning.
+- **The tick notices.** The 30-second tick compares the computed night to a
+  `nightRef` and rolls when they differ: fold, clear, and one toast — but only
+  when something was actually folded, since "last night is saved" is a lie for a
+  night nobody logged.
+- **The write stamp stops watching the clock.** It reads `nightRef.current`
+  instead. This, not the fold, is what closes Phase 1's worst ceiling: a log
+  tapped after the boundary but before the tick used to be written under the new
+  night ID together with all of the previous night's.
 
-- A night with no logs at all. `foldNight` already returns `null`; decide whether
-  that archives as an off-night or vanishes.
-- Missed nights. App not opened for four days — does the stretch reset?
-- The app being open *across* the boundary, not just closed and reopened.
+Spec: `docs/superpowers/specs/2026-08-12-rollover-design.md`. Covered by 7 tests
+in `storage.test.js` and 12 end-to-end checks driven against the running app on a
+faked clock.
 
-**Depends on:** Phase 0 (there is no rollover without an ID to compare) and
-Phase 1 (nowhere to write the archive).
+**The edge cases this phase listed, answered:**
+
+- *A night with no logs.* It archives nothing, and the gap in the ID sequence is
+  the only trace it gets — which is the same answer Phase 0 gave about days off.
+  A night with **only a reflection** does archive: the guard in `foldNight` asks
+  for neither logs nor reflection, because seven typed answers are a night.
+- *Missed nights.* Still unanswered on purpose. Every record carries its night
+  ID, so gaps are visible to anything that looks; Phase 5 decides what one means
+  once there is an archive to measure rather than guess at.
+- *The app open across the boundary.* Done, and it turned out to be the whole
+  phase rather than an edge case.
+
+**One trap worth recording, because it is not obvious.** `nightOf` derives the
+night from the profile's wake boundary, and the sheet at `App.jsx:2685` lets the
+user edit all four fields that feed it, mid-night. To a naive rollover check that
+is indistinguishable from a boundary crossing — editing your shift time at 3am
+would archive the night you are standing in and clear the plan under you. The fix
+is a third effect that *adopts* the new ID without folding, declared above the
+other two so React's effect order corrects the ref before anything reads it. A
+profile edit re-labels the night; it does not end it.
+
+**Depends on:** Phases 0 and 1 — both done.
 
 ---
 
-## Phase 3 — Real history replaces the mock
+## Phase 3 — Real history replaces the mock ← next
 
 `history` becomes `[tonight, ...archive]` instead of
 `[tonight, ...materializeNights(profile)]`.
+
+**Do one thing first: make the night ID only move forward.** The adopt effect
+recomputes the ID from the edited profile and the tick only asks whether it
+*differs*, so a shift-time edit across a boundary can walk the ref backward and
+fold the same night twice. Nothing dedupes. That is harmless while nothing reads
+the archive, and stops being harmless the moment this phase does:
+`nights.find(x => x.dayOffset === off)` (`Dashboard.jsx:179`) silently takes one
+copy, and `rangeStats` counts the night twice in every average. Roll only when
+the new ID sorts after the old — a small change, but it is a real rule about
+time and deserves its own tests rather than being bolted onto the swap.
 
 Demote the mock to a dev seed behind a flag rather than deleting it — 45 authored
 nights is how the Dashboard, the ranges, and `stats.js` stay testable. It is a
@@ -164,18 +232,34 @@ night. Everything downstream currently assumes a populated array:
 guards the `Infinity` case), so this is mostly UI copy — "three more nights and
 this chart starts working" — rather than math.
 
+Two things the mock hid, which a real archive exposes:
+
+- **`dayOffset` has to be computed, not read.** Archived records deliberately do
+  not carry it. Derive it from the night ID against tonight, or the day strip
+  matches nothing.
+- **A range is N *records*, not N nights.** `nights.slice(0, spec.nights)`
+  (`Dashboard.jsx:181`) was exact against 45 dense mock nights and is not against
+  a sparse archive — an intermittent worker's "1 week" can span a month, which
+  makes `wakeDrift` and the spread figures mean something other than they say.
+  The `have` set at `:174` goes sparse for the same reason, so the strip needs
+  real empty chips rather than the mock's always-present ones.
+
 ---
 
 ## Phase 4 — Plan page on live persisted state
 
-Largely free once Phase 1 lands, because `PlanTab` already renders real data.
-What this phase covers is what *breaks* once state stops being ephemeral:
+Largely free now that Phase 1 has landed, because `PlanTab` already renders real
+data. What this phase covers is what *breaks* once state stops being ephemeral —
+and two of the three are already answered:
 
-- `realNow` (`App.jsx:295`) clamps toward the plan window. Harmless today because
-  the app boots into a fresh plan; visible once you open it at 14:00 on a day off
-  and it insists you are mid-shift.
-- Last night's done/skipped items leaking into tonight if rollover misses.
-- Transient UI state (`hideDone`, `showAllPlan`) — decide what survives a refresh.
+- ~~`realNow` clamps toward the plan window~~ — gone. `nightOf` places the clock
+  honestly, including negative pre-shift minutes, so opening the app at 14:00 no
+  longer insists you are mid-shift.
+- ~~Last night's done/skipped items leaking into tonight~~ — gone, both ways.
+  `forNight` folds stale logs into the archive on boot, and Phase 2's tick does
+  the same for an app left open across the boundary.
+- Transient UI state (`hideDone`, `showAllPlan`) — currently not persisted, by
+  omission rather than decision. Confirm that is what we want.
 
 Then the additive part: reading a **past** night's plan, not just tonight's. The
 archive holds folded NightRecords, not plan items, so this is a real decision —
@@ -194,9 +278,13 @@ learning from itself. This is what makes it worth opening a second time.
 
 - `nightInStretch` should count itself from the archive, not be asked nightly.
   It already drives real behavior (caffeine cutoff +1h at night 3, reset gap
-  −30min at night 4) — it just currently depends on the user remembering.
+  −30min at night 4) — it just currently depends on the user remembering. The
+  raw material is there now: every record carries its night ID, so a stretch is a
+  run of consecutive IDs and a gap is a break in that run. What a gap *means* is
+  still the open question Phase 0 named — an off-night and a night you forgot to
+  open the app look identical — but it can now be measured before being guessed.
 - The reflection already asks "what should the plan change next shift?"
-  (`REFLECT_QS`, `App.jsx:1460`) and the answer currently goes nowhere. Wire it
+  (`REFLECT_QS`, `App.jsx:1439`) and the answer currently goes nowhere. Wire it
   to the `overrides` map that `ADJUSTABLE` already reads.
 - Reflected sleep duration vs. the profile's claimed `sleepGoalHours` — after a
   week of archive, the app knows better than the quiz did.
@@ -220,19 +308,22 @@ central methodological claim true of the running system.
 
 ```
 0 Night identity ──► 1 Persist ──► 2 Rollover ──► 3 Real history ──► 5 The loop
+      ✅ done          ✅ done       ✅ done          next
                           │
-                          └──────► 4 Plan page hardening
+                          └──────► 4 Plan page hardening (mostly absorbed)
 
 6 Traceability ── independent, do it whenever
 ```
 
-0 → 1 → 2 → 3 is a strict chain. 4 is nearly free once 1 lands. 5 needs an
-archive to exist. 6 is unblocked today.
+0 → 1 → 2 → 3 is a strict chain, and the first three links are in. 4 came nearly
+free with 1 and 2 between them. 5 needs an archive with some nights in it. 6 is
+unblocked today.
 
-**Start at 0, and settle it on paper before writing storage code.** The night
-boundary and the missed-night rule are the two decisions that are expensive to
-change once there is real user data sitting in localStorage under the old
-assumption.
+**Next is 3,** and it is the first phase whose real work is UI rather than data.
+The swap itself is one line; the empty states behind it are the phase. Land the
+forward-only night check before the swap, not after — it is the one defect that
+gets harder to fix once the archive is being read, because by then a
+double-counted night is a number on screen rather than a row nobody looks at.
 
 ---
 
@@ -244,6 +335,8 @@ Tracked in `app-design-basis.md`, not here:
 - Multimodal content — build one audio track or reword the paper (§5)
 - Push notifications, accounts, backend, acceptance testing (§6)
 
-Worth noting: the export at `App.jsx:2480` already serializes
-`{profile, logs, history, reflection}`. Once persistence exists, an import path
-is nearly free — but it is a Phase 3+ nice-to-have, not a phase.
+Worth noting: the export at `App.jsx:2547` serializes
+`{profile, logs, history, reflection, archive}`. Now that persistence and the
+archive exist, an import path is nearly free — but it is a Phase 3+
+nice-to-have, not a phase. Until Phase 3 swaps the mock out, the export is also
+the only way to see the archive without opening devtools.
