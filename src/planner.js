@@ -272,6 +272,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Pre-shift meal",
       msg: "Eat your main meal now.",
       why: "Digestion slows overnight, so your largest meal sits better before the shift than during it.",
+      src: ["kervezee2022", "judgement"],
       actions: ["done", "skip", "adjust"],
     });
   } else {
@@ -280,6 +281,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Short pre-shift routine",
       msg: "Eat something, fill a water bottle, get set up. That is all.",
       why: "When time is short, the three things that matter most are food, water, and a workspace you are not fighting.",
+      src: ["judgement"],
       changed: "Trimmed to essentials because you woke later than planned.",
       actions: ["done", "skip"],
     });
@@ -292,6 +294,7 @@ export function generateTimeline(profile, logs, now) {
       title: s.napFailed ? "Quiet rest before shift" : "Pre-shift nap",
       msg: `${ov(profile, "restLength", 25)} minutes, ${s.napFailed ? "dim room, no screen, eyes closed" : "alarm set"}.`,
       why: "Under about six hours before a night shift starts you in deficit, and a short nap now takes pressure off the deep-night hours.",
+      src: ["ruggiero2013", "geigerbrown2016", "oriyama2018"],
       changed: s.wokeEarly
         ? "Added because you woke earlier than planned, so sleep may have been short."
         : s.napFailed
@@ -307,6 +310,7 @@ export function generateTimeline(profile, logs, now) {
     title: "Start hydration",
     msg: "Fill your bottle now.",
     why: "Drinking steadily from the start means fewer large drinks late, which is what usually causes bathroom trips that break up your sleep.",
+    src: ["judgement"],
     actions: ["done", "skip"],
   });
 
@@ -314,6 +318,7 @@ export function generateTimeline(profile, logs, now) {
     id: "shift-start", at: ph.start, category: "shift",
     title: "Shift starts",
     msg: `Your plan runs ${fmt(ph.start)} to ${fmt(ph.end)}, with sleep protected from ${fmt(ph.sleepStart)}.`,
+    src: ["structural"],
     actions: ["done"],
   });
 
@@ -325,6 +330,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Best caffeine window",
       msg: `Clear of your sleep window. Last call is ${fmt(s.cutoff)}.`,
       why: "Caffeine is a short-term alertness tool rather than a substitute for sleep, so used early it costs nothing and used late it is still active when you lie down.",
+      src: ["mchill2014", "burke2015"],
       actions: ["logCaffeine", "skip", "adjust"],
     });
     if (profile.caffeine === "high") {
@@ -333,6 +339,7 @@ export function generateTimeline(profile, logs, now) {
         title: "Water swap",
         msg: "Try water first. Give it fifteen minutes.",
         why: "Mild dehydration feels a lot like fatigue, so fifteen minutes with water is long enough to tell thirst from tiredness.",
+        src: ["mchill2014", "judgement"],
         actions: ["done", "skip"],
       });
     }
@@ -346,6 +353,7 @@ export function generateTimeline(profile, logs, now) {
         ? "The rest of tonight runs on water, movement, and lower light instead."
         : "Switch to water. Alertness from here comes from movement, light, and pacing.",
       why: `Caffeine takes hours to clear, so stopping now leaves time for it to fade before your sleep window opens at ${fmt(ph.sleepStart)}.`,
+      src: ["burke2015", "mchill2014"],
       changed: s.lateCaffeine
         ? "The plan switched to sleep protection because you logged caffeine inside the protected window."
         : undefined,
@@ -370,6 +378,7 @@ export function generateTimeline(profile, logs, now) {
         ? "Ninety seconds. Stand, roll your shoulders, stretch your wrists, sip water."
         : `${ov(profile, "moveLength", 3)} minutes. Stand, stretch neck and shoulders, sip water, rest your eyes.`,
       why: "Long unbroken sitting adds stiffness and drowsiness on top of the night's own fatigue, and short frequent resets beat long occasional ones because you will actually do them.",
+      src: ["dallora2020", "tucker2018", "owen2010"],
       changed: s.skippedMovement >= 2
         ? "Shortened to a desk version because you skipped recent resets."
         : shortened
@@ -387,7 +396,8 @@ export function generateTimeline(profile, logs, now) {
     msg: profile.lightEnv === "dim"
       ? "If you can safely add a brighter lamp for the first few hours, it may help."
       : "Keep your workspace bright for the first part of the shift.",
-    why: "Bright light early is one of the few alertness tools that costs nothing later, which is why it is timed rather than left on.",
+    why: "Light this early is far enough from your sleep window that it will not push it later, which is why it is timed rather than left on.",
+    src: ["cho2015"],
     actions: ["done", "skip", "adjust"],
   });
   add({
@@ -396,6 +406,7 @@ export function generateTimeline(profile, logs, now) {
     title: "Start reducing light",
     msg: "Drop screen brightness, switch to a warmer display, turn off lighting you do not need.",
     why: "Light close to bedtime tells your body it is daytime, so cutting it early gives you a head start on a sleep window that already fights daylight.",
+    src: ["cho2015"],
     actions: ["done", "skip"],
   });
 
@@ -410,6 +421,7 @@ export function generateTimeline(profile, logs, now) {
       ? "Water and light movement first. Food later."
       : "Something small and planned. Protein plus fruit is enough.",
     why: "Grazing through the night usually means eating more, later, and heavier than you meant to, so deciding in advance is the point.",
+    src: ["kervezee2022", "judgement"],
     changed: s.heavyMeal
       ? "Pushed later because you logged a heavy meal during the night."
       : s.mealSkipped
@@ -423,6 +435,7 @@ export function generateTimeline(profile, logs, now) {
     title: "Keep late food light",
     msg: "If you are hungry, keep it small.",
     why: "A heavy meal shortly before sleep keeps digestion working while you are trying to rest, and tends to make the sleep you do get lighter.",
+    src: ["kervezee2022", "judgement"],
     actions: ["done", "skip"],
   });
 
@@ -433,6 +446,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Entering the hardest stretch",
       msg: `Alertness bottoms out between ${fmt(ph.deepNight[0])} and ${fmt(ph.deepNight[1])}. Slow down and pace your tasks.`,
       why: "Your body clock runs its low point in these hours whether or not you slept well, so the plan asks less of you rather than more.",
+      src: ["baron2015"],
       actions: ["done"],
     });
     const restAt = Math.round((ph.deepNight[0] + ph.deepNight[1]) / 2 - 20);
@@ -444,6 +458,7 @@ export function generateTimeline(profile, logs, now) {
         ? `${ov(profile, "restLength", s.napGroggy ? 15 : 20)} minutes, alarm set.`
         : "Sit back, close your eyes, slow your breathing for five minutes.",
       why: "Rest is kept short on purpose, because past roughly half an hour you risk waking from deeper sleep and feeling groggier than before.",
+      src: ["oriyama2018", "ruggiero2013", "geigerbrown2016"],
       changed: s.napGroggy
         ? "Shortened because you reported grogginess after a previous rest."
         : s.napFailed
@@ -459,6 +474,7 @@ export function generateTimeline(profile, logs, now) {
         title: "Wake-up buffer",
         msg: "Water and gentle movement before anything that needs focus.",
         why: "Grogginess right after waking is normal and brief, and a buffer keeps you from deciding anything during the part you will not notice.",
+        src: ["ruggiero2013"],
         changed: "Added after the rest you logged.",
         actions: ["done", "skip"],
       });
@@ -469,6 +485,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Hardest stretch ahead",
       msg: "Pace your tasks from here.",
       why: "Your shift misses the usual 2:00 AM to 5:00 AM low, but sleepiness still builds toward the end, and the last quarter is where it shows up for you.",
+      src: ["judgement"],
       actions: ["done"],
     });
   }
@@ -487,6 +504,7 @@ export function generateTimeline(profile, logs, now) {
       end: "You said the end of the shift is hardest. That is also when the commute happens, so this check-in feeds the safety handling.",
       varies: "Your sleepiest time changes, so this sits in the back half of the shift where it is most often reported.",
     }[profile.sleepiestTime] || "Fatigue is easier to work with when it is caught early.",
+    src: ["wickwire2021", "baron2015"],
     changed: deepStretch
       ? `Weighted heavier because this is night ${stretchNight(profile)} of your stretch.`
       : risky
@@ -503,7 +521,8 @@ export function generateTimeline(profile, logs, now) {
     adjust: [{ key: "windDownLead", def: windDef }],
     title: "Wind-down begins",
     msg: "Lower the light, no new caffeine, slow the pace of what you are doing.",
-    why: "Going straight from a working night to bed rarely works, so a deliberate slowdown gives your body a signal it can act on.",
+    why: "Lower light and no new caffeine both act on the same thing — the sleep window you are about to use — so the wind-down starts before the shift ends rather than after it.",
+    src: ["cho2015", "burke2015"],
     changed: ph.sleepStart - ph.end <= 60
       ? "Started before your shift ends because you sleep soon after work."
       : undefined,
@@ -514,6 +533,7 @@ export function generateTimeline(profile, logs, now) {
     title: "End of shift",
     msg: "Log this to switch the plan into recovery mode.",
     why: "Once the shift is logged as over, caffeine prompts stop and everything remaining is pointed at getting you home and asleep.",
+    src: ["structural"],
     actions: ["endShift"],
   });
   add({
@@ -525,6 +545,7 @@ export function generateTimeline(profile, logs, now) {
     why: profile.commute === "drive"
       ? "The drive home after a night shift falls at the end of a long stretch awake, which is when sleepiness is hardest to judge from the inside. This is the one item in the plan with no skip button."
       : "Daylight on the way home is a strong signal to your body that the day is starting, which makes the sleep you are about to attempt harder to fall into.",
+    src: ["wickwire2021", "boivin2014", "judgement"],
     priority: profile.commute === "drive",
     actions: profile.commute === "drive" ? ["done", "adjust"] : ["done", "skip", "adjust"],
   });
@@ -534,6 +555,7 @@ export function generateTimeline(profile, logs, now) {
     title: "Sleep preparation",
     msg: "Dark room, cool, phone away. Blackout what you can.",
     why: "Daytime sleep competes with light, heat, and noise that night sleep does not, so the darker and cooler the room, the less of a disadvantage you start from.",
+    src: ["cho2015", "boivin2014"],
     actions: ["done", "skip"],
   });
   add({
@@ -541,6 +563,7 @@ export function generateTimeline(profile, logs, now) {
     title: `Sleep until ${fmt(ph.sleepEnd)}`,
     msg: `${dur(profile.sleepGoalHours * 60)} protected.`,
     why: "This window is the anchor the whole plan is built backward from, and everything tonight was timed to get you here able to use it.",
+    src: ["boivin2014", "kervezee2022"],
     actions: ["sleepStart"],
   });
 
@@ -552,6 +575,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Water check",
       msg: "Drink something now while you are thinking about it.",
       why: "Mild dehydration reads as tiredness, so a long gap makes the night feel harder than it is.",
+      src: ["judgement"],
       changed: `Added because it has been over ${s.waterGapMins} minutes since your last water.`,
       actions: ["logWater", "skip"],
     });
@@ -566,6 +590,7 @@ export function generateTimeline(profile, logs, now) {
         ? `${ov(profile, "eyeBreakSecs", 20)} seconds on something far away. Drop your brightness while you are at it.`
         : `${ov(profile, "eyeBreakSecs", 20)} seconds looking at something at least twenty feet away.`,
       why: "Focusing at one close distance for hours is what makes eyes ache by mid-shift, and looking far away briefly lets those muscles release.",
+      src: ["judgement"],
       changed: "Added because you logged screen strain.",
       actions: ["done", "skip"],
     });

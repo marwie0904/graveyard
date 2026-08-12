@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
   deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE,
@@ -257,5 +258,107 @@ describe("reflectionAdjust", () => {
     expect(reflectionAdjust(P, "Fewer resets").msg)
       .toBe(`A reset every ${movementInterval(baseProfile(P)) + 30} minutes now.`);
     expect(reflectionAdjust(P, "More rest").msg).toBe("Rest blocks are now 30 minutes.");
+  });
+});
+
+/* ------------------------------- traceability -----------------------------
+   Phase 6. Chapter III claims the traceability check "is performed against
+   citation identifiers recorded on each plan item alongside its user-facing
+   rationale, so that the check is executed against the running system rather
+   than against separately maintained documentation." This block is that check.
+   The mapping itself is deliberately NOT duplicated here. A test asserting that
+   planner.js equals a copy of planner.js proves nothing and doubles the
+   maintenance; nothing automatable can check that burke2015 supports
+   caff-cutoff. Part 3 of
+   docs/superpowers/specs/2026-08-13-traceability-design.md is the mapping, and
+   a reader with docs/research-summary.md open is the review it asks for. */
+describe("traceability", () => {
+  const PH = calculateShiftPhases(P);
+  const E = { ...P, shiftStart: "06:00", shiftEnd: "14:00", plannedSleep: "15:00" };
+  const PH_E = calculateShiftPhases(E);
+
+  /* Eight profiles, chosen to reach every conditional branch, all built by
+     spreading the P fixture this file already defines. Twelve of the 25 items
+     are conditional, so one profile is not a matrix.
+     Every log time is PH.start + n, never a bare integer: a log at t: 190 on a
+     22:00 shift is 19 hours before the plan starts and fires nothing, which is
+     how the spec's own first inventory silently missed two reactive inserts and
+     came back with 24 ids instead of 25. */
+  const MATRIX = [
+    ["A baseline", P, [], PH.start],
+    ["B woke late -> pre-min", P,
+      [{ id: "w", t: PH.start - 200, type: "wake", value: "later" }], PH.start],
+    ["C short goal + woke early -> pre-nap", { ...P, sleepGoalHours: 5 },
+      [{ id: "w", t: PH.start - 200, type: "wake", value: "earlier" }], PH.start],
+    ["D high caffeine -> caff-swap", { ...P, caffeine: "high" }, [], PH.start],
+    ["E no deep night -> hard-warn", E, [], PH_E.start],
+    ["F nap logged -> nap-buffer", P,
+      [{ id: "n", t: PH.start + 180, type: "nap", value: "ok" }], PH.start + 200],
+    ["G water gap -> water-now", P,
+      [{ id: "wa", t: PH.start, type: "water", value: 1 }], PH.start + 200],
+    ["H screen strain -> eye-break", P,
+      [{ id: "s", t: PH.start + 190, type: "screen", value: 1 }], PH.start + 200],
+  ];
+
+  /* Every item any of the eight profiles emits, duplicates included. The union
+     of their ids is exactly the 25 of Part 3 with move-N collapsed; A-H return
+     20, 20, 21, 21, 19, 21, 21 and 21 items. Those counts are asserted by
+     drive-cite.mjs against the running app, not here — pinning them in the unit
+     suite would rot on the first legitimate new item. */
+  const ALL = MATRIX.flatMap(([, p, logs, now]) => generateTimeline(p, logs, now).items);
+
+  /* T1's corpus. Read as text on purpose: the runtime matrix cannot see an item
+     behind a condition no profile reaches, and a coin-flip gate is not a gate.
+     Reading source in a test is a lint, not a behaviour check. */
+  const SRC = readFileSync(new URL("./planner.js", import.meta.url), "utf8");
+  const blocks = SRC.split("add({").slice(1);
+
+  /* T1. The assertion that actually fails when someone adds an uncited item, and
+     the reason the other three can be simple. `add({` is the single construction
+     idiom in planner.js — 25 occurrences, one items.push, and it is inside add. */
+  it("constructs no plan item without a src, on any branch, reachable or not", () => {
+    /* split("});")[0], NOT slice(0, indexOf("});")): indexOf returns -1 if a
+       block ever loses its terminator, slice(0, -1) then searches the entire
+       rest of the file, and the missing src passes. Same length, one fewer way
+       to be wrong.
+       No AST walk: acorn is not installed here — only esbuild, via vite — so a
+       real parse means a new dependency for the same four lines. */
+    const missing = blocks
+      .map((b) => b.split("});")[0])
+      .filter((b) => !b.includes("src:"))
+      // report ids rather than blocks: a failure nobody can read is a failure
+      // somebody deletes
+      .map((b) => (b.match(/id: [`"]([^`"$]*)/) || [, "?"])[1]);
+    expect(missing).toEqual([]);
+  });
+
+  /* T1b. The lint's own anchor. Without this, a refactor that renames add() or
+     moves the construction site leaves `blocks` empty, `missing` trivially empty
+     and T1 green — a gate reporting success because it stopped looking.
+     The number is pinned, so a legitimate 26th item fails here too and the
+     count is bumped in the same commit that adds it. That overrules the spec's
+     edge-case row "someone adds a 26th item, cited -> passes all four": it
+     passes all four, and then this one line asks you to say so on purpose. */
+  it("still finds all 25 construction sites, so the lint cannot pass vacuously", () => {
+    expect(blocks).toHaveLength(25);
+  });
+
+  /* T2. §3's own test, with a matrix behind it instead of one profile.
+     `!i.src?.length` catches an empty array, undefined and null in one
+     expression, which is why §3 wrote it that way. */
+  it("emits no item without a src across the eight-profile matrix", () => {
+    const bare = ALL.filter((i) => !i.src?.length).map((i) => i.id);
+    expect(bare).toEqual([]);
+  });
+
+  /* T2b. The hole T2 leaves open: `!"burke2015"?.length` is false, so a single
+     key written as a bare string passes T2 and is then read character by
+     character by everything downstream. §3 picked the array; this is what makes
+     that choice enforced rather than remembered.
+     Shape only. A key that is empty, a number or null is T3's job in Task 2 —
+     none of them survives Object.hasOwn — so this is one predicate, not two. */
+  it("gives every item an array of keys, not a bare string", () => {
+    const wrong = ALL.filter((i) => !Array.isArray(i.src)).map((i) => i.id);
+    expect(wrong).toEqual([]);
   });
 });
