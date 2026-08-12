@@ -177,8 +177,13 @@ export default function Dashboard({
      is empty, which is the honest answer; it must never fall through to the
      night next to it. */
   const night = off === null ? null : nights.find((x) => x.dayOffset === off) || null;
+  /* A window of days ending tonight, not the first N records: a sparse archive
+     makes those two different, and a slice would quietly stretch "1 week" over
+     a month. The >= 0 term drops future-dated records, which a backward device
+     clock or a hand-edited archive can both produce and which would otherwise
+     sit inside every window and inflate every average. */
   const hist = off === null
-    ? nights.slice(0, spec.nights)
+    ? nights.filter((h) => h.dayOffset >= 0 && h.dayOffset < spec.days)
     : (night ? [night] : []);
 
   const st = rangeStats(profile, hist);

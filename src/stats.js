@@ -15,13 +15,17 @@ import { DOMAIN } from "./tokens.js";
 ============================================================================ */
 
 /* Multi-night windows only. A single night is not a range: it is picked off
-   the day strip as "d<offset>", which is why "Today" is not in this list. */
+   the day strip as "d<offset>", which is why "Today" is not in this list.
+   `days`, not a record count: a window is a span of nights ending tonight, so
+   an intermittent worker's "1 week" is honestly thin rather than dishonestly
+   dense. Infinity rather than a sentinel, because a sentinel that is a
+   plausible number of days is a cliff. */
 export const RANGES = [
-  { key: "3d",  label: "3 days",   nights: 3   },
-  { key: "1w",  label: "1 week",   nights: 7   },
-  { key: "2w",  label: "2 weeks",  nights: 14  },
-  { key: "1m",  label: "1 month",  nights: 30  },
-  { key: "all", label: "All time", nights: 999 },
+  { key: "3d",  label: "3 days",   days: 3 },
+  { key: "1w",  label: "1 week",   days: 7 },
+  { key: "2w",  label: "2 weeks",  days: 14 },
+  { key: "1m",  label: "1 month",  days: 30 },
+  { key: "all", label: "All time", days: Infinity },
 ];
 
 /* How many nights the strip offers, tonight included. */

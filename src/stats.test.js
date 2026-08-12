@@ -15,7 +15,16 @@ describe("RANGES", () => {
   it("offers only multi-night windows, since one night is picked off the strip", () => {
     expect(RANGES.map((r) => r.label))
       .toEqual(["3 days", "1 week", "2 weeks", "1 month", "All time"]);
-    expect(RANGES.every((r) => r.nights > 1)).toBe(true);
+    expect(RANGES.every((r) => r.days > 1)).toBe(true);
+  });
+
+  /* The field is a span of days, not a count of records: against a sparse
+     archive an intermittent worker's "1 week" would otherwise reach back a
+     month, and every average would describe a window nobody chose. */
+  it("measures a window in days and carries no record count", () => {
+    // Infinity, not 999: unreachable as a record count, 2.7 years as a day count
+    expect(RANGES.map((r) => r.days)).toEqual([3, 7, 14, 30, Infinity]);
+    expect(RANGES.every((r) => r.nights === undefined)).toBe(true);
   });
 });
 
