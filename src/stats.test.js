@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { rangeStats, readPatterns, foldNight, RANGES, dayOffsetOf } from "./stats.js";
+import {
+  rangeStats, readPatterns, foldNight, achievements, RANGES, dayOffsetOf, MIN_TREND,
+} from "./stats.js";
 import { materializeNights } from "./mockNights.js";
 
 const P = {
@@ -135,5 +137,95 @@ describe("foldNight", () => {
     const nights = materializeNights(P).slice(0, 4);
     const withNull = [...nights, { ...nights[0], id: "x", sleepHours: null }];
     expect(rangeStats(P, withNull).avgSleep).toBeCloseTo(rangeStats(P, nights).avgSleep, 5);
+  });
+});
+
+/* A NightRecord with only the fields achievements reads. Everything else on the
+   real shape is irrelevant here and would only make the failures harder to read. */
+const rec = (extra = {}) => ({
+  id: "2026-08-11", sleepHours: 7, cutoff: 1290, caffeine: [1000],
+  moveDone: 0, moveTotal: 4, restKind: "none", restMin: 0, endShift: false, ...extra,
+});
+const got = (badges, key) => badges.find((b) => b.key === key).got;
+
+describe("MIN_TREND", () => {
+  it("is the threshold readPatterns already used to decide it may claim a relationship", () => {
+    expect(MIN_TREND).toBe(5);
+  });
+
+  it("suppresses the relationship claim at MIN_TREND - 1 nights", () => {
+    const nights = materializeNights(P).slice(0, MIN_TREND - 1);
+    const pat = readPatterns(P, rangeStats(P, nights));
+    expect(pat.mainPattern).toBe(`${MIN_TREND - 1} nights on record, and patterns need about a week to show up.`);
+  });
+
+  it("stops suppressing it at MIN_TREND nights, so the constant and the branch cannot drift", () => {
+    const nights = materializeNights(P).slice(0, MIN_TREND);
+    const pat = readPatterns(P, rangeStats(P, nights));
+    expect(pat.mainPattern).not.toMatch(/on record, and patterns need/);
+  });
+});
+
+describe("foldNight endShift", () => {
+  it("records the end-of-shift check so the badge survives the rollover", () => {
+    const logs = [{ id: "e-1", t: 1800, type: "endShift", value: 1 }];
+    expect(foldNight(P, logs, {}).endShift).toBe(true);
+  });
+
+  it("is false, not undefined, for a night that was logged but never ended", () => {
+    const logs = [{ id: "w-1", t: 1400, type: "water", value: 1 }];
+    expect(foldNight(P, logs, {}).endShift).toBe(false);
+  });
+});
+
+describe("achievements", () => {
+  it("returns all seven, none earned, for a user with nothing at all", () => {
+    const badges = achievements(P, [], []);
+    expect(badges).toHaveLength(7);
+    expect(badges.every((b) => b.got === false)).toBe(true);
+  });
+
+  /* isLateNight is false for a night with no caffeine at all, so three nights of
+     drinking nothing used to earn "every cup landed before your cutoff" for zero
+     cups. The mock drank on all 45 nights, so it never showed. */
+  it("does not earn Stopped early for three nights with no caffeine logged", () => {
+    const nights = [rec({ caffeine: [] }), rec({ caffeine: [] }), rec({ caffeine: [] })];
+    expect(got(achievements(P, [], nights), "early")).toBe(false);
+  });
+
+  it("earns Stopped early for three nights that each had a drink before the cutoff", () => {
+    const nights = [rec(), rec(), rec()];
+    expect(got(achievements(P, [], nights), "early")).toBe(true);
+  });
+
+  it("does not earn Stopped early at two clean nights", () => {
+    expect(got(achievements(P, [], [rec(), rec()]), "early")).toBe(false);
+  });
+
+  /* The rollover-survival case: Phase 2 clears the logs at the boundary, so a
+     badge that counts tonight's logs un-earns itself every morning. */
+  it("earns Reset habit from the records when the logs are empty", () => {
+    const nights = [rec({ moveDone: 3 }), rec({ moveDone: 2 })];
+    expect(got(achievements(P, [], nights), "reset")).toBe(true);
+  });
+
+  it("does not earn Reset habit at four resets", () => {
+    const nights = [rec({ moveDone: 3 }), rec({ moveDone: 1 })];
+    expect(got(achievements(P, [], nights), "reset")).toBe(false);
+  });
+
+  it("earns Home safe from a record when the logs are empty", () => {
+    expect(got(achievements(P, [], [rec({ endShift: true })]), "home")).toBe(true);
+  });
+
+  it("does not earn Home safe when no night on record ended the shift", () => {
+    expect(got(achievements(P, [], [rec(), rec()]), "home")).toBe(false);
+  });
+
+  /* The mock is the demo, and a demo with a conspicuously dark "Home safe"
+     across 45 nights reads as a bug. This is also the only assertion on
+     materializeNights's new literal. */
+  it("earns Home safe from the mock, so the seeded demo is not missing a badge", () => {
+    expect(got(achievements(P, [], materializeNights(P)), "home")).toBe(true);
   });
 });

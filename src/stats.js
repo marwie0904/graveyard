@@ -27,6 +27,11 @@ export const RANGES = [
 /* How many nights the strip offers, tonight included. */
 export const STRIP_DAYS = 7;
 
+/* The fewest nights readPatterns will claim a relationship from, and the number
+   the Dashboard counts down to. Five, not seven: seven is the "full week"
+   badge, which is a different claim. */
+export const MIN_TREND = 5;
+
 /** "d3" -> 3, anything else -> null. The dashboard branches on this: a number
     means one night, null means a window. */
 export const dayOffsetOf = (key) => {
@@ -112,6 +117,10 @@ export function foldNight(profile, logs, reflection = {}) {
     /* The plan's light-category items are the late-light reminders: light-down,
        light-early and eye-break. Completing any of them counts. */
     lateLightDone: items.some((l) => l.value.category === "light" && l.value.status === "done"),
+    /* On the record rather than read off tonight's logs: Phase 2 clears the logs
+       at the boundary, and an earn-only badge that goes dark at 06:00
+       contradicts the comment above achievements(). */
+    endShift: of("endShift").length > 0,
   };
 }
 
@@ -257,11 +266,11 @@ export function readPatterns(profile, st) {
 
   /* main pattern: prefer a relationship over a bare number, and never claim a
      relationship from fewer nights than could possibly show one */
-  const canCompare = st.n >= 5 && st.avgClean !== null && st.avgLate !== null;
+  const canCompare = st.n >= MIN_TREND && st.avgClean !== null && st.avgLate !== null;
   let mainPattern;
   if (canCompare && st.avgClean - st.avgLate > 0.4) {
     mainPattern = `You slept ${st.avgLate.toFixed(1)}h on nights when caffeine crossed the cutoff, against ${st.avgClean.toFixed(1)}h when it did not.`;
-  } else if (st.n < 5) {
+  } else if (st.n < MIN_TREND) {
     mainPattern = `${st.n} ${st.n === 1 ? "night" : "nights"} on record, and patterns need about a week to show up.`;
   } else if (st.movePct !== null && st.movePct < 40) {
     mainPattern = "Movement resets dropped off through this period.";
@@ -347,10 +356,14 @@ export function readPatterns(profile, st) {
     not have one. */
 export function achievements(profile, logs, nights) {
   const count = (t) => logs.filter((l) => l.type === t).length;
-  const movesDone = logs.filter(
-    (l) => l.type === "item" && l.value.status === "done" && l.value.category === "movement"
-  ).length;
-  const cleanNights = nights.filter((h) => !isLateNight(h)).length;
+  /* Requiring a drink is what makes this badge true. isLateNight is false for a
+     night with no caffeine at all, so three nights of drinking nothing used to
+     earn "every cup landed before your cutoff" for zero cups; the mock drank on
+     all 45 nights, so it never showed.
+     The ?. is the hand-edited-archive trust boundary: isLateNight short-circuits
+     on a null cutoff and would not throw there, so a bare .length would be a new
+     way to white-screen the sheet. */
+  const cleanNights = nights.filter((h) => h.caffeine?.length && !isLateNight(h)).length;
 
   return [
     { key: "first", Icon: Moon, hue: DOMAIN.sleep.hue, l: "First night",
@@ -368,11 +381,14 @@ export function achievements(profile, logs, nights) {
     { key: "rest", Icon: Bed, hue: DOMAIN.sleep.hue, l: "Took the rest",
       d: "You used a planned rest instead of pushing through.",
       got: count("nap") > 0 || nights.some((h) => h.restMin > 0) },
+    /* These two read the records, not tonight's logs: the rollover clears the
+       logs, and an earn-only badge must not go dark at the boundary. foldNight
+       puts tonight at the front of `nights`, so tonight is covered too. */
     { key: "home", Icon: Car, hue: DOMAIN.recovery.hue, l: "Home safe",
       d: "You ran the end-of-shift check before heading home.",
-      got: count("endShift") > 0 },
+      got: nights.some((h) => h.endShift) },
     { key: "reset", Icon: Pulse, hue: DOMAIN.movement.hue, l: "Reset habit",
       d: "Five movement resets completed. Small ones count.",
-      got: movesDone >= 5 },
+      got: nights.reduce((a, h) => a + (h.moveDone || 0), 0) >= 5 },
   ];
 }
