@@ -1,4 +1,4 @@
-import { DAY, nightAxis } from "./time.js";
+import { DAY, nightAxis, daysBetween } from "./time.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, movementInterval, movementMode, caffeineHours, ov,
 } from "./planner.js";
@@ -42,6 +42,41 @@ export const dayOffsetOf = (key) => {
   const m = /^d(\d+)$/.exec(key || "");
   return m ? Number(m[1]) : null;
 };
+
+/** Which night of the current stretch tonight is, counted back from tonight.
+    One night with no record is bridged, two end the run. The quiz answer seeds
+    the nights that were already behind you when the archive starts, and counts
+    only while `n - 1 === back.size` — true exactly while the walk has absorbed
+    every record, which is to say while no break has ever been measured.
+    Offsets rather than ids so the only date maths is daysBetween: a hand-edited
+    id gives NaN and fails `> 0`, a duplicate lands in one Set slot, and a
+    future-dated record is excluded by the comparison the day strip already uses.
+    ponytail: the bridge is an unmeasured heuristic, argued in the spec from
+    rosters. Upgrade path is `workDays`, once a real archive shows the
+    distribution of gap lengths. */
+export function countStretch(archive, tonight, seed) {
+  const back = new Set(
+    (archive || []).map((r) => daysBetween(tonight, r.id)).filter((d) => d > 0)
+  );
+  /* Clamped to the range the quiz can express: this comes off a profile a
+     hand-edited blob can write anything into, and an unclamped 999 gives night
+     four's plan to someone on night one, forever. The `|| 1` is the other half
+     of the same boundary — NaN from a missing or unparseable seed is falsy, and
+     so is the 0 that is not a night. */
+  const first = Math.min(4, Math.max(1, Math.round(seed) || 1));
+
+  /* Terminates without a cap: past the oldest record every step is a miss, so
+     the second one always arrives. */
+  let n = 1, miss = 0, d = 1;
+  while (miss < 2) { if (back.has(d)) { n += 1; miss = 0; } else miss += 1; d += 1; }
+
+  return n + (n - 1 === back.size ? first - 1 : 0);
+}
+
+/** The four values the quiz can express, and the cuts planSummary already bands
+    on. sleepBand(x) === x for each of them, which is what makes
+    `sleepBand(avg) !== goal` a complete trigger with no tolerance to tune. */
+export const sleepBand = (h) => (h <= 5 ? 4.5 : h <= 6.5 ? 5.5 : h <= 9 ? 7.5 : 9.5);
 
 export const SLEEPY_LABEL = {
   early: "Early shift", mid: "Mid-shift", deep: "Deep night", late: "Last hours",
@@ -310,7 +345,25 @@ export function readPatterns(profile, st) {
 
   /* one concrete adjustment the user can accept or decline */
   let adjustment;
-  if (!empty && st.lateCount > st.n * 0.2 && profile.caffeine !== "none") {
+  /* First in the chain, because every other adjustment below is computed
+     against a sleep window this one moves. Gated on a BAND change rather than a
+     tolerance: sleepBand's four values are the four the quiz offers and the four
+     planSummary bands on, so crossing one is a different plan while 0.3h of
+     wobble is not. `decline` is set here and nowhere else — the disagreement
+     between a quiz bucket and a real average lasts for months, so without a
+     remembered refusal this card asks the same question every time the Dashboard
+     is opened. Applying makes the condition false by itself, with nothing to
+     clear. */
+  const band = st.avgSleep === null ? null : sleepBand(st.avgSleep);
+  if (st.n >= MIN_TREND && band !== null && band !== profile.sleepGoalHours
+      && band !== profile.sleepGoalAsked) {
+    adjustment = {
+      text: `Your last ${st.n} nights average ${st.avgSleep.toFixed(1)}h, against the ${profile.sleepGoalHours}h you set. The plan can work backward from ${band}h instead.`,
+      apply: (pr) => ({ ...pr, sleepGoalHours: band }),
+      decline: (pr) => ({ ...pr, sleepGoalAsked: band }),
+      done: `Sleep goal set to ${band}h. The plan is rebuilt around it.`,
+    };
+  } else if (!empty && st.lateCount > st.n * 0.2 && profile.caffeine !== "none") {
     adjustment = {
       text: "The next plan will move your final caffeine reminder an hour earlier and add a water swap after your last planned drink.",
       apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), caffeineHours: caffeineHours(pr) + 1 } }),

@@ -48,9 +48,10 @@ export function determineCurrentPhase(now, ph) {
   return { phase, inDeepNight: !!ph.deepNight && now >= ph.deepNight[0] && now < ph.deepNight[1] };
 }
 
-/* Nights already worked in this run. Profiles saved before this field existed
-   read as night one, which is the same plan they got before. */
-export const stretchNight = (profile) => profile.nightInStretch ?? 1;
+/* Counted, else told, else one. `stretch` is what the archive counted tonight
+   and is never stored; `nightInStretch` is the quiz's seed and is. Profiles
+   saved before either field existed still read as night one. */
+export const stretchNight = (p) => p.stretch ?? p.nightInStretch ?? 1;
 
 export function caffeineHours(profile) {
   let hours = { low: 5, normal: 6, high: 8 }[profile.caffeineSensitivity] ?? 6;
@@ -119,6 +120,61 @@ export const ov = (profile, key, fallback) => {
     it would reset to. Without this, `def` echoes the current override and the
     "reset to default" affordance never appears. */
 export const baseProfile = (profile) => ({ ...profile, overrides: {} });
+
+/* What the reflection's one adjustable answer means, in plan numbers. Set from
+   the plan's own default rather than stepped from the current value, so
+   pressing Save twice does not move it twice and answering the same thing on
+   four nights running does not walk the caffeine cutoff off the end of the
+   scale. `no` returns the sentence to say instead, for the profiles on which
+   the number would reach no item. */
+const REFLECTION_ADJUST = {
+  "Earlier caffeine cutoff": {
+    key: "caffeineHours",
+    to: (p) => caffeineHours(baseProfile(p)) + 1,
+    say: (v) => `Caffeine now stops ${v} hours before sleep.`,
+    no: (p) => p.caffeine === "none" && "Caffeine is already off your plan, so there is nothing to move earlier.",
+  },
+  "Fewer resets": {
+    key: "moveGap",
+    /* +30 and not +15: one step of 15 removes at most one reset from a whole
+       shift, which reads as nothing happening and gets asked again tomorrow.
+       The reflection is a once-a-night control, not a slider. */
+    to: (p) => movementInterval(baseProfile(p)) + 30,
+    say: (v) => `A reset every ${v} minutes now.`,
+  },
+  "More rest": {
+    key: "restLength",
+    /* 30 flat rather than a step: it is the ceiling deep-rest's own `why`
+       already names, so it is the most rest the plan is willing to recommend. */
+    to: () => 30,
+    say: (v) => `Rest blocks are now ${v} minutes.`,
+    no: (p) => p.nap === "none" && "You said naps are not possible, so the plan keeps rest short and quiet instead.",
+  },
+};
+
+/** { key, value, msg } to apply, { key: null, msg } to explain, or null. */
+export function reflectionAdjust(profile, answer) {
+  const a = REFLECTION_ADJUST[answer];
+  if (!a) return null;
+  const no = a.no && a.no(profile);
+  if (no) return { key: null, msg: no };
+  /* Only an existing NUMERIC override holds the floor. Not the derived default:
+     that would need restLength's per-item defaults (25, 20 or 15) to collapse
+     into one number, and there is no honest one. Not `cur ?? -Infinity` either:
+     `overrides` comes off a hand-editable blob, Math.max("x", 150) is NaN, ov()
+     hands NaN to the planner as a real value, and a NaN reset gap emits zero
+     movement resets for the whole shift. A floor that is not a number is not a
+     floor.
+     One Math.max covers all three keys because all three ask for a LARGER
+     number — stop caffeine earlier, wait longer between resets, rest longer. An
+     answer that asked for a smaller one would silently no-op here. */
+  const cur = (profile.overrides || {})[a.key];
+  const value = Math.min(
+    ADJUSTABLE[a.key].max,
+    Math.max(Number.isFinite(cur) ? cur : -Infinity, a.to(profile))
+  );
+  return { key: a.key, value, msg: value === cur ? "That is already where your plan is." : a.say(value) };
+}
 
 /** Where the user says the night gets hardest, used to place the fatigue check-in. */
 function sleepiestWindow(profile, ph) {

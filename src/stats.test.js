@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   rangeStats, readPatterns, foldNight, achievements, RANGES, dayOffsetOf, MIN_TREND,
+  countStretch, sleepBand,
 } from "./stats.js";
 import { materializeNights } from "./mockNights.js";
 
@@ -236,5 +237,194 @@ describe("achievements", () => {
      materializeNights's new literal. */
   it("earns Home safe from the mock, so the seeded demo is not missing a badge", () => {
     expect(got(achievements(P, [], materializeNights(P)), "home")).toBe(true);
+  });
+});
+
+/* Tonight, for every countStretch case below. Records are named by their offset
+   back from it, so a case reads as the shape of the run rather than as a list of
+   dates: `back(1)` is last night. Date.parse reads a bare date as UTC midnight
+   and toISOString reads it back the same way, so this is exact. */
+const TONIGHT = "2026-08-13";
+const back = (o) => new Date(Date.parse(TONIGHT) - o * 864e5).toISOString().slice(0, 10);
+const arch = (...offsets) => offsets.map((o) => ({ id: back(o) }));
+
+describe("countStretch", () => {
+  it("counts tonight as night one when there is no archive and no seed to carry", () => {
+    expect(countStretch([], TONIGHT, 1)).toBe(1);
+  });
+
+  it("carries the quiz answer on day one, when the archive cannot contradict it", () => {
+    expect(countStretch([], TONIGHT, 3)).toBe(3);
+  });
+
+  /* The day-two regression, and the whole reason the quiz answer is a seed
+     rather than a fallback: a fallback reads 2 here, so the number goes DOWN
+     while the stretch goes up and the caffeine cutoff relaxes by an hour on
+     night four. */
+  it("adds the walk to the seed on day two, instead of counting back down", () => {
+    expect(countStretch(arch(1), TONIGHT, 3)).toBe(4);
+  });
+
+  it("counts an unbroken run back from tonight", () => {
+    expect(countStretch(arch(1, 2, 3), TONIGHT, 1)).toBe(4);
+  });
+
+  it("keeps the seed while nothing on record contradicts it", () => {
+    expect(countStretch(arch(1, 2, 3), TONIGHT, 3)).toBe(6);
+  });
+
+  /* The bridge. It reads one low on purpose — the bridged night is not counted,
+     only forgiven — and the plan reads the number at 2, 3 and 4-or-more only, so
+     one low changes nothing except exactly on a boundary. */
+  it("bridges one missing night without counting it", () => {
+    expect(countStretch(arch(1, 3), TONIGHT, 1)).toBe(3);
+  });
+
+  it("ends the stretch on two missing nights, and kills the seed with it", () => {
+    expect(countStretch(arch(1, 4), TONIGHT, 3)).toBe(2);
+  });
+
+  it("reads night one after three nights away", () => {
+    expect(countStretch(arch(3, 4, 5), TONIGHT, 1)).toBe(1);
+  });
+
+  it("ignores a record dated tonight, which is never in the archive", () => {
+    expect(countStretch(arch(0), TONIGHT, 1)).toBe(1);
+  });
+
+  /* Reachable from a device clock moved backward, and from a hand-edited blob.
+     A future record must neither count nor extend the run. */
+  it("ignores a future-dated record", () => {
+    expect(countStretch(arch(-2), TONIGHT, 1)).toBe(1);
+  });
+
+  it("counts two records with the same id once, and the seed still applies", () => {
+    expect(countStretch([{ id: back(1) }, { id: back(1) }], TONIGHT, 3)).toBe(4);
+  });
+
+  it("drops a record whose id is not a date, without throwing", () => {
+    expect(countStretch([{ id: "not-a-date" }], TONIGHT, 1)).toBe(1);
+  });
+
+  /* The trust boundary. `overrides` and `nightInStretch` both come off a blob a
+     user can hand-edit, and an unclamped 999 makes every night night one
+     thousand — which is night four's plan, forever, for someone on night one. */
+  it("clamps a seed the quiz could never have produced", () => {
+    expect(countStretch([], TONIGHT, 999)).toBe(4);
+    expect(countStretch([], TONIGHT, -5)).toBe(1);
+  });
+
+  it("treats a missing, unparseable or zero seed as night one", () => {
+    expect(countStretch([], TONIGHT, undefined)).toBe(1);
+    expect(countStretch([], TONIGHT, "x")).toBe(1);
+    expect(countStretch([], TONIGHT, 0)).toBe(1);
+  });
+
+  it("returns the seed when there is no night to count back from", () => {
+    // every offset is NaN, so the walk is empty and the seed is all there is
+    expect(countStretch(arch(1, 2), undefined, 3)).toBe(3);
+  });
+
+  it("tolerates a missing archive", () => {
+    expect(countStretch(undefined, TONIGHT, 1)).toBe(1);
+    expect(countStretch(null, TONIGHT, 2)).toBe(2);
+  });
+
+  it("is uncapped, because a stretch has no maximum the plan cares about", () => {
+    expect(countStretch(arch(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), TONIGHT, 1)).toBe(11);
+  });
+});
+
+describe("sleepBand", () => {
+  /* The fixed-point property the sleep proposal depends on: the four values the
+     quiz can express each band to themselves, which is what makes
+     `sleepBand(avg) !== goal` a complete trigger with no tolerance to tune. */
+  it("is a fixed point on each of the four values the quiz offers", () => {
+    for (const h of [4.5, 5.5, 7.5, 9.5]) expect(sleepBand(h)).toBe(h);
+  });
+
+  it("cuts where planSummary cuts", () => {
+    expect(sleepBand(5.0)).toBe(4.5);
+    expect(sleepBand(6.6)).toBe(7.5);
+    expect(sleepBand(9.1)).toBe(9.5);
+  });
+
+  it("has no gap at either end", () => {
+    expect(sleepBand(0)).toBe(4.5);
+    expect(sleepBand(24)).toBe(9.5);
+  });
+});
+
+/* Five nights of the same measured sleep, against a quiz bucket that says
+   something else. `rec` is declared above with the achievements cases; its
+   caffeine [1000] sits before its cutoff 1290, so lateCount stays 0 and the
+   caffeine branch never preempts the sleep one. */
+const nightsAt = (h, n = MIN_TREND) => Array.from({ length: n }, () => rec({ sleepHours: h }));
+const propose = (goal, h, extra = {}, n = MIN_TREND) => {
+  const p = { ...P, sleepGoalHours: goal, ...extra };
+  return readPatterns(p, rangeStats(p, nightsAt(h, n))).adjustment;
+};
+
+describe("the sleep goal proposal", () => {
+  it("proposes the band the archive measured, against the band the quiz set", () => {
+    const a = propose(7.5, 5.4);
+    expect(a.apply({ ...P, sleepGoalHours: 7.5 }).sleepGoalHours).toBe(5.5);
+    expect(a.done).toBe("Sleep goal set to 5.5h. The plan is rebuilt around it.");
+  });
+
+  it("names both figures and the night count, so nothing about it is silent", () => {
+    const a = propose(7.5, 5.4);
+    expect(a.text).toContain("5.4h");
+    expect(a.text).toContain("7.5h");
+    expect(a.text).toContain("5.5h");
+    expect(a.text).toContain(`last ${MIN_TREND} nights`);
+  });
+
+  it("does not propose below MIN_TREND nights", () => {
+    expect(propose(7.5, 5.4, {}, MIN_TREND - 1).text).not.toContain("work backward");
+  });
+
+  /* BUCKET's four reflection values all band to a quiz value, so someone
+     answering "7-9h" every night is never asked to change a 7.5h goal. */
+  it("does not propose the band the user already set", () => {
+    expect(propose(7.5, 8.0).text).not.toContain("work backward");
+  });
+
+  it("does not propose a band that was already refused", () => {
+    expect(propose(7.5, 5.4, { sleepGoalAsked: 5.5 }).text).not.toContain("work backward");
+  });
+
+  it("asks again when the evidence points at a different band", () => {
+    const a = propose(7.5, 5.4, { sleepGoalAsked: 4.5 });
+    expect(a.apply({ ...P }).sleepGoalHours).toBe(5.5);
+  });
+
+  it("does not propose anything when no sleep has been logged, and does not throw", () => {
+    const p = { ...P, sleepGoalHours: 7.5 };
+    const st = rangeStats(p, nightsAt(null));
+    expect(st.avgSleep).toBeNull();
+    expect(readPatterns(p, st).adjustment.text).not.toContain("work backward");
+  });
+
+  /* Five nights of measurement against one bucket picked before there was any.
+     Offering 5.5 to someone who said "Under 5 hours" REDUCES protection, and
+     that is the honest direction — with a Keep current beside it. */
+  it("proposes upward too", () => {
+    const a = propose(4.5, 6.0);
+    expect(a.apply({ ...P, sleepGoalHours: 4.5 }).sleepGoalHours).toBe(5.5);
+  });
+
+  it("carries the refused band on decline, and nothing else", () => {
+    const a = propose(7.5, 5.4);
+    const p = { ...P, sleepGoalHours: 7.5 };
+    expect(a.decline(p)).toEqual({ ...p, sleepGoalAsked: 5.5 });
+  });
+
+  /* The Dashboard calls decline only when it is present, so every other branch
+     has to leave it undefined or the existing five adjustments start writing to
+     the profile. */
+  it("leaves every other branch without a decline", () => {
+    expect(propose(7.5, 8.0).decline).toBeUndefined();
+    expect(propose(7.5, 5.4, { sleepGoalAsked: 5.5 }).decline).toBeUndefined();
   });
 });

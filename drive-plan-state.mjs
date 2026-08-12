@@ -19,7 +19,9 @@ const URL = process.argv[2] || "http://localhost:5174/";
    already use: 14:59 on Aug 13 is night "2026-08-12", 15:01 is "2026-08-13".
    Verified against the running app: this profile generates a 20-item plan whose
    movement resets are titled "Micro-care reset", which is where every
-   "1 of 20 done" below comes from. */
+   "1 of 20 done" below comes from — and 21 after a roll, because the record the
+   roll writes makes it night two, which takes 15 minutes off the reset gap and
+   fits a fourth reset into the shift. */
 const PROFILE = {
   shiftStart: "22:00", shiftEnd: "06:00", plannedSleep: "07:30", sleepGoalHours: 7.5,
   nightInStretch: 1, caffeine: "moderate", nap: "both", caffeineSensitivity: "normal",
@@ -167,7 +169,7 @@ const browser = await chromium.launch({ channel: "chrome" });
     // the precondition: twenty minutes past the boundary and nothing has moved
     stale.night === "2026-08-12" && stale.done === "1 of 20 done" && stale.logs === 2 &&
     after.night === "2026-08-13" && after.ids.join(",") === "2026-08-12" &&
-    after.logs === 0 && after.done === "0 of 20 done" && after.toast && !errors.length,
+    after.logs === 0 && after.done === "0 of 21 done" && after.toast && !errors.length,
     `stale=${stale.night}/${stale.done}/${stale.logs} after=${after.night}/${after.done} ids=${JSON.stringify(after.ids)} logs=${after.logs} toast=${after.toast} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
@@ -190,7 +192,7 @@ const browser = await chromium.launch({ channel: "chrome" });
   record("P2 a reset tapped after the resume lands in tonight, not in the folded night",
     s.night === "2026-08-13" && s.ids.join(",") === "2026-08-12" &&
     s.moveDone.join(",") === "1" &&          // 2 means the tap was folded backwards
-    s.logs === 1 && s.done === "1 of 20 done" &&
+    s.logs === 1 && s.done === "1 of 21 done" &&
     /* one live listener, before and after two effect re-runs: the roll and the
        tap. A cleanup that forgets removeEventListener makes this climb. */
     s.vis === armed.vis && s.vis >= 1 && !errors.length,
