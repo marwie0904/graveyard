@@ -47,9 +47,16 @@ describe("archived", () => {
     expect(archived(saved).map((r) => r.id)).toEqual(["2026-08-11", "2026-08-10"]);
   });
 
-  it("archives nothing for a night with no logs", () => {
+  it("archives nothing for a night with neither logs nor a reflection", () => {
     // the gap in the id sequence is the only trace an unworked night gets
-    expect(archived({ ...saved, logs: [] })).toEqual(saved.archive);
+    expect(archived({ ...saved, logs: [], reflection: {} })).toEqual(saved.archive);
+  });
+
+  it("archives a night that was only reflected on", () => {
+    // the reflection Selects write no log entry, so logs alone is not the test
+    const [rec] = archived({ ...saved, logs: [] });
+    expect(rec.id).toBe("2026-08-11");
+    expect(rec.sleepHours).toBe(4.5);
   });
 
   it("archives nothing when there is no night to name the record", () => {

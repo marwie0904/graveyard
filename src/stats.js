@@ -62,9 +62,12 @@ const isLateNight = (h) =>
 /* ------------------------------- fold a night ----------------------------- */
 
 /** Fold tonight's logs into the same shape the mock produces. Returns null
-    when nothing has been logged, so callers can simply not append it. */
+    only when the night is blank on both counts — nothing logged and nothing
+    answered — so callers can simply not append it. The reflection Selects write
+    straight to state without a log entry (App.jsx:1458), so guarding on logs
+    alone dropped a night whose only record was the reflection. */
 export function foldNight(profile, logs, reflection = {}) {
-  if (!logs.length) return null;
+  if (!logs.length && !Object.keys(reflection).length) return null;
 
   const ph = calculateShiftPhases(profile);
   const cutoffAbs = calculateCaffeineCutoff(profile, ph);

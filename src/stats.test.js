@@ -96,8 +96,17 @@ describe("rangeStats on the mock", () => {
 });
 
 describe("foldNight", () => {
-  it("returns null when nothing was logged", () => {
+  it("returns null when nothing was logged and nothing was answered", () => {
     expect(foldNight(P, [], {})).toBeNull();
+  });
+
+  /* The reflection Selects write straight to state without a log entry, so a
+     night answered but never tapped used to fold to null and be discarded. */
+  it("folds a night whose only record is the reflection", () => {
+    const night = foldNight(P, [], { slept: "Under 5h", sleepiest: "Deep night" });
+    expect(night.sleepHours).toBe(4.5);
+    expect(night.sleepEstimated).toBe(true);
+    expect(night.sleepyWindow).toBe("deep");
   });
 
   it("measures sleep from the sleepStart and wake logs", () => {

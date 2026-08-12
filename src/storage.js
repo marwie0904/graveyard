@@ -18,9 +18,9 @@ const save = (v) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catc
     dayOffset is dropped rather than stored: it is relative to tonight, so a
     stored one is wrong by morning and Dashboard.jsx would match every archived
     night against the strip's "Today" chip. Phase 3 computes it from the id.
-    No night stamp means nothing to name the record; no logs means nothing to
-    record. Both leave the archive alone, and the gap in the id sequence is the
-    only trace an unworked night gets. */
+    No night stamp means nothing to name the record; a night with neither logs
+    nor a reflection has nothing to record. Both leave the archive alone, and
+    the gap in the id sequence is the only trace an unworked night gets. */
 export const archived = (s) => {
   const rec = s.night ? foldNight(s.profile, s.logs ?? [], s.reflection ?? {}) : null;
   if (!rec) return s.archive ?? [];
