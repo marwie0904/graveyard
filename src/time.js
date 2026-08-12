@@ -64,3 +64,21 @@ export function nightOf(ph, d = new Date()) {
     now,
   };
 }
+
+/** The night id only ever moves forward. Ids are zero-padded local dates, so
+    lexicographic order is chronological order and a bare `>` is the whole rule
+    — no parsing, no Date.
+    The first clause is load-bearing, not a null-check habit: `"2026-08-13" >
+    undefined` is false for every string, so without it a fresh profile would
+    never seed the ref at all, and would lose its first night on every reload. */
+export const forward = (cur, next) => (!cur || next > cur ? next : cur);
+
+/** Whole days from b to a, both "YYYY-MM-DD".
+    Date.parse reads a bare date as UTC midnight, and UTC has no DST, so the
+    difference is an exact whole number of days by construction. Parsing these
+    into local Dates is what would introduce the trap, not avoid it: a local DST
+    day is 23 or 25 hours, so a week across one measures 6.958 days. Math.round
+    is therefore not a DST fix — it is there so a hand-edited id that lost its
+    zero-padding still lands on an integer rather than a fraction that matches
+    no chip. */
+export const daysBetween = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);

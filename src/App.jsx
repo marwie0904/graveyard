@@ -6,7 +6,7 @@ import {
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
-import { DAY, toMin, fmt, nextAfter, dur, nightOf } from "./time.js";
+import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "./time.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
@@ -2302,9 +2302,19 @@ const boot = (() => {
     if (!s.profile) return {};
     const { id, now } = nightOf(calculateShiftPhases(s.profile));
     if (!Number.isFinite(now)) return {};
-    return { ...forNight(s, id), night: id, now };
+    /* forward, not id: a stored night ahead of the computed one means the
+       boundary moved backward under an edit, and re-folding the night we are
+       standing in would duplicate a record the archive already holds. */
+    const stamp = forward(s.night, id);
+    return { ...forNight(s, stamp), night: stamp, now };
   } catch (e) { console.warn("gy: discarding saved state", e); return {}; }
 })();
+
+/* Demo mode. Read once, beside boot, because it never changes without a reload.
+   No import.meta.env.DEV gate: this is a thesis prototype that gets demonstrated
+   from a built artifact, and a flag that only works under `vite dev` would not
+   work in the room where it is needed. */
+const seeded = new URLSearchParams(location.search).has("seed");
 
 export default function App() {
   const [screen, setScreen] = useState(boot.profile ? "app" : "welcome");
@@ -2352,7 +2362,7 @@ export default function App() {
      night that never happened. Declared first on purpose: effects run in order,
      so the ref is correct before anything below reads it. */
   useEffect(() => {
-    if (profile) nightRef.current = nightOf(calculateShiftPhases(profile)).id;
+    if (profile) nightRef.current = forward(nightRef.current, nightOf(calculateShiftPhases(profile)).id);
   }, [profile && profile.shiftStart, profile && profile.shiftEnd,
       profile && profile.plannedSleep, profile && profile.sleepGoalHours]);
 
@@ -2370,8 +2380,12 @@ export default function App() {
   useEffect(() => {
     if (!profile) return;
     const tick = () => {
-      const { id: night, now } = nightOf(calculateShiftPhases(profile));
+      /* `seen` rather than `id`: `const id = setInterval(...)` is in scope below
+         and the immediate tick() call runs before that initialiser, so a bare
+         `id` here is a TDZ ReferenceError on the first call. */
+      const { id: seen, now } = nightOf(calculateShiftPhases(profile));
       setNow(now);
+      const night = forward(nightRef.current, seen);
       if (night === nightRef.current) return;
       /* the night ended while the app was open: fold it, then start clean */
       const next = archived({ night: nightRef.current, profile, logs, reflection, archive });
@@ -2397,16 +2411,26 @@ export default function App() {
     [plan, profile, logs, now]
   );
 
-  /* Nights are derived, never stored. The mock supplies the past, folded from
-     the profile so it follows whatever shift the quiz produced; tonight is
-     folded from the live logs and sits at the front as the most recent night.
-     Index 0 is the newest, which is what every range slice assumes. */
+  /* Nights are derived, never stored. The archive supplies the past and carries
+     no dayOffset — it is relative to tonight, so a stored one is wrong by
+     morning — and tonight is folded from the live logs at the front. Index 0 is
+     the newest, which is what every window and the day strip assume.
+     `now` is a dependency because the ref is not reactive and a boundary can
+     pass with nothing logged: no logs to clear, no archive to grow, nothing
+     else in this list moves, and every archived offset would sit a day out
+     until the next tap. The tick is the only thing that fires there.
+     The seed branches here rather than seeding `archive` state, because state
+     would put 45 fictional nights through the write effect and onto the user's
+     disk, where they would outlive the flag. */
   const history = useMemo(() => {
     if (!profile) return [];
-    const past = materializeNights(profile);
+    const anchor = nightRef.current;
+    const past = seeded
+      ? materializeNights(profile)
+      : archive.map((r) => ({ ...r, dayOffset: daysBetween(anchor, r.id) }));
     const tonight = foldNight(profile, logs, reflection);
     return tonight ? [tonight, ...past] : past;
-  }, [profile, logs, reflection]);
+  }, [profile, logs, reflection, archive, now]);
 
   const inShift = plan && now >= plan.ph.start && now < plan.ph.end;
   const autoTheme = inShift || (plan && now >= plan.ph.sleepStart && now < plan.ph.sleepEnd);
@@ -2544,7 +2568,7 @@ export default function App() {
 
   /* ------------------------------ profile sheet ---------------------------- */
   const exportData = () => {
-    const payload = JSON.stringify({ app: "GraveYard", profile, logs, history, reflection, archive }, null, 2);
+    const payload = JSON.stringify({ app: "GraveYard", profile, logs, reflection, archive }, null, 2);
     try {
       const blob = new Blob([payload], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -2606,7 +2630,7 @@ export default function App() {
       {/* the only scrolling region */}
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 12, paddingBottom: 28 }}>
         {tab === "dashboard" && (
-          <Dashboard T={T} profile={profile} nights={history}
+          <Dashboard T={T} profile={profile} nights={history} seeded={seeded}
             rangeKey={rangeKey} setRangeKey={setRangeKey} say={say} setProfile={setProfile}
             plan={plan} status={s.itemStatus} now={now} onOpenPlan={() => setTab("plan")} />
         )}

@@ -4,7 +4,7 @@ import {
 } from "recharts";
 import { DAY, fmt, nightAxis, nightTick } from "../time.js";
 import { FONT_DISPLAY, FONT_TEXT, DOMAIN, tint } from "../tokens.js";
-import { RANGES, rangeStats, readPatterns, dayOffsetOf } from "../stats.js";
+import { RANGES, rangeStats, readPatterns, dayOffsetOf, MIN_TREND } from "../stats.js";
 import { Card, Btn, Display, RangeControl } from "../ui/index.jsx";
 import { Info } from "../icons.jsx";
 
@@ -164,7 +164,7 @@ function MiniPlan({ T, plan, status, now, onOpenPlan }) {
 
 export default function Dashboard({
   T, profile, nights, rangeKey, setRangeKey, say, setProfile,
-  plan, status, now, onOpenPlan,
+  plan, status, now, onOpenPlan, seeded,
 }) {
   /* A number means one night off the strip, null means a multi-night window. */
   const off = dayOffsetOf(rangeKey);
@@ -177,12 +177,16 @@ export default function Dashboard({
      is empty, which is the honest answer; it must never fall through to the
      night next to it. */
   const night = off === null ? null : nights.find((x) => x.dayOffset === off) || null;
+  /* A window of days ending tonight, not the first N records: a sparse archive
+     makes those two different, and a slice would quietly stretch "1 week" over
+     a month. The >= 0 term drops future-dated records, which a backward device
+     clock or a hand-edited archive can both produce and which would otherwise
+     sit inside every window and inflate every average. */
   const hist = off === null
-    ? nights.slice(0, spec.nights)
+    ? nights.filter((h) => h.dayOffset >= 0 && h.dayOffset < spec.days)
     : (night ? [night] : []);
 
   const st = rangeStats(profile, hist);
-  const pat = readPatterns(profile, st);
 
   const rests = st.naps + st.quiets;
 
@@ -262,6 +266,23 @@ export default function Dashboard({
   }
 
   /* ------------------------------- range ---------------------------------- */
+  /* Below the single-night block on purpose: hist is [] for an empty single
+     night too, and that case already has better copy above. Placed higher, this
+     would hijack it.
+     What renders without this is a hero reading "-", a trio reading "-", two
+     empty chart frames, and a plan adjustment derived from no data — nothing
+     wrong, and all of it noise. */
+  if (!hist.length) {
+    return (
+      <div style={{ padding: "4px 20px 0" }}>
+        <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
+        <Display T={T} size={26} style={{ marginBottom: 8 }}>No nights on record yet.</Display>
+        <Lead T={T}>Log tonight and this window fills in as you go.</Lead>
+      </div>
+    );
+  }
+
+  const pat = readPatterns(profile, st);
   const chrono = [...hist].reverse();
   const thin = Math.max(0, Math.floor(hist.length / 7) - 1);
   const axis = { fill: T.faint, fontSize: 10, fontFamily: FONT_TEXT };
@@ -310,6 +331,9 @@ export default function Dashboard({
       <MiniPlan T={T} plan={plan} status={status} now={now} onOpenPlan={onOpenPlan} />
 
       <div style={{ height: 8 }} />
+      {/* the array is already filtered to records with both a start and a
+          duration, so this is exactly "is there a bar to draw" */}
+      {sleep.length > 0 && (
       <Panel T={T} title="When you slept" height={158}
         sub={anyEstimated ? "faded bars are estimated" : "start to wake"}>
         <ResponsiveContainer width="100%" height="100%">
@@ -330,7 +354,11 @@ export default function Dashboard({
           </BarChart>
         </ResponsiveContainer>
       </Panel>
+      )}
 
+      {/* a profile taking no caffeine has no cutoff line and no dots, and an
+          axis with nothing on it is not a chart */}
+      {hist.some((h) => h.caffeine.length || h.cutoff !== null) && (
       <Panel T={T} title="Caffeine against cutoff" sub="dots above the line landed late">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={caff} margin={{ left: -16, right: 12, top: 8, bottom: 0 }}>
@@ -346,6 +374,17 @@ export default function Dashboard({
           </ComposedChart>
         </ResponsiveContainer>
       </Panel>
+      )}
+
+      {st.n < MIN_TREND && (
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 7, margin: "14px 4px 8px",
+          fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
+        }}>
+          <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+          {plural(MIN_TREND - st.n, "more night", "more nights")} and these charts start reading as trends.
+        </div>
+      )}
 
       <Head T={T}>What the plan noticed</Head>
       <Card T={T} style={{ ...CARD, padding: "0 15px 2px" }}>
@@ -387,7 +426,12 @@ export default function Dashboard({
         fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, lineHeight: 1.4,
       }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 2 }} />
-        Nothing here is a score, and nothing here is graded.
+        {/* Not decoration: this screen's rule is that no figure is ever
+            fabricated, and 45 invented nights presented as history is the
+            largest possible violation of it. */}
+        {seeded
+          ? "Demo data — 45 sample nights. Reload without ?seed for your own."
+          : "Nothing here is a score, and nothing here is graded."}
       </div>
     </div>
   );

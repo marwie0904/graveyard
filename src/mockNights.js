@@ -98,6 +98,7 @@ export function materializeNights(profile) {
       sleepyWindow: r.sleepyWindow,
       heavyMeal: r.heavyMeal,
       lateLightDone: r.lateLightDone,
+      endShift: true,
     };
   });
 }
