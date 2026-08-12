@@ -1777,11 +1777,16 @@ function ProfileRow({ T, Icon, l, sub, onClick, hue }) {
 
 function ProfileSheet({
   T, profile, logs, history, ph, setProfileOpen, setProfile, setTimeEdit,
-  themeOverride, setThemeOverride, setReview, setScreen, exportData, exportText,
+  themeOverride, setThemeOverride, setReview, setScreen, exportData, exportText, say,
 }) {
   const badges = achievements(profile, logs, history);
   /* two taps, because this erases a profile rather than one log entry */
   const [armed, setArmed] = useState(false);
+  /* The filter is the validation, not a formality: `overrides` comes off a
+     hand-editable blob, ADJUSTABLE[k].l on an unknown key is a white screen
+     inside this sheet, and a non-number renders as NaN. */
+  const set = Object.entries(profile.overrides || {})
+    .filter(([k, v]) => ADJUSTABLE[k] && typeof v === "number");
 
   return (
     <div style={{
@@ -1855,6 +1860,40 @@ function ProfileSheet({
       <ProfileRow T={T} Icon={Bed} hue={DOMAIN.recovery.hue} l="Sleep schedule"
         sub={`${dur(profile.sleepGoalHours * 60)} from ${fmt(ph.sleepStart)}`}
         onClick={() => { setProfileOpen(false); setReview({ index: 0, single: true, back: "app" }); setScreen("review"); }} />
+
+      {/* The standing receipt for every override, from any of the three writers:
+          the adjust sheet, the Dashboard's adjustment card and the reflection.
+          It exists because the adjust sheet reaches a key only through a plan
+          item that carries it, and several of those items are conditional — so
+          an override can be live, changing the plan, and unreachable from every
+          screen. Per-key undo stays in the adjust sheet, which offers it with a
+          live preview; this is the index and the blanket undo. */}
+      {set.length > 0 && (
+        <>
+          <div style={{ height: 18 }} />
+          <Eyebrow T={T}>Plan adjustments</Eyebrow>
+          <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
+            {set.map(([k, v], i) => (
+              <div key={k} style={{
+                display: "flex", alignItems: "baseline", gap: 11, padding: "10px 0",
+                borderTop: i === 0 ? "none" : `1px solid ${T.hair}`,
+              }}>
+                <span style={{
+                  flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink,
+                }}>{ADJUSTABLE[k].l}</span>
+                <span style={{
+                  fontFamily: FONT_DISPLAY, fontSize: 14.5, fontWeight: 600, color: T.ink,
+                  fontVariantNumeric: "tabular-nums", flexShrink: 0,
+                }}>{ADJUSTABLE[k].decimals ? v.toFixed(1) : Math.round(v)} {ADJUSTABLE[k].unit}</span>
+              </div>
+            ))}
+            <Btn T={T} kind="quiet" full style={{ marginTop: 12 }}
+              onClick={() => { setProfile({ ...profile, overrides: {} }); say("Back to the plan's own timing."); }}>
+              <ArrowCounterClockwise size={15} /> Put them all back
+            </Btn>
+          </Card>
+        </>
+      )}
 
       <div style={{ height: 18 }} />
       <Eyebrow T={T}>Achievements</Eyebrow>
@@ -2814,6 +2853,7 @@ export default function App() {
           setProfileOpen={setProfileOpen} setProfile={setProfile} setTimeEdit={setTimeEdit}
           themeOverride={themeOverride} setThemeOverride={setThemeOverride}
           setReview={setReview} setScreen={setScreen} exportData={exportData} exportText={exportText}
+          say={say}
         />
       )}
     </Frame>

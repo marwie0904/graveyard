@@ -298,6 +298,47 @@ const browser = await chromium.launch({ channel: "chrome" });
   await ctx.close();
 }
 
+/* ---- L8: the profile sheet lists what is overridden, and puts it all back -- */
+{
+  /* Seeded rather than driven through the reflection, so this check stands on
+     its own: the card is the index for every writer of overrides, not just the
+     one Task 3 added. The two junk entries are the trust boundary — `overrides`
+     comes off a hand-editable blob, and ADJUSTABLE[k].l on an unknown key is a
+     white screen inside the sheet. */
+  const { ctx, page, errors } = await open(browser, {
+    time: T0200,
+    blob: BLOB({
+      archive: [],
+      profile: { ...PROFILE, overrides: { caffeineHours: 7, notAKey: 5, moveGap: "x" } },
+    }),
+  });
+  await planTab(page);
+  const before = await read(page);
+  await page.locator("button").filter({ hasText: /^$/ }).first().click();
+  await page.waitForTimeout(400);
+  const sheet = await read(page);
+  await page.getByRole("button", { name: /Put them all back/ }).click();
+  await page.waitForTimeout(500);
+  /* The sheet is left open on purpose. It is an absolutely-positioned overlay
+     and the Plan tab is still mounted underneath it, so document.body.textContent
+     carries both — which is a cheaper read than hunting for the sheet's own
+     unlabelled X, and the header avatar cannot be clicked through the overlay. */
+  const cleared = await read(page);
+  record("L8 the receipt lists only the overrides the plan can read, and puts them all back",
+    before.cutoff === "12:30 AM" &&
+    sheet.text.includes("Plan adjustments") &&
+    sheet.text.includes("Stop caffeine") && sheet.text.includes("7.0") &&
+    sheet.text.includes("hours before sleep") &&
+    !sheet.text.includes("A reset every") &&        // moveGap: "x" is not a number
+    !sheet.text.includes("NaN") && !sheet.text.includes("notAKey") &&
+    Object.keys(cleared.ov).length === 0 &&
+    cleared.text.includes("Back to the plan's own timing.") &&
+    !cleared.text.includes("Plan adjustments") &&  // empty set, no card at all
+    cleared.cutoff === "1:30 AM" && !errors.length,
+    `cutoff ${before.cutoff}->${cleared.cutoff} listed=${sheet.text.includes("Stop caffeine")} junk=${sheet.text.includes("A reset every") || sheet.text.includes("NaN")} ov=${JSON.stringify(cleared.ov)} cardGone=${!cleared.text.includes("Plan adjustments")} err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
 /* ---- L9: an answer the plan cannot act on is refused out loud ------------- */
 {
   /* nap: "none" -> deep-rest is a fixed "close your eyes for five minutes" and
