@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   rangeStats, readPatterns, foldNight, achievements, RANGES, dayOffsetOf, MIN_TREND,
+  countStretch, sleepBand,
 } from "./stats.js";
 import { materializeNights } from "./mockNights.js";
 
@@ -236,5 +237,120 @@ describe("achievements", () => {
      materializeNights's new literal. */
   it("earns Home safe from the mock, so the seeded demo is not missing a badge", () => {
     expect(got(achievements(P, [], materializeNights(P)), "home")).toBe(true);
+  });
+});
+
+/* Tonight, for every countStretch case below. Records are named by their offset
+   back from it, so a case reads as the shape of the run rather than as a list of
+   dates: `back(1)` is last night. Date.parse reads a bare date as UTC midnight
+   and toISOString reads it back the same way, so this is exact. */
+const TONIGHT = "2026-08-13";
+const back = (o) => new Date(Date.parse(TONIGHT) - o * 864e5).toISOString().slice(0, 10);
+const arch = (...offsets) => offsets.map((o) => ({ id: back(o) }));
+
+describe("countStretch", () => {
+  it("counts tonight as night one when there is no archive and no seed to carry", () => {
+    expect(countStretch([], TONIGHT, 1)).toBe(1);
+  });
+
+  it("carries the quiz answer on day one, when the archive cannot contradict it", () => {
+    expect(countStretch([], TONIGHT, 3)).toBe(3);
+  });
+
+  /* The day-two regression, and the whole reason the quiz answer is a seed
+     rather than a fallback: a fallback reads 2 here, so the number goes DOWN
+     while the stretch goes up and the caffeine cutoff relaxes by an hour on
+     night four. */
+  it("adds the walk to the seed on day two, instead of counting back down", () => {
+    expect(countStretch(arch(1), TONIGHT, 3)).toBe(4);
+  });
+
+  it("counts an unbroken run back from tonight", () => {
+    expect(countStretch(arch(1, 2, 3), TONIGHT, 1)).toBe(4);
+  });
+
+  it("keeps the seed while nothing on record contradicts it", () => {
+    expect(countStretch(arch(1, 2, 3), TONIGHT, 3)).toBe(6);
+  });
+
+  /* The bridge. It reads one low on purpose — the bridged night is not counted,
+     only forgiven — and the plan reads the number at 2, 3 and 4-or-more only, so
+     one low changes nothing except exactly on a boundary. */
+  it("bridges one missing night without counting it", () => {
+    expect(countStretch(arch(1, 3), TONIGHT, 1)).toBe(3);
+  });
+
+  it("ends the stretch on two missing nights, and kills the seed with it", () => {
+    expect(countStretch(arch(1, 4), TONIGHT, 3)).toBe(2);
+  });
+
+  it("reads night one after three nights away", () => {
+    expect(countStretch(arch(3, 4, 5), TONIGHT, 1)).toBe(1);
+  });
+
+  it("ignores a record dated tonight, which is never in the archive", () => {
+    expect(countStretch(arch(0), TONIGHT, 1)).toBe(1);
+  });
+
+  /* Reachable from a device clock moved backward, and from a hand-edited blob.
+     A future record must neither count nor extend the run. */
+  it("ignores a future-dated record", () => {
+    expect(countStretch(arch(-2), TONIGHT, 1)).toBe(1);
+  });
+
+  it("counts two records with the same id once, and the seed still applies", () => {
+    expect(countStretch([{ id: back(1) }, { id: back(1) }], TONIGHT, 3)).toBe(4);
+  });
+
+  it("drops a record whose id is not a date, without throwing", () => {
+    expect(countStretch([{ id: "not-a-date" }], TONIGHT, 1)).toBe(1);
+  });
+
+  /* The trust boundary. `overrides` and `nightInStretch` both come off a blob a
+     user can hand-edit, and an unclamped 999 makes every night night one
+     thousand — which is night four's plan, forever, for someone on night one. */
+  it("clamps a seed the quiz could never have produced", () => {
+    expect(countStretch([], TONIGHT, 999)).toBe(4);
+    expect(countStretch([], TONIGHT, -5)).toBe(1);
+  });
+
+  it("treats a missing, unparseable or zero seed as night one", () => {
+    expect(countStretch([], TONIGHT, undefined)).toBe(1);
+    expect(countStretch([], TONIGHT, "x")).toBe(1);
+    expect(countStretch([], TONIGHT, 0)).toBe(1);
+  });
+
+  it("returns the seed when there is no night to count back from", () => {
+    // every offset is NaN, so the walk is empty and the seed is all there is
+    expect(countStretch(arch(1, 2), undefined, 3)).toBe(3);
+  });
+
+  it("tolerates a missing archive", () => {
+    expect(countStretch(undefined, TONIGHT, 1)).toBe(1);
+    expect(countStretch(null, TONIGHT, 2)).toBe(2);
+  });
+
+  it("is uncapped, because a stretch has no maximum the plan cares about", () => {
+    expect(countStretch(arch(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), TONIGHT, 1)).toBe(11);
+  });
+});
+
+describe("sleepBand", () => {
+  /* The fixed-point property the sleep proposal depends on: the four values the
+     quiz can express each band to themselves, which is what makes
+     `sleepBand(avg) !== goal` a complete trigger with no tolerance to tune. */
+  it("is a fixed point on each of the four values the quiz offers", () => {
+    for (const h of [4.5, 5.5, 7.5, 9.5]) expect(sleepBand(h)).toBe(h);
+  });
+
+  it("cuts where planSummary cuts", () => {
+    expect(sleepBand(5.0)).toBe(4.5);
+    expect(sleepBand(6.6)).toBe(7.5);
+    expect(sleepBand(9.1)).toBe(9.5);
+  });
+
+  it("has no gap at either end", () => {
+    expect(sleepBand(0)).toBe(4.5);
+    expect(sleepBand(24)).toBe(9.5);
   });
 });

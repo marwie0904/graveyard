@@ -1,4 +1,4 @@
-import { DAY, nightAxis } from "./time.js";
+import { DAY, nightAxis, daysBetween } from "./time.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, movementInterval, movementMode, caffeineHours, ov,
 } from "./planner.js";
@@ -42,6 +42,41 @@ export const dayOffsetOf = (key) => {
   const m = /^d(\d+)$/.exec(key || "");
   return m ? Number(m[1]) : null;
 };
+
+/** Which night of the current stretch tonight is, counted back from tonight.
+    One night with no record is bridged, two end the run. The quiz answer seeds
+    the nights that were already behind you when the archive starts, and counts
+    only while `n - 1 === back.size` — true exactly while the walk has absorbed
+    every record, which is to say while no break has ever been measured.
+    Offsets rather than ids so the only date maths is daysBetween: a hand-edited
+    id gives NaN and fails `> 0`, a duplicate lands in one Set slot, and a
+    future-dated record is excluded by the comparison the day strip already uses.
+    ponytail: the bridge is an unmeasured heuristic, argued in the spec from
+    rosters. Upgrade path is `workDays`, once a real archive shows the
+    distribution of gap lengths. */
+export function countStretch(archive, tonight, seed) {
+  const back = new Set(
+    (archive || []).map((r) => daysBetween(tonight, r.id)).filter((d) => d > 0)
+  );
+  /* Clamped to the range the quiz can express: this comes off a profile a
+     hand-edited blob can write anything into, and an unclamped 999 gives night
+     four's plan to someone on night one, forever. The `|| 1` is the other half
+     of the same boundary — NaN from a missing or unparseable seed is falsy, and
+     so is the 0 that is not a night. */
+  const first = Math.min(4, Math.max(1, Math.round(seed) || 1));
+
+  /* Terminates without a cap: past the oldest record every step is a miss, so
+     the second one always arrives. */
+  let n = 1, miss = 0, d = 1;
+  while (miss < 2) { if (back.has(d)) { n += 1; miss = 0; } else miss += 1; d += 1; }
+
+  return n + (n - 1 === back.size ? first - 1 : 0);
+}
+
+/** The four values the quiz can express, and the cuts planSummary already bands
+    on. sleepBand(x) === x for each of them, which is what makes
+    `sleepBand(avg) !== goal` a complete trigger with no tolerance to tune. */
+export const sleepBand = (h) => (h <= 5 ? 4.5 : h <= 6.5 ? 5.5 : h <= 9 ? 7.5 : 9.5);
 
 export const SLEEPY_LABEL = {
   early: "Early shift", mid: "Mid-shift", deep: "Deep night", late: "Last hours",
