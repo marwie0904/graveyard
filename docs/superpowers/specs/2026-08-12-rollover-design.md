@@ -23,7 +23,7 @@ Two halves, and the second is the dangerous one.
 const forNight = (s, id) => (s.night === id ? s : { profile: s.profile, theme: s.theme });
 ```
 
-A finished night's logs are discarded. `foldNight` (`stats.js:66`) already turns
+A finished night's logs are discarded. `foldNight` (`stats.js:69`) already turns
 exactly that data into a NightRecord and is already tested; nothing calls it with
 last night's logs because last night's logs no longer exist by the time anything
 could.
@@ -64,9 +64,9 @@ import { foldNight } from "./stats.js";
     stored one is wrong by morning, and `nights.find(x => x.dayOffset === off)`
     (Dashboard.jsx:179) would match every archived night against the strip's
     "Today" chip. Phase 3 computes it from the id.
-    No night stamp means nothing to name the record; no logs means nothing to
-    record. Both leave the archive alone, and the gap in the id sequence is the
-    only trace an unworked night gets. */
+    No night stamp means nothing to name the record; a night with neither logs
+    nor a reflection has nothing to record. Both leave the archive alone, and
+    the gap in the id sequence is the only trace an unworked night gets. */
 export const archived = (s) => {
   const rec = s.night ? foldNight(s.profile, s.logs ?? [], s.reflection ?? {}) : null;
   if (!rec) return s.archive ?? [];
@@ -78,10 +78,11 @@ const forNight = (s, id) =>
   s.night === id ? s : { profile: s.profile, theme: s.theme, archive: archived(s) };
 ```
 
-`foldNight` is untouched. It returns `id: "tonight"` and `dayOffset: 0`, both of
-which are correct for the caller it was written for and wrong for a stored
-record; correcting them at the archive site is smaller than growing its
-signature, and leaves its 45-row mock counterpart (`mockNights.js`) alone.
+`foldNight` keeps its signature and its output. It returns `id: "tonight"` and
+`dayOffset: 0`, both of which are correct for the caller it was written for and
+wrong for a stored record; correcting them at the archive site is smaller than
+growing its signature, and leaves its 45-row mock counterpart (`mockNights.js`)
+alone. Its one edit is the empty guard, below.
 
 `archived` is exported only because the tick needs it too. Inlining it back into
 `forNight` and having the tick reconstruct a blob to call `forNight` with is the
@@ -89,8 +90,24 @@ same code arranged worse.
 
 ### Empty nights leave no record
 
-A night with no logs archives nothing. `foldNight` already returns `null` for
-that, so this costs zero lines.
+A night that was neither logged nor reflected on archives nothing. That is one
+line in `foldNight` (`stats.js:70`), and it is the phase's only edit to that
+function:
+
+```js
+if (!logs.length && !Object.keys(reflection).length) return null;
+```
+
+It read `if (!logs.length)`, which was right when the only caller was the
+Dashboard's live fold and wrong the moment a record went to disk. The reflection
+Selects write straight to state with no log entry (`App.jsx:1458`), so a night
+worked without tapping anything and then answered in full folded to `null`,
+`archived` dropped it, and the tick's `setReflection({})` wiped the answers. A
+night with seven answers is a night. Fixing the guard where both callers already
+route through it is smaller than a second guard in `archived`, and the
+Dashboard's `history` fold (`App.jsx:2404`) gets the same correction for free —
+a reflection-only night now shows as tonight's card instead of "Nothing logged
+yet", which is the truthful reading of it.
 
 The alternative — walking every date between the last stamp and now and writing
 `{id, empty: true}` stubs — buys an explicit "off night" marker and costs date
@@ -241,9 +258,10 @@ Boot folds at import, before React mounts; the fold reaches disk only when the
 write effect runs after mount. Nothing is lost in between. The raw logs are still
 on disk under the old stamp, so the next boot folds them again from scratch.
 
-That recovery works because the write clears `logs` in the same blob it adds the
-archive to. Re-running `archived` against an already-rolled blob hits the
-`!rec` branch — no logs, nothing to fold — and returns the archive unchanged.
+That recovery works because the write clears `logs` and `reflection` in the same
+blob it adds the archive to. Re-running `archived` against an already-rolled
+blob hits the `!rec` branch — neither logs nor answers, nothing to fold — and
+returns the archive unchanged.
 Idempotent by re-derivation, not by a guard.
 
 ---
@@ -270,7 +288,7 @@ now erases a history too — the string needs the word.
 
 ## Tests
 
-`src/storage.test.js`, six assertions on `forNight` and `archived`:
+`src/storage.test.js`, seven assertions on `forNight` and `archived`:
 
 | Case | Expect |
 |---|---|
@@ -278,12 +296,20 @@ now erases a history too — the string needs the word.
 | stamp is another night | `{profile, theme, archive}` — no `logs`, no `reflection` |
 | the folded record | `id === s.night`, and no `dayOffset` key at all |
 | onto a non-empty archive | prepended: index 0 is the night just folded |
-| no logs | archive returned unchanged — no empty record |
+| no logs and no reflection | archive returned unchanged — no empty record |
+| no logs, reflection answered | folded and prepended, sleep off the bucket |
 | no `night` field | archive returned unchanged — nothing to name it |
 
-The last two are the empty-night rule and the truncated-blob case, and both are
-"returns the input unchanged", which is exactly the kind of behaviour that holds
-by accident until someone reorders a branch.
+The empty-night rule and the truncated-blob case are both "returns the input
+unchanged", which is exactly the kind of behaviour that holds by accident until
+someone reorders a branch. The reflection-only case sits next to the empty one
+because the two differ by one field and the guard has to read both.
+
+`src/stats.test.js` covers the same guard one level down: a fold of `[]` logs
+against `{slept, sleepiest}` returns a record whose `sleepHours` came off
+`BUCKET` with `sleepEstimated: true` and whose `sleepyWindow` came off the
+reflection. That is the whole content of such a record, and it is the reason the
+night is worth keeping.
 
 **The fixture profile has to widen.** Today's (`storage.test.js:7`) is
 `{shiftStart, shiftEnd, sleepGoalHours}`, which was enough when `forNight` never
@@ -306,12 +332,36 @@ verified by hand in the plan.
 - Leave the app open across your wake time: the plan resets to tonight, the
   ticked items clear, and a toast says the night was saved.
 - Close it and reopen it the next night: same, minus the toast.
-- Export now contains an `archive` array with one entry per logged night.
-- Nothing on the Dashboard changes. The 7-night strip, the ranges and every
-  average still read the 45-night mock — that swap is Phase 3, and it is where
-  the empty states get built.
+- Export now contains an `archive` array with one entry per night that was
+  logged or reflected on.
+- One thing on the Dashboard changes: answer the reflection without logging
+  anything and tonight is now a card rather than "Nothing logged yet", showing an
+  estimated sleep figure and zeroes. The strip, the ranges and every average
+  still read the 45-night mock — that swap is Phase 3, and it is where the empty
+  states get built.
 
 ---
+
+## What Phase 3 inherits
+
+The shape is clean. An archived record is field-for-field what
+`materializeNights` produces minus `dayOffset`, because both come out of the
+same `foldNight`, so the swap is `history` reading `archive` and computing
+`dayOffset` from the id. No mapping layer, no migration.
+
+The sequencing is not, and both problems are in `Dashboard.jsx` rather than in
+anything this phase wrote. They are invisible today because the mock is 45 dense
+consecutive nights and a real archive is neither.
+
+- **`nights.slice(0, spec.nights)` (`:181`) takes N records, not N nights.** On
+  the mock those are the same thing. On a real archive an intermittent worker's
+  "1 week" is the last seven nights they worked, which can span a month — and
+  `wakeDrift` and every spread figure then describe a window nobody chose. The
+  slice has to become a filter on the id's date.
+- **`have = new Set(nights.map(x => x.dayOffset))` (`:174`) goes sparse.** The
+  day strip has never had to render a chip with no record behind it, because the
+  mock always had one. Real empty-chip states are Phase 3 work, not a detail of
+  the swap.
 
 ## Known ceilings
 
@@ -339,13 +389,71 @@ verified by hand in the plan.
   an adjusted planning parameter writes a new `profile` object, and that would
   be enough to swallow a rollover. The tick has no such hazard: it never adopts,
   so re-running it costs an interval rebuild and nothing else.
+- **The night id can move backward, so one tab can fold the same night twice.**
+  The adopt effect recomputes the id from the edited profile and has no notion of
+  direction, and the tick only asks whether the id differs. Worked example, ids
+  read off `nightOf`: at 03:00 on 2026-08-13 a profile of
+  `{shiftStart: "04:00", shiftEnd: "06:00", plannedSleep: "07:30",
+  sleepGoalHours: 7}` names the night `2026-08-13`; edit `shiftStart` to
+  `"22:00"` and the same clock names it `2026-08-12`. So: run the 04:00 profile,
+  let it roll at its 14:30 wake on Aug 12 — the archive gains `2026-08-12` —
+  keep working into Aug 13, then at 03:00 change the shift start. Adopt walks the
+  ref back to `2026-08-12`, and the next boundary folds a second record under
+  that id. Nothing dedupes; `archived` prepends whatever it is handed.
+
+  The cost lands in Phase 3, not here. `nights.find(x => x.dayOffset === off)`
+  (`Dashboard.jsx:179`) takes the first copy in array order — the one folded
+  most recently — so the day strip shows one of two nights with no sign there is
+  another, and `rangeStats` counts the night twice in every average it feeds.
+- **A fall-back DST night folds three times.** Same root as the bullet above: the
+  tick compares ids without direction, and on the night the local clock repeats
+  an hour a boundary *inside* that hour is crossed forward, back, and forward
+  again. Reproduced against `nightOf` under `TZ=America/New_York` on 2026-11-01
+  with `{shiftStart: "01:30", shiftEnd: "07:30", plannedSleep: "00:00",
+  sleepGoalHours: 8}` — a boundary at 01:30, since `nightOf` caps wake at
+  `start + DAY` — ticking every fifteen minutes: the id goes `2026-10-31` →
+  `2026-11-01` at 01:30 EDT, back to `2026-10-31` at 01:00 EST, and forward again
+  at 01:30 EST. Three rolls where there should be one, so `setLogs([])` and
+  `setReflection({})` fire twice more and anything logged in the repeated hour is
+  wiped; a duplicate `2026-10-31` id is the same hazard as above.
+
+  The profile that reaches it is narrow. The boundary is
+  `min(sleepEnd, shiftStart + 24h)`, and for that to land strictly inside
+  01:00–02:00 the shift has to start there or be a daytime one sleeping into it —
+  a 22:00–06:00 night shift cannot get there at all. Spring forward is harmless:
+  the clock stays monotonic, so the skipped hour is one crossing like any other.
+  `time.js` mentions DST nowhere, and the fix is a directional check — roll only
+  when the new id sorts after the old — which is a real rule about time this
+  phase does not have the tests to hold up.
 - **Multi-tab.** Last write still wins, and two tabs crossing the boundary can
   each fold the same night — the same Phase 1 ceiling, presenting as a duplicate
   record rather than as lost logs. A `storage` event listener is the fix when
-  anyone is running two tabs, which nobody is.
-- **A hand-edited `archive` that is not an array** throws where `logs` already
-  does, after mount, with no in-app recovery. Same shape as Phase 1's open case
-  and closed by the same schema validation neither phase wants to start.
+  anyone is running two tabs, which nobody is. It is no longer the only way to
+  get a duplicate id, which is why the two bullets above exist.
+- **A hand-edited `archive` that is not an array** fails one of two ways, and
+  neither is the one Phase 1's `logs` case fails. It throws inside `archived`,
+  reached from `forNight` inside the `boot` expression at *module scope* — inside
+  boot's own try, which catches it, warns, and drops the whole blob for the quiz.
+  That is a silent total wipe rather than a white screen, and only on the
+  rollover path: when the stamp still matches tonight, `forNight` returns the
+  blob whole and the bad value flows into state untouched. A **string** archive
+  does not throw at all — `[...("abc")]` is `['a','b','c']`, so three
+  one-character strings sit in the array where records should be, and Phase 3
+  will read them as nights. Closed by the same schema validation neither phase
+  wants to start.
+- **Both `boot` fallbacks now discard history, not just logs.** `App.jsx:2304`
+  (`!Number.isFinite(now)`) and `:2306` (the catch) both `return {}`, so `archive`
+  seeds to `[]`, the user lands on the quiz, and the first `setProfile` fires the
+  write effect, which overwrites the stored blob with `archive: []`. One-way, and
+  the finite path does not even log — only the catch warns. Not reachable today:
+  every quiz and edit path sets all four fields `calculateShiftPhases` reads, so
+  neither branch fires against a blob this app wrote. It is a schema-migration
+  landmine rather than a bug. The next field `calculateShiftPhases` starts
+  reading makes every stored profile a throw on the first boot after upgrade, and
+  the throw now costs a year of history instead of a night of logs. Whatever
+  Phase 3 or later adds to the profile has to bring a `boot` that carries the
+  archive across a failed parse instead of returning `{}` — which means hoisting
+  the loaded blob out of the `try`, since the catch cannot see it today.
 
 ## Skipped
 
