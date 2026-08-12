@@ -11,6 +11,7 @@ import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
   movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
+  reflectionAdjust,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements, countStretch } from "./stats.js";
@@ -1459,13 +1460,13 @@ function ReflectionBlock({ T, reflection, setReflection, push, profile, setProfi
       ))}
       <Btn T={T} full onClick={() => {
         if (reflection.slept === "Under 5h" || reflection.rested === "Not at all") push("sleepQuality", "poor");
-        if (reflection.adjust === "Earlier caffeine cutoff") {
-          setProfile({ ...profile, caffeineSensitivity: "high" });
-          say("Caffeine cutoff moved earlier for the next shift.");
-        } else if (reflection.adjust === "Fewer resets") {
-          setProfile({ ...profile, movement: "active" });
-          say("Resets spaced further apart for the next shift.");
-        } else say("Saved. The next plan will use this.");
+        /* An override, not a quiz answer. The two lines this replaced wrote
+           caffeineSensitivity and movement — answers about the user's body and
+           their job — from a question about what the plan should change. */
+        const r = reflectionAdjust(profile, reflection.adjust);
+        if (!r) { say("Saved. The next plan will use this."); return; }
+        if (r.key) setProfile({ ...profile, overrides: { ...(profile.overrides || {}), [r.key]: r.value } });
+        say(r.msg);
       }}>Save reflection</Btn>
     </div>
   );

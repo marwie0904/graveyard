@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
-  deriveState, movementInterval, stretchNight,
+  deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE,
 } from "./planner.js";
 
 const P = {
@@ -157,5 +157,105 @@ describe("the night of the stretch, driven by the counted field", () => {
   it("lets an explicit override beat the derived count", () => {
     expect(caffeineHours({ ...P, stretch: 4, overrides: { caffeineHours: 9 } })).toBe(9);
     expect(movementInterval({ ...P, stretch: 4, overrides: { moveGap: 60 } })).toBe(60);
+  });
+});
+
+describe("reflectionAdjust", () => {
+  it("maps Earlier caffeine cutoff to one hour past the plan's own default", () => {
+    const r = reflectionAdjust(P, "Earlier caffeine cutoff");
+    expect(r.key).toBe("caffeineHours");
+    expect(r.value).toBe(caffeineHours(baseProfile(P)) + 1);
+  });
+
+  /* The button is still on screen after it is pressed. Set-from-default rather
+     than stepped is what makes the second press a no-op instead of a ratchet. */
+  it("is idempotent: the same answer twice is the same number", () => {
+    const once = reflectionAdjust(P, "Earlier caffeine cutoff");
+    const twice = reflectionAdjust(
+      { ...P, overrides: { caffeineHours: once.value } }, "Earlier caffeine cutoff"
+    );
+    expect(twice.value).toBe(once.value);
+  });
+
+  it("never moves a number the user set by hand backward", () => {
+    const r = reflectionAdjust({ ...P, overrides: { caffeineHours: 9 } }, "Earlier caffeine cutoff");
+    expect(r.value).toBe(9);
+  });
+
+  /* The trust boundary. `overrides` comes off a hand-editable blob, and
+     Math.max("x", 150) is NaN — which ov() hands to the planner as a real
+     value and which makes the movement loop emit zero resets for a whole
+     shift. A floor that is not a number is not a floor. */
+  it("ignores a non-numeric override instead of poisoning the value with NaN", () => {
+    const r = reflectionAdjust({ ...P, overrides: { moveGap: "x" } }, "Fewer resets");
+    expect(r.value).toBe(movementInterval(baseProfile(P)) + 30);
+  });
+
+  it("says so when the number did not move", () => {
+    const r = reflectionAdjust({ ...P, overrides: { caffeineHours: 9 } }, "Earlier caffeine cutoff");
+    expect(r.msg).toBe("That is already where your plan is.");
+  });
+
+  /* high sensitivity (8) + sleep under five hours (+1) + a deep stretch (+1) is
+     already 10, which is the top of the slider. +1 would leave the range the
+     adjust sheet can express, so it stops. */
+  it("clamps the caffeine cutoff to the top of the slider's range", () => {
+    const deep = { ...P, caffeineSensitivity: "high", sleepGoalHours: 4.5, stretch: 3 };
+    expect(caffeineHours(baseProfile(deep))).toBe(10);
+    expect(reflectionAdjust(deep, "Earlier caffeine cutoff").value)
+      .toBe(ADJUSTABLE.caffeineHours.max);
+  });
+
+  it("reads the stretch off the profile it is handed", () => {
+    const one = reflectionAdjust({ ...P, stretch: 1 }, "Earlier caffeine cutoff").value;
+    const four = reflectionAdjust({ ...P, stretch: 4 }, "Earlier caffeine cutoff").value;
+    expect(four).toBe(one + 1);
+  });
+
+  it("maps Fewer resets to thirty more minutes of spacing", () => {
+    const r = reflectionAdjust(P, "Fewer resets");
+    expect(r.key).toBe("moveGap");
+    expect(r.value).toBe(movementInterval(baseProfile(P)) + 30);
+  });
+
+  it("clamps the reset gap to the top of its range too", () => {
+    const r = reflectionAdjust({ ...P, overrides: { moveGap: ADJUSTABLE.moveGap.max } }, "Fewer resets");
+    expect(r.value).toBe(ADJUSTABLE.moveGap.max);
+  });
+
+  /* 30 is the ceiling the deep-rest item's own `why` already names, not a
+     number picked to be a number. */
+  it("maps More rest to thirty minutes flat", () => {
+    const r = reflectionAdjust(P, "More rest");
+    expect(r.key).toBe("restLength");
+    expect(r.value).toBe(30);
+  });
+
+  /* The toast is the only thing the user sees at the moment it happens, so it
+     has to be true. On these two profiles the number reaches no item at all. */
+  it("refuses More rest on a profile that cannot nap, and says why", () => {
+    const r = reflectionAdjust({ ...P, nap: "none" }, "More rest");
+    expect(r.key).toBeNull();
+    expect(r.msg).toBe("You said naps are not possible, so the plan keeps rest short and quiet instead.");
+  });
+
+  it("refuses Earlier caffeine cutoff on a profile with no caffeine, and says why", () => {
+    const r = reflectionAdjust({ ...P, caffeine: "none" }, "Earlier caffeine cutoff");
+    expect(r.key).toBeNull();
+    expect(r.msg).toBe("Caffeine is already off your plan, so there is nothing to move earlier.");
+  });
+
+  it("returns null for Nothing, for an unanswered question, and for gibberish", () => {
+    expect(reflectionAdjust(P, "Nothing")).toBeNull();
+    expect(reflectionAdjust(P, undefined)).toBeNull();
+    expect(reflectionAdjust(P, "gibberish")).toBeNull();
+  });
+
+  it("names the resulting number in every message it does write", () => {
+    expect(reflectionAdjust(P, "Earlier caffeine cutoff").msg)
+      .toBe(`Caffeine now stops ${caffeineHours(baseProfile(P)) + 1} hours before sleep.`);
+    expect(reflectionAdjust(P, "Fewer resets").msg)
+      .toBe(`A reset every ${movementInterval(baseProfile(P)) + 30} minutes now.`);
+    expect(reflectionAdjust(P, "More rest").msg).toBe("Rest blocks are now 30 minutes.");
   });
 });

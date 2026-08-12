@@ -136,6 +136,16 @@ const tabTo = async (page, name) => {
 };
 const planTab = (page) => tabTo(page, "Plan");
 
+/* The reflection's last question and its Save button. The Select is a native
+   <select> wrapped in a <label>, so getByLabel finds it by the question. */
+const answerReflection = async (page, answer) => {
+  await tabTo(page, "Reflection");
+  await page.getByLabel("What should the plan change next shift?").selectOption(answer);
+  await page.waitForTimeout(200);
+  await page.getByRole("button", { name: "Save reflection" }).click();
+  await page.waitForTimeout(500);
+};
+
 const T0200 = new Date("2026-08-13T02:00:00");
 
 const browser = await chromium.launch({ channel: "chrome" });
@@ -252,6 +262,63 @@ const browser = await chromium.launch({ channel: "chrome" });
     s.pkeys.split(",").includes("mutedReminders") &&            // the edit did land
     s.ids.join(",").startsWith("2026-08-12") && !errors.length,
     `stored=[${s.pkeys}] exported=[${exported}] ids=${JSON.stringify(s.ids)} err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
+/* ---- L6/L7: the reflection writes an override, not a quiz answer ---------- */
+{
+  /* Empty archive, so this is night one and the plan's own default is 6 hours.
+     Before this task the same taps set caffeineSensitivity: "high" — a
+     TWO-hour move on a value REVIEW shows back as something the user said —
+     and wrote nothing to overrides at all. */
+  const { ctx, page, errors } = await open(browser, { time: T0200, blob: BLOB({ archive: [] }) });
+  await planTab(page);
+  const before = await read(page);
+  await answerReflection(page, "Earlier caffeine cutoff");
+  const toast = await read(page);
+  await planTab(page);
+  const after = await read(page);
+  record("L6 Earlier caffeine cutoff writes an override, moves the item, and leaves the quiz answer alone",
+    before.cutoff === "1:30 AM" && after.cutoff === "12:30 AM" &&
+    after.ov.caffeineHours === 7 &&
+    after.sens === "normal" &&                                  // "high" means the stomp is back
+    toast.text.includes("Caffeine now stops 7 hours before sleep.") && !errors.length,
+    `cutoff ${before.cutoff}->${after.cutoff} ov=${JSON.stringify(after.ov)} sens=${after.sens} toast=${toast.text.includes("Caffeine now stops 7 hours before sleep.")} err=${errors.join(" || ") || "none"}`);
+
+  /* The button is still on screen. Without this, a `current + 1` implementation
+     passes L6 and walks the cutoff an hour further every time it is pressed. */
+  await answerReflection(page, "Earlier caffeine cutoff");
+  const t2 = await read(page);
+  await planTab(page);
+  const twice = await read(page);
+  record("L7 pressing Save a second time does not move the number again",
+    twice.ov.caffeineHours === 7 && twice.cutoff === "12:30 AM" &&
+    t2.text.includes("That is already where your plan is.") && !errors.length,
+    `ov=${JSON.stringify(twice.ov)} cutoff=${twice.cutoff} toast=${t2.text.includes("That is already where your plan is.")} err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
+/* ---- L9: an answer the plan cannot act on is refused out loud ------------- */
+{
+  /* nap: "none" -> deep-rest is a fixed "close your eyes for five minutes" and
+     restLength reaches no item, so writing it would toast a change that did not
+     happen. The second half is the other deleted stomp: "Fewer resets" used to
+     rewrite `movement` to "active", a statement of fact about the job. */
+  const { ctx, page, errors } = await open(browser, {
+    time: T0200, blob: BLOB({ profile: { ...PROFILE, nap: "none" }, archive: [] }),
+  });
+  await answerReflection(page, "More rest");
+  const refused = await read(page);
+  await answerReflection(page, "Fewer resets");
+  const gap = await read(page);
+  await planTab(page);
+  const plan = await read(page);
+  record("L9 an unreachable answer is refused with a reason, and Fewer resets no longer rewrites the job",
+    Object.keys(refused.ov).length === 0 &&
+    refused.text.includes("You said naps are not possible, so the plan keeps rest short and quiet instead.") &&
+    gap.ov.moveGap === 150 && gap.movement === "mixed" &&        // "active" means the stomp is back
+    plan.gap === "150" && !errors.length,
+    `refusedOv=${JSON.stringify(refused.ov)} said=${refused.text.includes("naps are not possible")} ov=${JSON.stringify(gap.ov)} movement=${gap.movement} gap=${plan.gap} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 
