@@ -146,6 +146,19 @@ const answerReflection = async (page, answer) => {
   await page.waitForTimeout(500);
 };
 
+/* The Dashboard's multi-night window, which is where the adjustment card lives —
+   the default "d0" chip is a single night and renders a different screen. */
+const weekView = async (page) => {
+  await tabTo(page, "Dashboard");
+  await page.selectOption('select[aria-label="Longer windows"]', "1w");
+  await page.waitForTimeout(400);
+};
+
+/* Six archived nights of 5.4h ending last night, against a 7.5h quiz bucket.
+   sleepBand(5.4) is 5.5, so the proposal is live; with tonight's logs folded in
+   the window holds seven records and the card says "last 7 nights". */
+const SHORT_SLEEP = { archive: [1, 2, 3, 4, 5, 6].map((o) => REC(back(o), { sleepHours: 5.4 })) };
+
 const T0200 = new Date("2026-08-13T02:00:00");
 
 const browser = await chromium.launch({ channel: "chrome" });
@@ -360,6 +373,94 @@ const browser = await chromium.launch({ channel: "chrome" });
     gap.ov.moveGap === 150 && gap.movement === "mixed" &&        // "active" means the stomp is back
     plan.gap === "150" && !errors.length,
     `refusedOv=${JSON.stringify(refused.ov)} said=${refused.text.includes("naps are not possible")} ov=${JSON.stringify(gap.ov)} movement=${gap.movement} gap=${plan.gap} err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
+/* ---- L10: the goal is proposed, named in full, and applied on a tap ------- */
+{
+  const { ctx, page, errors } = await open(browser, { time: T0200, blob: BLOB(SHORT_SLEEP) });
+  await weekView(page);
+  const offered = await read(page);
+  await planTab(page);
+  const beforePlan = await read(page);
+  await weekView(page);
+  await page.getByRole("button", { name: "Apply to next plan" }).click();
+  await page.waitForTimeout(500);
+  const applied = await read(page);
+  await planTab(page);
+  const afterPlan = await read(page);
+  record("L10 the sleep goal is proposed against both figures and moves the whole plan when applied",
+    offered.text.includes("average 5.4h") && offered.text.includes("the 7.5h you set") &&
+    offered.text.includes("work backward from 5.5h") &&
+    beforePlan.sleepUntil === "3:00 PM" && beforePlan.text.includes("Steady rhythm plan") &&
+    applied.goal === 5.5 && applied.text.includes("5.5h goal") &&
+    afterPlan.sleepUntil === "1:00 PM" &&
+    afterPlan.text.includes("Short-sleep support plan") &&      // planSummary read sleepBand
+    !errors.length,
+    `offered=${offered.text.includes("work backward from 5.5h")} goal=${applied.goal} sleep ${beforePlan.sleepUntil}->${afterPlan.sleepUntil} type=${afterPlan.text.includes("Short-sleep support plan")} err=${errors.join(" || ") || "none"}`);
+  await ctx.close();
+}
+
+/* ---- L11: the refusal sticks across a reload ----------------------------- */
+{
+  /* Without this, "Keep current" is a toast and the same card asks the same
+     question every time the Dashboard opens, forever — which is the nagging
+     this part exists to avoid. The second page is a NEW context seeded with
+     what the first one wrote, because this file's init script re-seeds gy.v1 on
+     every navigation and a plain reload would wipe the refusal. */
+  const first = await open(browser, { time: T0200, blob: BLOB(SHORT_SLEEP) });
+  await weekView(first.page);
+  await first.page.getByRole("button", { name: "Keep current" }).click();
+  await first.page.waitForTimeout(500);
+  const declined = await read(first.page);
+  const carried = await first.page.evaluate(() => JSON.parse(localStorage.getItem("gy.v1")));
+  await first.ctx.close();
+
+  const again = await open(browser, { time: T0200, blob: carried });
+  await weekView(again.page);
+  const second = await read(again.page);
+  await again.ctx.close();
+
+  record("L11 a refused band is remembered, and the card moves on to the next adjustment",
+    declined.asked === 5.5 && declined.goal === 7.5 &&
+    declined.text.includes("Keeping your current plan.") &&
+    second.asked === 5.5 &&
+    !second.text.includes("work backward from 5.5h") &&
+    second.text.includes("start wind-down earlier") &&
+    !first.errors.length && !again.errors.length,
+    `asked=${declined.asked} goal=${declined.goal} reasked=${second.text.includes("work backward from 5.5h")} next=${second.text.includes("start wind-down earlier")} err=${[...first.errors, ...again.errors].join(" || ") || "none"}`);
+}
+
+/* ---- L12: applying it across the boundary does not walk the night back ---- */
+{
+  /* 14:30 with a 7.5h goal is still night 2026-08-12 (boundary 15:00). Applying
+     5.5h moves the wake boundary to 13:00, which has already passed, so nightOf
+     now names 2026-08-13. The adopt effect watches sleepGoalHours, so this is a
+     re-labelling and not a fold — Phase 2's rule, reached from a new button. The
+     assertion is therefore about the id and the archive rather than about a
+     record appearing: the sequence must never DECREASE (the direction `forward`
+     exists to refuse, reachable by applying a LONGER goal), and no id may appear
+     twice, which is what a second fold would produce in an archive every average
+     reads. The old 15:00 boundary must also pass without waking anything up. */
+  const { ctx, page, errors } = await open(browser, {
+    time: new Date("2026-08-13T14:30:00"), blob: BLOB(SHORT_SLEEP),
+  });
+  await weekView(page);
+  const before = await read(page);
+  await page.getByRole("button", { name: "Apply to next plan" }).click();
+  await page.waitForTimeout(700);
+  const applied = await read(page);
+  await page.clock.fastForward("01:00:00");   // 14:30 -> 15:30, past the OLD boundary
+  await page.waitForTimeout(700);
+  const later = await read(page);
+  const seq = [before.night, applied.night, later.night];
+  record("L12 moving the wake boundary never walks the night back and never duplicates an id",
+    before.night === "2026-08-12" &&
+    seq.every((v, i) => i === 0 || v >= seq[i - 1]) &&
+    new Set(later.ids).size === later.ids.length &&
+    later.ids.filter((id) => id === "2026-08-12").length <= 1 &&
+    applied.goal === 5.5 && !errors.length,
+    `sequence=${JSON.stringify(seq)} ids=${JSON.stringify(later.ids)} goal=${applied.goal} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 

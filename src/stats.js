@@ -345,7 +345,25 @@ export function readPatterns(profile, st) {
 
   /* one concrete adjustment the user can accept or decline */
   let adjustment;
-  if (!empty && st.lateCount > st.n * 0.2 && profile.caffeine !== "none") {
+  /* First in the chain, because every other adjustment below is computed
+     against a sleep window this one moves. Gated on a BAND change rather than a
+     tolerance: sleepBand's four values are the four the quiz offers and the four
+     planSummary bands on, so crossing one is a different plan while 0.3h of
+     wobble is not. `decline` is set here and nowhere else — the disagreement
+     between a quiz bucket and a real average lasts for months, so without a
+     remembered refusal this card asks the same question every time the Dashboard
+     is opened. Applying makes the condition false by itself, with nothing to
+     clear. */
+  const band = st.avgSleep === null ? null : sleepBand(st.avgSleep);
+  if (st.n >= MIN_TREND && band !== null && band !== profile.sleepGoalHours
+      && band !== profile.sleepGoalAsked) {
+    adjustment = {
+      text: `Your last ${st.n} nights average ${st.avgSleep.toFixed(1)}h, against the ${profile.sleepGoalHours}h you set. The plan can work backward from ${band}h instead.`,
+      apply: (pr) => ({ ...pr, sleepGoalHours: band }),
+      decline: (pr) => ({ ...pr, sleepGoalAsked: band }),
+      done: `Sleep goal set to ${band}h. The plan is rebuilt around it.`,
+    };
+  } else if (!empty && st.lateCount > st.n * 0.2 && profile.caffeine !== "none") {
     adjustment = {
       text: "The next plan will move your final caffeine reminder an hour earlier and add a water swap after your last planned drink.",
       apply: (pr) => ({ ...pr, overrides: { ...(pr.overrides || {}), caffeineHours: caffeineHours(pr) + 1 } }),

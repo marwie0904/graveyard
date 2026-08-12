@@ -14,7 +14,7 @@ import {
   reflectionAdjust,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
-import { foldNight, achievements, countStretch } from "./stats.js";
+import { foldNight, achievements, countStretch, sleepBand } from "./stats.js";
 import { load, save, forNight, archived } from "./storage.js";
 import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
@@ -857,32 +857,39 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
    A modular text system: fixed sections, variable content. Every branch is
    selected from quiz answers, so two people never read the same page. */
 
-function planSummary(profile) {
-  const h = profile.sleepGoalHours;
-  if (h <= 5) return {
+/* One four-way split, not two. readPatterns proposes a band and this names the
+   plan type for it, so two hand-kept sets of cuts would eventually propose a
+   band whose plan type is not the one the copy describes. sleepBand owns them;
+   its four values are exactly these four keys. */
+const PLAN_SUMMARY = {
+  4.5: {
     band: "under5", type: "High-fatigue protection plan",
     focus: "Rest, safety, and sleep protection.",
     sleep: "Protect sleep as early as possible.",
     caffeine: "Earlier cutoff and no late-shift caffeine",
-  };
-  if (h <= 6.5) return {
+  },
+  5.5: {
     band: "s56", type: "Short-sleep support plan",
     focus: "Add rest and protect sleep earlier.",
     sleep: "Use a nap or quiet rest if available.",
     caffeine: "Earlier caffeine window with a cutoff reminder",
-  };
-  if (h <= 9) return {
+  },
+  7.5: {
     band: "s79", type: "Steady rhythm plan",
     focus: "Keep your routine stable.",
     sleep: "Maintain your sleep window.",
     caffeine: "Use caffeine early, protect sleep later",
-  };
-  return {
+  },
+  9.5: {
     band: "over9", type: "Recovery-pattern plan",
     focus: "Support recovery, hold your timing.",
     sleep: "Track whether long sleep is recovery or routine.",
     caffeine: "Avoid late caffeine so sleep timing stays stable",
-  };
+  },
+};
+
+function planSummary(profile) {
+  return PLAN_SUMMARY[sleepBand(profile.sleepGoalHours)];
 }
 
 const CAFFEINE_STRATEGY = {

@@ -354,3 +354,77 @@ describe("sleepBand", () => {
     expect(sleepBand(24)).toBe(9.5);
   });
 });
+
+/* Five nights of the same measured sleep, against a quiz bucket that says
+   something else. `rec` is declared above with the achievements cases; its
+   caffeine [1000] sits before its cutoff 1290, so lateCount stays 0 and the
+   caffeine branch never preempts the sleep one. */
+const nightsAt = (h, n = MIN_TREND) => Array.from({ length: n }, () => rec({ sleepHours: h }));
+const propose = (goal, h, extra = {}, n = MIN_TREND) => {
+  const p = { ...P, sleepGoalHours: goal, ...extra };
+  return readPatterns(p, rangeStats(p, nightsAt(h, n))).adjustment;
+};
+
+describe("the sleep goal proposal", () => {
+  it("proposes the band the archive measured, against the band the quiz set", () => {
+    const a = propose(7.5, 5.4);
+    expect(a.apply({ ...P, sleepGoalHours: 7.5 }).sleepGoalHours).toBe(5.5);
+    expect(a.done).toBe("Sleep goal set to 5.5h. The plan is rebuilt around it.");
+  });
+
+  it("names both figures and the night count, so nothing about it is silent", () => {
+    const a = propose(7.5, 5.4);
+    expect(a.text).toContain("5.4h");
+    expect(a.text).toContain("7.5h");
+    expect(a.text).toContain("5.5h");
+    expect(a.text).toContain(`last ${MIN_TREND} nights`);
+  });
+
+  it("does not propose below MIN_TREND nights", () => {
+    expect(propose(7.5, 5.4, {}, MIN_TREND - 1).text).not.toContain("work backward");
+  });
+
+  /* BUCKET's four reflection values all band to a quiz value, so someone
+     answering "7-9h" every night is never asked to change a 7.5h goal. */
+  it("does not propose the band the user already set", () => {
+    expect(propose(7.5, 8.0).text).not.toContain("work backward");
+  });
+
+  it("does not propose a band that was already refused", () => {
+    expect(propose(7.5, 5.4, { sleepGoalAsked: 5.5 }).text).not.toContain("work backward");
+  });
+
+  it("asks again when the evidence points at a different band", () => {
+    const a = propose(7.5, 5.4, { sleepGoalAsked: 4.5 });
+    expect(a.apply({ ...P }).sleepGoalHours).toBe(5.5);
+  });
+
+  it("does not propose anything when no sleep has been logged, and does not throw", () => {
+    const p = { ...P, sleepGoalHours: 7.5 };
+    const st = rangeStats(p, nightsAt(null));
+    expect(st.avgSleep).toBeNull();
+    expect(readPatterns(p, st).adjustment.text).not.toContain("work backward");
+  });
+
+  /* Five nights of measurement against one bucket picked before there was any.
+     Offering 5.5 to someone who said "Under 5 hours" REDUCES protection, and
+     that is the honest direction — with a Keep current beside it. */
+  it("proposes upward too", () => {
+    const a = propose(4.5, 6.0);
+    expect(a.apply({ ...P, sleepGoalHours: 4.5 }).sleepGoalHours).toBe(5.5);
+  });
+
+  it("carries the refused band on decline, and nothing else", () => {
+    const a = propose(7.5, 5.4);
+    const p = { ...P, sleepGoalHours: 7.5 };
+    expect(a.decline(p)).toEqual({ ...p, sleepGoalAsked: 5.5 });
+  });
+
+  /* The Dashboard calls decline only when it is present, so every other branch
+     has to leave it undefined or the existing five adjustments start writing to
+     the profile. */
+  it("leaves every other branch without a decline", () => {
+    expect(propose(7.5, 8.0).decline).toBeUndefined();
+    expect(propose(7.5, 5.4, { sleepGoalAsked: 5.5 }).decline).toBeUndefined();
+  });
+});

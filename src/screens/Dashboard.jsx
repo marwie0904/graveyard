@@ -425,8 +425,14 @@ export default function Dashboard({
               setProfile(pat.adjustment.apply(profile));
               say(pat.adjustment.done);
             }}>Apply to next plan</Btn>
+            {/* A refusal the app forgets is a card that asks the same question
+                every time this screen opens. Only the sleep branch sets a
+                decline; for the five behavioural ones this is unchanged. */}
             <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 14, padding: "12px 16px" }}
-              onClick={() => say("Keeping your current plan.")}>Keep current</Btn>
+              onClick={() => {
+                if (pat.adjustment.decline) setProfile(pat.adjustment.decline(profile));
+                say("Keeping your current plan.");
+              }}>Keep current</Btn>
           </div>
         )}
       </Card>
