@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { CITATIONS } from "./citations.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
   deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE,
@@ -257,5 +259,161 @@ describe("reflectionAdjust", () => {
     expect(reflectionAdjust(P, "Fewer resets").msg)
       .toBe(`A reset every ${movementInterval(baseProfile(P)) + 30} minutes now.`);
     expect(reflectionAdjust(P, "More rest").msg).toBe("Rest blocks are now 30 minutes.");
+  });
+});
+
+/* ------------------------------- traceability -----------------------------
+   Phase 6. Chapter III claims the traceability check "is performed against
+   citation identifiers recorded on each plan item alongside its user-facing
+   rationale, so that the check is executed against the running system rather
+   than against separately maintained documentation." This block is that check.
+   The mapping itself is deliberately NOT duplicated here. A test asserting that
+   planner.js equals a copy of planner.js proves nothing and doubles the
+   maintenance; nothing automatable can check that burke2015 supports
+   caff-cutoff. Part 3 of
+   docs/superpowers/specs/2026-08-13-traceability-design.md is the mapping, and
+   a reader with docs/research-summary.md open is the review it asks for. */
+describe("traceability", () => {
+  const PH = calculateShiftPhases(P);
+  const E = { ...P, shiftStart: "06:00", shiftEnd: "14:00", plannedSleep: "15:00" };
+  const PH_E = calculateShiftPhases(E);
+
+  /* Eight profiles, chosen to reach every conditional branch, all built by
+     spreading the P fixture this file already defines. Twelve of the 25 items
+     are conditional, so one profile is not a matrix.
+     Every log time is PH.start + n, never a bare integer: a log at t: 190 on a
+     22:00 shift is 19 hours before the plan starts and fires nothing, which is
+     how the spec's own first inventory silently missed two reactive inserts and
+     came back with 24 ids instead of 25. */
+  const MATRIX = [
+    ["A baseline", P, [], PH.start],
+    ["B woke late -> pre-min", P,
+      [{ id: "w", t: PH.start - 200, type: "wake", value: "later" }], PH.start],
+    ["C short goal + woke early -> pre-nap", { ...P, sleepGoalHours: 5 },
+      [{ id: "w", t: PH.start - 200, type: "wake", value: "earlier" }], PH.start],
+    ["D high caffeine -> caff-swap", { ...P, caffeine: "high" }, [], PH.start],
+    ["E no deep night -> hard-warn", E, [], PH_E.start],
+    ["F nap logged -> nap-buffer", P,
+      [{ id: "n", t: PH.start + 180, type: "nap", value: "ok" }], PH.start + 200],
+    ["G water gap -> water-now", P,
+      [{ id: "wa", t: PH.start, type: "water", value: 1 }], PH.start + 200],
+    ["H screen strain -> eye-break", P,
+      [{ id: "s", t: PH.start + 190, type: "screen", value: 1 }], PH.start + 200],
+  ];
+
+  /* Every item any of the eight profiles emits, duplicates included. The union
+     of their ids is exactly the 25 of Part 3 with move-N collapsed; A-H return
+     20, 20, 21, 21, 19, 21, 21 and 21 items. Those counts are asserted by
+     drive-cite.mjs against the running app, not here — pinning them in the unit
+     suite would rot on the first legitimate new item. */
+  const ALL = MATRIX.flatMap(([, p, logs, now]) => generateTimeline(p, logs, now).items);
+
+  /* T1's corpus. Read as text on purpose: the runtime matrix cannot see an item
+     behind a condition no profile reaches, and a coin-flip gate is not a gate.
+     Reading source in a test is a lint, not a behaviour check. */
+  const SRC = readFileSync(new URL("./planner.js", import.meta.url), "utf8");
+  const blocks = SRC.split("add({").slice(1);
+
+  /* T1. The assertion that actually fails when someone adds an uncited item, and
+     the reason the other three can be simple. `add({` is the single construction
+     idiom in planner.js — 25 occurrences, one items.push, and it is inside add. */
+  it("constructs no plan item without a src, on any branch, reachable or not", () => {
+    /* split("});")[0], NOT slice(0, indexOf("});")): indexOf returns -1 if a
+       block ever loses its terminator, slice(0, -1) then searches the entire
+       rest of the file, and the missing src passes. Same length, one fewer way
+       to be wrong.
+       No AST walk: acorn is not installed here — only esbuild, via vite — so a
+       real parse means a new dependency for the same four lines. */
+    const missing = blocks
+      .map((b) => b.split("});")[0])
+      .filter((b) => !b.includes("src:"))
+      // report ids rather than blocks: a failure nobody can read is a failure
+      // somebody deletes
+      .map((b) => (b.match(/id: [`"]([^`"$]*)/) || [, "?"])[1]);
+    expect(missing).toEqual([]);
+  });
+
+  /* T1b. The lint's own anchor. Without this, a refactor that renames add() or
+     moves the construction site leaves `blocks` empty, `missing` trivially empty
+     and T1 green — a gate reporting success because it stopped looking.
+     The number is pinned, so a legitimate 26th item fails here too and the
+     count is bumped in the same commit that adds it. That overrules the spec's
+     edge-case row "someone adds a 26th item, cited -> passes all four": it
+     passes all four, and then this one line asks you to say so on purpose. */
+  it("still finds all 25 construction sites, so the lint cannot pass vacuously", () => {
+    expect(blocks).toHaveLength(25);
+  });
+
+  /* T2. §3's own test, with a matrix behind it instead of one profile.
+     `!i.src?.length` catches an empty array, undefined and null in one
+     expression, which is why §3 wrote it that way. */
+  it("emits no item without a src across the eight-profile matrix", () => {
+    const bare = ALL.filter((i) => !i.src?.length).map((i) => i.id);
+    expect(bare).toEqual([]);
+  });
+
+  /* T2b. The hole T2 leaves open: `!"burke2015"?.length` is false, so a single
+     key written as a bare string passes T2 and is then read character by
+     character by everything downstream. §3 picked the array; this is what makes
+     that choice enforced rather than remembered.
+     Shape only. A key that is empty, a number or null is T3's job in Task 2 —
+     none of them survives Object.hasOwn — so this is one predicate, not two. */
+  it("gives every item an array of keys, not a bare string", () => {
+    const wrong = ALL.filter((i) => !Array.isArray(i.src)).map((i) => i.id);
+    expect(wrong).toEqual([]);
+  });
+
+  /* T3. Without this, src: ["burke2016"] passes T2 and points at nothing — a
+     citation identifier that identifies no citation, which is the failure that
+     would make the paper's claim false while looking like proof of it. It also
+     catches the other direction: a key deleted from CITATIONS while an item
+     still cites it.
+     Object.hasOwn, NOT `k in CITATIONS`: `in` walks the prototype chain, so
+     src: ["toString"] and src: ["constructor"] resolve against a plain object
+     and this passes on a key that identifies nothing. Same length, and it is
+     also the only guard on a key that is empty, a number or null, which is why
+     T2b checks shape only. */
+  it("resolves every key an item cites in CITATIONS", () => {
+    const unknown = [...new Set(ALL.flatMap((i) => i.src))]
+      .filter((k) => !Object.hasOwn(CITATIONS, k));
+    expect(unknown).toEqual([]);
+  });
+
+  /* T4. Ten items whose intervention has no supporting study in the corpus, and
+     two that are navigation rather than recommendation. Both lists are frozen
+     here so that marking a new item evidence-free is a decision somebody makes
+     on purpose, in this file, under this comment.
+     TWO literals, not one set of twelve: a single union PASSES when an item is
+     relabelled judgement -> structural, and that relabel is exactly the
+     laundering Part 3 forbids ("structural would pass the same test and is a
+     lie"). The assertion that exists to stop marker creep cannot be the one
+     that cannot see it. A count would be worse than either — it passes when one
+     item gains the marker and another loses it.
+     The 13 sourced items are pinned by nothing but T1 and T3, on purpose: a
+     third frozen list of 25 strings would rot and catch nothing. */
+  const JUDGEMENT = [
+    "caff-swap", "commute", "eye-break", "food-late", "hard-warn",
+    "hydrate-start", "pre-meal", "pre-min", "snack", "water-now",
+  ];
+  const STRUCTURAL = ["end-shift", "shift-start"];
+  const marked = (m) => [...new Set(ALL.filter((i) => i.src.includes(m)).map((i) => i.id))].sort();
+
+  it("marks exactly ten items as design judgement and exactly two as navigational", () => {
+    expect(marked("judgement")).toEqual(JUDGEMENT);
+    expect(marked("structural")).toEqual(STRUCTURAL);
+  });
+
+  /* T4b. Clause 2 of the judgement rule: a study key may sit beside the marker
+     to name the risk a judgement rule addresses, but it does not support the
+     rule. Exactly five items do that. A sixth means somebody borrowed a citation
+     because the CATEGORY matched — eye-break is a short break and dallora2020 is
+     about short breaks, but the item's claim is ocular. A key that survives a
+     category match and fails a claim match converts a known gap into a hidden
+     one, which is worse than judgement, and this line is the only thing in the
+     suite that can see it happen. */
+  it("lets a study key name the risk beside judgement on exactly five items", () => {
+    const withStudy = marked("judgement")
+      .filter((id) => ALL.find((i) => i.id === id).src.length > 1);
+    expect(withStudy).toEqual(["caff-swap", "commute", "food-late", "pre-meal", "snack"]);
   });
 });
