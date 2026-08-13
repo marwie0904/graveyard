@@ -97,11 +97,11 @@ for (const [name, profile, logs, time, expected] of CASES) {
      next plan", so a loose name match on "Plan" is ambiguous and times out. */
   await page.getByRole("button", { name: "Plan", exact: true }).click();
   await page.waitForTimeout(300);
-  /* PlanTab's own header — "0 of 20 done." (App.jsx:1397). The item count is on
-     the screen already, so this needs no instrumentation and reads the same
-     number the user does. */
+  /* PlanTab's own header — "0 of 20 logged." The item count is on the screen
+     already, so this needs no instrumentation and reads the same number the
+     user does. */
   const total = await page.evaluate(() => {
-    const m = document.body.textContent.match(/\d+ of (\d+) done/);
+    const m = document.body.textContent.match(/\d+ of (\d+) logged/);
     return m ? Number(m[1]) : null;
   });
   record(`${name} renders ${expected} plan items with no page error`,

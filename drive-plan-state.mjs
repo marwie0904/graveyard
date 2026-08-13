@@ -19,7 +19,7 @@ const URL = process.argv[2] || "http://localhost:5174/";
    already use: 14:59 on Aug 13 is night "2026-08-12", 15:01 is "2026-08-13".
    Verified against the running app: this profile generates a 20-item plan whose
    movement resets are titled "Micro-care reset", which is where every
-   "1 of 20 done" below comes from — and 21 after a roll, because the record the
+   "1 of 20 logged" below comes from — and 21 after a roll, because the record the
    roll writes makes it night two, which takes 15 minutes off the reset gap and
    fits a fourth reset into the shift. */
 const PROFILE = {
@@ -30,7 +30,7 @@ const PROFILE = {
 };
 
 /* Two logs: one caffeine, and one movement reset already ticked. The ticked one
-   is what makes the stale plan visibly stale ("1 of 20 done") and what makes the
+   is what makes the stale plan visibly stale ("1 of 20 logged") and what makes the
    folded record read moveDone: 1 — so a tap misfiled into last night shows up as
    moveDone: 2, which is the assertion P2 turns on. `move-1` is a real plan item
    id: itemStatus matches on value.id (planner.js:192), so an invented id would
@@ -87,8 +87,21 @@ const read = (page) => page.evaluate(() => {
     ids: (s.archive || []).map((r) => r.id),
     moveDone: (s.archive || []).map((r) => r.moveDone),
     keys: Object.keys(s).join(","),
-    // the Plan tab's headline, read as the user reads it: "1 of 20 done"
-    done: (t.match(/\d+ of \d+ done/) || [null])[0],
+    // the Plan tab's headline, read as the user reads it: "1 of 20 logged"
+    logged: (t.match(/\d+ of \d+ logged/) || [null])[0],
+    /* Whether the Already-logged disclosure is open. Off its own aria-expanded
+       rather than off the text: the rows inside it carry item titles that also
+       appear in the list below, so a text probe cannot tell open from closed. */
+    loggedOpen: (() => {
+      const b = [...document.querySelectorAll("button")].find((x) => x.innerText.startsWith("Already logged"));
+      return b ? b.getAttribute("aria-expanded") === "true" : null;
+    })(),
+    /* The reset grouping is an icon button now, so its state is its aria-label
+       and NOT anything in the page text. */
+    resets: (() => {
+      const b = [...document.querySelectorAll("button[aria-label^='Resets ']")][0];
+      return b ? b.getAttribute("aria-label") : null;
+    })(),
     /* The rollover toast. With the clock fixed its 2.6s hide timer never fires,
        so it is still on screen when a check looks for it — and still there when
        the next click lands, which is harmless: it sits above the tab bar and
@@ -134,19 +147,30 @@ const resume = async (page) => {
   await page.waitForTimeout(500);
 };
 
-/* Tick one movement reset through the real UI. With hideDone on and more than
-   one reset in the plan the resets sit behind a RecurringCard, so "Show all"
-   comes first. The title span is two divs above the action row, hence the two
-   `..` hops — the same shape as drive-history.mjs H2's wheel locator. Matching
-   the title ROW's text instead would fail: it also carries the "Circadian low"
-   badge. */
+/* Tick one movement reset through the real UI, and return how many taps that
+   took. The plan is answered in order now, so the first reset cannot be reached
+   until everything scheduled before it has been answered — exactly one card
+   carries buttons at a time, and the loop answers that one until the card it
+   just answered was a reset. Skip where an item offers it, Done where it does
+   not, because neither writes anything a later assertion here reads.
+   Not a fixed sequence of clicks: the items before the first reset are a
+   function of the profile, and hard-coding them would make an unrelated planner
+   change look like a rollover bug. */
 const tapReset = async (page) => {
   if (await page.getByRole("button", { name: /^Show all/ }).count())
     await page.getByRole("button", { name: /^Show all/ }).click();
   await page.waitForTimeout(300);
-  const row = page.getByText("Micro-care reset", { exact: true }).first().locator("..").locator("..");
-  await row.getByRole("button", { name: "Done", exact: true }).click();
-  await page.waitForTimeout(500);
+  for (let n = 1; n <= 12; n++) {
+    const skip = page.getByRole("button", { name: "Skip", exact: true }).first();
+    const btn = (await skip.count()) ? skip : page.getByRole("button", { name: "Done", exact: true }).first();
+    if (!(await btn.count())) throw new Error(`no unlocked item to answer after ${n - 1} taps`);
+    /* button -> action row -> card; the title is the card's first span */
+    const title = await btn.locator("..").locator("..").locator("span").first().innerText();
+    await btn.click();
+    await page.waitForTimeout(400);
+    if (/reset/i.test(title)) return n;
+  }
+  throw new Error("never reached a movement reset");
 };
 
 const STALE = { night: "2026-08-12", profile: PROFILE, logs: LOGS, reflection: {}, theme: null, archive: [] };
@@ -167,17 +191,17 @@ const browser = await chromium.launch({ channel: "chrome" });
   const after = await read(page);
   record("P1 a suspended tab that crossed the boundary rolls on the way back",
     // the precondition: twenty minutes past the boundary and nothing has moved
-    stale.night === "2026-08-12" && stale.done === "1 of 20 done" && stale.logs === 2 &&
+    stale.night === "2026-08-12" && stale.logged === "1 of 20 logged" && stale.logs === 2 &&
     after.night === "2026-08-13" && after.ids.join(",") === "2026-08-12" &&
-    after.logs === 0 && after.done === "0 of 21 done" && after.toast && !errors.length,
-    `stale=${stale.night}/${stale.done}/${stale.logs} after=${after.night}/${after.done} ids=${JSON.stringify(after.ids)} logs=${after.logs} toast=${after.toast} err=${errors.join(" || ") || "none"}`);
+    after.logs === 0 && after.logged === "0 of 21 logged" && after.toast && !errors.length,
+    `stale=${stale.night}/${stale.logged}/${stale.logs} after=${after.night}/${after.logged} ids=${JSON.stringify(after.ids)} logs=${after.logs} toast=${after.toast} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 
 /* ---- P2: the first tap after the resume lands in TONIGHT ------------------ */
 {
   /* The misfiling from the report, asserted from the fixed side. Before Part 1
-     this reads moveDone=2 and "0 of 20 done": the tap itself triggers the roll
+     this reads moveDone=2 and "0 of 20 logged": the tap itself triggers the roll
      and is folded into the night that already ended. */
   const { ctx, page, errors } = await open(browser, {
     time: new Date("2026-08-13T14:59:00"), blob: STALE,
@@ -187,16 +211,20 @@ const browser = await chromium.launch({ channel: "chrome" });
   await page.clock.setFixedTime(new Date("2026-08-13T15:20:00"));
   await page.waitForTimeout(400);
   await resume(page);
-  await tapReset(page);
+  /* Every tap of the walk down to the reset is a write, and all of them have to
+     land in tonight — so the count of logs is checked against the count of taps
+     rather than against a literal. moveDone still comes off the ARCHIVE, so it
+     is the seeded night's number and none of these taps can reach it. */
+  const taps = await tapReset(page);
   const s = await read(page);
   record("P2 a reset tapped after the resume lands in tonight, not in the folded night",
     s.night === "2026-08-13" && s.ids.join(",") === "2026-08-12" &&
     s.moveDone.join(",") === "1" &&          // 2 means the tap was folded backwards
-    s.logs === 1 && s.done === "1 of 21 done" &&
+    s.logs === taps && s.logged === `${taps} of 21 logged` &&
     /* one live listener, before and after two effect re-runs: the roll and the
        tap. A cleanup that forgets removeEventListener makes this climb. */
     s.vis === armed.vis && s.vis >= 1 && !errors.length,
-    `night=${s.night} ids=${JSON.stringify(s.ids)} moveDone=${JSON.stringify(s.moveDone)} logs=${s.logs} done=${s.done} vis=${armed.vis}->${s.vis} err=${errors.join(" || ") || "none"}`);
+    `night=${s.night} ids=${JSON.stringify(s.ids)} moveDone=${JSON.stringify(s.moveDone)} taps=${taps} logs=${s.logs} logged=${s.logged} vis=${armed.vis}->${s.vis} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 
@@ -215,8 +243,8 @@ const browser = await chromium.launch({ channel: "chrome" });
   const s = await read(page);
   record("P3 a resume that crosses no boundary folds nothing and says nothing",
     s.night === "2026-08-12" && s.ids.length === 0 && s.logs === 2 &&
-    s.done === "1 of 20 done" && !s.toast && !errors.length,
-    `night=${s.night} ids=${JSON.stringify(s.ids)} logs=${s.logs} done=${s.done} toast=${s.toast} err=${errors.join(" || ") || "none"}`);
+    s.logged === "1 of 20 logged" && !s.toast && !errors.length,
+    `night=${s.night} ids=${JSON.stringify(s.ids)} logs=${s.logs} done=${s.logged} toast=${s.toast} err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 
@@ -227,9 +255,12 @@ const browser = await chromium.launch({ channel: "chrome" });
     time: new Date("2026-08-13T02:00:00"), blob: STALE,
   });
   await planTab(page);
-  await page.getByRole("button", { name: "Remaining only" }).click();
-  await page.waitForTimeout(200);
   await page.getByRole("button", { name: "Resets grouped" }).click();
+  await page.waitForTimeout(200);
+  /* The second flag used to be the Remaining-only pill; it is now the
+     Already-logged disclosure, which STALE's one ticked reset is enough to
+     render. Same property under test: opened by hand, stored nowhere. */
+  await page.getByRole("button", { name: /^Already logged/ }).click();
   await page.waitForTimeout(300);
   const toggled = await read(page);
   /* Read the KEY LIST before the reload, not after: this context's init script
@@ -243,12 +274,11 @@ const browser = await chromium.launch({ channel: "chrome" });
   await planTab(page);
   const after = await read(page);
   record("P4 both view flags are transient: nothing stored, defaults on reload",
-    toggled.text.includes("Showing everything") && toggled.text.includes("Resets expanded") &&
+    toggled.resets === "Resets expanded" && toggled.loggedOpen === true &&
     stored === "night,profile,logs,reflection,theme,archive" &&
-    after.text.includes("Remaining only") && after.text.includes("Resets grouped") &&
-    !after.text.includes("Showing everything") && !after.text.includes("Resets expanded") &&
+    after.resets === "Resets grouped" && after.loggedOpen === false &&
     !errors.length,
-    `toggledTo="${["Showing everything", "Resets expanded"].filter((p) => toggled.text.includes(p)).join("+")}" keys=${stored} back="${["Remaining only", "Resets grouped"].filter((p) => after.text.includes(p)).join("+")}" err=${errors.join(" || ") || "none"}`);
+    `toggledTo="${toggled.resets} loggedOpen=${toggled.loggedOpen}" keys=${stored} back="${after.resets} loggedOpen=${after.loggedOpen}" err=${errors.join(" || ") || "none"}`);
   await ctx.close();
 }
 

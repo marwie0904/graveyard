@@ -95,15 +95,16 @@ const read = (page) => page.evaluate(() => {
     /* "Night 4 of your stretch" — the whole of Part 1's UI, read off the card
        that already explains the plan. */
     line: (t.match(/Night \d+ of your stretch/) || [null])[0],
-    /* The recurring card: "Every 90 minutes · 5 tonight, first at 11:30 PM".
+    /* The recurring card: "Every 90 minutes · 5 tonight, next at 11:30 PM".
        Both numbers, because the gap is rendered by PlanTab from
        movementInterval(profile) and the count comes from the plan itself — a
        fix that hands one of them the seed and the other the count shows up as a
        disagreement between these two and nowhere else. */
     gap: (t.match(/Every (\d+) minutes/) || [null, null])[1],
-    moves: (t.match(/Every \d+ minutes · (\d+) tonight/) || [null, null])[1],
-    // the caffeine cutoff item's own time, read as the timeline prints it
-    cutoff: (t.match(/(\d+:\d\d [AP]M)Last caffeine cutoff/) || [null, null])[1],
+    moves: (t.match(/Every \d+ minutes · (\d+) left/) || [null, null])[1],
+    /* The caffeine cutoff item's own time, read as the timeline prints it —
+       in the card's meta line after the title, not in a gutter before it. */
+    cutoff: (t.match(/Last caffeine cutoff[^\d]*(\d+:\d\d [AP]M)/) || [null, null])[1],
     sleepUntil: (t.match(/Sleep until (\d+:\d\d [AP]M)/) || [null, null])[1],
     text: t,
   };
