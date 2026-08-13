@@ -6,6 +6,7 @@ drive*.mjs
 !drive-history.mjs
 !drive-plan-state.mjs
 !drive-loop.mjs
+!drive-cite.mjs
 shot-plan.mjs
 check.mjs
 docs/*.pdf
