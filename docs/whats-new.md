@@ -59,7 +59,7 @@ Start the app:
 npm run dev
 ```
 
-Open whatever URL vite prints (usually `http://localhost:5173/`).
+Open `http://localhost:5174/`.
 
 **1. See the empty states.** Profile sheet → *Start over* (two taps). Finish the
 quiz. The Dashboard now shows one night, and a line reading something like "4
@@ -96,7 +96,7 @@ from.
 npm test                     # 153 unit tests
 ```
 
-The browser tests need the dev server running first, on port 5174:
+The browser tests need `npm run dev` running first:
 
 ```
 node drive-history.mjs       # 15 checks — real history, ranges, empty states
