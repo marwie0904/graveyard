@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { CITATIONS } from "./citations.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
-  deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE,
+  deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE, planGate,
 } from "./planner.js";
 
 const P = {
@@ -69,6 +69,53 @@ describe("generateTimeline", () => {
     const ph = calculateShiftPhases(P);
     const ids = generateTimeline(P, [], ph.start).items.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+/* The plan is answered in order and every answer is timestamped, so the gate
+   and the card's "Done · 11:42 PM" line both read the same entry. */
+describe("the item gate", () => {
+  const itemLog = (id, status, t) => ({ id: `${id}-${t}`, t, type: "item", value: { id, status } });
+
+  it("carries the time an item was answered, and the last answer wins", () => {
+    const ph = calculateShiftPhases(P);
+    const logs = [itemLog("pre-meal", "skipped", 1200), itemLog("pre-meal", "done", 1260)];
+    const s = deriveState(P, logs, 1300, ph);
+    expect(s.itemStatus("pre-meal")).toBe("done");
+    expect(s.itemLog("pre-meal").t).toBe(1260);
+    expect(s.itemLog("hydrate-start")).toBeNull();
+  });
+
+  it("waits on the earliest unanswered item and locks everything after it", () => {
+    const { items, state } = generateTimeline(P, [], calculateShiftPhases(P).start);
+    const gate = planGate(items, state.itemStatus);
+    expect(gate.blocker.id).toBe(items[0].id);
+    expect(gate.locked(items[0].id)).toBe(false);
+    expect(gate.locked(items[1].id)).toBe(true);
+    expect(gate.locked(items[items.length - 1].id)).toBe(true);
+  });
+
+  /* All three ways of answering count, which is the whole point of the gate:
+     it asks that you deal with the item, not that you do it. */
+  it.each(["done", "skipped", "adjusted"])("moves past an item answered as %s", (status) => {
+    const ph = calculateShiftPhases(P);
+    const first = generateTimeline(P, [], ph.start).items[0];
+    const logs = [itemLog(first.id, status, ph.start)];
+    const { items, state } = generateTimeline(P, logs, ph.start);
+    const gate = planGate(items, state.itemStatus);
+    expect(gate.blocker.id).not.toBe(first.id);
+    expect(gate.locked(first.id)).toBe(false);
+    expect(gate.locked(gate.blocker.id)).toBe(false);
+  });
+
+  it("locks nothing once every item has been answered", () => {
+    const ph = calculateShiftPhases(P);
+    const { items } = generateTimeline(P, [], ph.start);
+    const logs = items.map((i, k) => itemLog(i.id, "done", ph.start + k));
+    const done = generateTimeline(P, logs, ph.start);
+    const gate = planGate(done.items, done.state.itemStatus);
+    expect(gate.blocker).toBeNull();
+    expect(done.items.some((i) => gate.locked(i.id))).toBe(false);
   });
 });
 
