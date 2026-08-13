@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { CITATIONS } from "./citations.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
   deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE,
@@ -360,5 +361,59 @@ describe("traceability", () => {
   it("gives every item an array of keys, not a bare string", () => {
     const wrong = ALL.filter((i) => !Array.isArray(i.src)).map((i) => i.id);
     expect(wrong).toEqual([]);
+  });
+
+  /* T3. Without this, src: ["burke2016"] passes T2 and points at nothing — a
+     citation identifier that identifies no citation, which is the failure that
+     would make the paper's claim false while looking like proof of it. It also
+     catches the other direction: a key deleted from CITATIONS while an item
+     still cites it.
+     Object.hasOwn, NOT `k in CITATIONS`: `in` walks the prototype chain, so
+     src: ["toString"] and src: ["constructor"] resolve against a plain object
+     and this passes on a key that identifies nothing. Same length, and it is
+     also the only guard on a key that is empty, a number or null, which is why
+     T2b checks shape only. */
+  it("resolves every key an item cites in CITATIONS", () => {
+    const unknown = [...new Set(ALL.flatMap((i) => i.src))]
+      .filter((k) => !Object.hasOwn(CITATIONS, k));
+    expect(unknown).toEqual([]);
+  });
+
+  /* T4. Ten items whose intervention has no supporting study in the corpus, and
+     two that are navigation rather than recommendation. Both lists are frozen
+     here so that marking a new item evidence-free is a decision somebody makes
+     on purpose, in this file, under this comment.
+     TWO literals, not one set of twelve: a single union PASSES when an item is
+     relabelled judgement -> structural, and that relabel is exactly the
+     laundering Part 3 forbids ("structural would pass the same test and is a
+     lie"). The assertion that exists to stop marker creep cannot be the one
+     that cannot see it. A count would be worse than either — it passes when one
+     item gains the marker and another loses it.
+     The 13 sourced items are pinned by nothing but T1 and T3, on purpose: a
+     third frozen list of 25 strings would rot and catch nothing. */
+  const JUDGEMENT = [
+    "caff-swap", "commute", "eye-break", "food-late", "hard-warn",
+    "hydrate-start", "pre-meal", "pre-min", "snack", "water-now",
+  ];
+  const STRUCTURAL = ["end-shift", "shift-start"];
+  const marked = (m) => [...new Set(ALL.filter((i) => i.src.includes(m)).map((i) => i.id))].sort();
+
+  it("marks exactly ten items as design judgement and exactly two as navigational", () => {
+    expect(marked("judgement")).toEqual(JUDGEMENT);
+    expect(marked("structural")).toEqual(STRUCTURAL);
+  });
+
+  /* T4b. Clause 2 of the judgement rule: a study key may sit beside the marker
+     to name the risk a judgement rule addresses, but it does not support the
+     rule. Exactly five items do that. A sixth means somebody borrowed a citation
+     because the CATEGORY matched — eye-break is a short break and dallora2020 is
+     about short breaks, but the item's claim is ocular. A key that survives a
+     category match and fails a claim match converts a known gap into a hidden
+     one, which is worse than judgement, and this line is the only thing in the
+     suite that can see it happen. */
+  it("lets a study key name the risk beside judgement on exactly five items", () => {
+    const withStudy = marked("judgement")
+      .filter((id) => ALL.find((i) => i.id === id).src.length > 1);
+    expect(withStudy).toEqual(["caff-swap", "commute", "food-late", "pre-meal", "snack"]);
   });
 });
