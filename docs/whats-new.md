@@ -62,8 +62,10 @@ npm run dev
 Open `http://localhost:5174/`.
 
 **1. See the empty states.** Profile sheet → *Start over* (two taps). Finish the
-quiz. The Dashboard now shows one night, and a line reading something like "4
-more nights and these charts start reading as trends."
+quiz, then set the range selector to *1 week*. With nothing logged yet it reads
+"No nights on record yet. Log tonight and this window fills in as you go." Once
+you have a couple of nights on record it switches to a countdown — "3 more
+nights and these charts start reading as trends."
 
 **2. See the demo data.** Add `?seed` to the URL. 45 sample nights appear and a
 muted line reads "Demo data — 45 sample nights." Remove `?seed` and your real
