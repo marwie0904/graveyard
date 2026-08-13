@@ -7,11 +7,11 @@ import {
   Question, Lock, CaretDown, Play,
 } from "./icons.jsx";
 import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "./time.js";
-import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, tint } from "./tokens.js";
+import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, ACCENT, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
   movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
-  reflectionAdjust,
+  reflectionAdjust, planGate,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements, countStretch, sleepBand } from "./stats.js";
@@ -1231,112 +1231,308 @@ function Generating({ onDone }) {
 
 /* ------------------------------- timeline card ---------------------------- */
 
-function TimelineItem({ item, T, status, onAct, now, showRail = true, inDeepNight = false }) {
+/* The rail: one marker per item on a dotted spine, so what is left of the night
+   reads as an ordered list rather than a pile of cards. Two states only, because
+   the list only holds two — a solid dot with a halo for the one item the plan is
+   waiting on, a hollow ring for everything locked behind it. Answered items are
+   not here at all; they are folded into LoggedGroup at the top. */
+function Rail({ T, current, last }) {
+  return (
+    <div style={{
+      width: 24, flexShrink: 0, paddingTop: 17,
+      display: "flex", flexDirection: "column", alignItems: "center",
+    }}>
+      {current ? (
+        /* ACCENT, not the item's own hue: "you are here" has to read as one
+           colour down the whole rail, and the shift domain's grey — the hue of
+           the very first item every night — is the app's inactive colour. */
+        <div className="gy-pop" style={{
+          width: 20, height: 20, borderRadius: 10, background: ACCENT,
+          boxShadow: `0 0 0 4px ${tint(ACCENT, 0.18)}`,
+        }} />
+      ) : (
+        <div style={{
+          width: 20, height: 20, borderRadius: 10, boxSizing: "border-box",
+          border: `2px solid ${T.hair}`,
+        }} />
+      )}
+      {/* Each row is its own flex line, so the spine can only reach the bottom
+          of its own card. The negative margin is exactly the next rail's top
+          padding, which is the gap it would otherwise leave under every card. */}
+      {!last && <div style={{
+        flex: 1, width: 0, borderLeft: `2px dotted ${T.hair}`, marginTop: 5, marginBottom: -17,
+      }} />}
+    </div>
+  );
+}
+
+const ACT_LABEL = {
+  done: { l: "Done", kind: "tinted" },
+  skip: { l: "Skip", kind: "quiet" },
+  adjust: { l: "Adjust", kind: "quiet" },
+  logCaffeine: { l: "Log caffeine", kind: "tinted" },
+  logWater: { l: "Log water", kind: "tinted" },
+  logNap: { l: "Log rest", kind: "tinted" },
+  endShift: { l: "End shift", kind: "tinted" },
+  sleepStart: { l: "Going to sleep", kind: "tinted" },
+};
+
+/** What each way of answering an item is called once it is on the record. */
+const LOGGED_AS = { done: "Done", skipped: "Skipped", adjusted: "Adjusted" };
+
+/* The scheduled time and the domain, under the title, in one line. Shared with
+   the expanded body of a logged row so a card and its folded version cannot
+   drift apart. */
+function ItemMeta({ item, T, d }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 6, margin: "6px 0 0",
+      fontFamily: FONT_TEXT, fontSize: 12.5, fontWeight: 500, color: T.faint,
+    }}>
+      <d.Icon size={13} color={d.hue} />
+      <span>{d.label}</span>
+      <span aria-hidden>·</span>
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(item.at)}</span>
+    </div>
+  );
+}
+
+function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last, inDeepNight = false }) {
   const d = DOMAIN[item.category] || DOMAIN.shift;
   const [open, setOpen] = useState(false);
-  const done = status === "done";
-  const skipped = status === "skipped";
-  const past = item.at <= now;
-  const current = past && !done && !skipped;
 
   return (
-    <div style={{ display: "flex", gap: 12, opacity: done || skipped ? 0.45 : 1, transition: "opacity 250ms ease" }}>
-      {showRail && (
-        <div style={{ width: 52, flexShrink: 0, paddingTop: 17, textAlign: "right" }}>
-          <span style={{
-            fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: current ? d.hue : T.faint,
-            fontVariantNumeric: "tabular-nums",
-          }}>{fmt(item.at)}</span>
-        </div>
-      )}
+    <div style={{ display: "flex", gap: 10 }}>
+      <Rail T={T} current={current} last={last} />
       <Card T={T} style={{
-        flex: 1, marginBottom: 10, padding: 15,
+        flex: 1, minWidth: 0, marginBottom: 10, padding: 15,
+        opacity: locked ? 0.72 : 1, transition: "opacity 250ms ease",
         border: current ? `1.5px solid ${tint(d.hue, 0.5)}` : (T.key === "dark" ? `1px solid ${T.hair}` : "none"),
       }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <Badge category={item.category} T={T} size={36} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{
-                fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
-                textDecoration: done ? "line-through" : "none",
-              }}>{item.title}</span>
-              {/* the circadian low used to label a whole phase band; with a flat
-                  list it belongs on the items it actually covers */}
-              {inDeepNight && (
-                <span style={{
-                  fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-                  textTransform: "uppercase", color: "#6C6BE8",
-                  background: tint("#6C6BE8", 0.14), padding: "3px 8px", borderRadius: 999,
-                }}>Circadian low</span>
-              )}
-            </div>
-            <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.45, color: T.muted, margin: "5px 0 0" }}>
-              {item.msg}
-            </p>
-            {item.changed && (
-              <div style={{
-                display: "flex", alignItems: "flex-start", gap: 7, marginTop: 10,
-                padding: "9px 11px", borderRadius: 12, background: tint(d.hue, 0.11),
-              }}>
-                <ArrowCounterClockwise size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
-                <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.hue, fontWeight: 500 }}>
-                  {item.changed}
-                </span>
-              </div>
-            )}
-            {item.why && (
-              <button onClick={() => setOpen(!open)} style={{
-                background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
-                fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
-                display: "flex", alignItems: "center", gap: 5,
-              }}>
-                <Info size={13} /> Why this
-              </button>
-            )}
-            {open && item.why && (
-              <p style={{
-                fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
-                margin: "8px 0 0", padding: "11px 13px", borderRadius: 12,
-                background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.04)",
-              }}>{item.why}</p>
-            )}
-
-            {!done && !skipped && (
-              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                {item.actions.map((act) => {
-                  const map = {
-                    done: { l: "Done", kind: "tinted" },
-                    skip: { l: "Skip", kind: "quiet" },
-                    adjust: { l: "Adjust", kind: "quiet" },
-                    logCaffeine: { l: "Log caffeine", kind: "tinted" },
-                    logWater: { l: "Log water", kind: "tinted" },
-                    logNap: { l: "Log rest", kind: "tinted" },
-                    endShift: { l: "End shift", kind: "tinted" },
-                    sleepStart: { l: "Going to sleep", kind: "tinted" },
-                  }[act];
-                  return (
-                    <Btn key={act} T={T} kind={map.kind} hue={d.hue}
-                      onClick={() => onAct(act, item)}
-                      style={{ fontSize: 13.5, padding: "8px 15px" }}>{map.l}</Btn>
-                  );
-                })}
-              </div>
-            )}
-            {(done || skipped) && (
-              <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, marginTop: 9,
-                display: "flex", alignItems: "center", gap: 6 }}>
-                {done ? <><Check size={13} /> Done</> : <>Skipped, the plan adapted</>}
-                <button onClick={() => onAct("undo", item)} style={{
-                  background: "none", border: "none", cursor: "pointer", color: T.faint,
-                  fontFamily: FONT_TEXT, fontSize: 13, textDecoration: "underline", padding: 0, marginLeft: 4,
-                }}>undo</button>
-              </div>
-            )}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{
+            fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
+          }}>{item.title}</span>
+          {/* the circadian low used to label a whole phase band; with a flat
+              list it belongs on the items it actually covers */}
+          {inDeepNight && (
+            <span style={{
+              fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+              textTransform: "uppercase", color: "#6C6BE8",
+              background: tint("#6C6BE8", 0.14), padding: "3px 8px", borderRadius: 999,
+            }}>Circadian low</span>
+          )}
         </div>
+        {/* the scheduled time moved off the gutter and in here, because the
+            gutter is the rail now and the rail carries state, not clock */}
+        <ItemMeta item={item} T={T} d={d} />
+        <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.45, color: T.muted, margin: "7px 0 0" }}>
+          {item.msg}
+        </p>
+        {item.changed && (
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 7, marginTop: 10,
+            padding: "9px 11px", borderRadius: 12, background: tint(d.hue, 0.11),
+          }}>
+            <ArrowCounterClockwise size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.hue, fontWeight: 500 }}>
+              {item.changed}
+            </span>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {item.why && (
+            <button onClick={() => setOpen(!open)} style={{
+              background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
+              fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <Info size={13} /> Why this
+            </button>
+          )}
+          {item.recurring && (
+            <button onClick={onExpand} style={{
+              background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
+              fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <CaretDown size={13} /> Show all {item.recurring.length}
+            </button>
+          )}
+        </div>
+        {open && item.why && (
+          <p style={{
+            fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
+            margin: "8px 0 0", padding: "11px 13px", borderRadius: 12,
+            background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.04)",
+          }}>{item.why}</p>
+        )}
+
+        {!locked && (
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            {item.actions.map((act) => (
+              <Btn key={act} T={T} kind={ACT_LABEL[act].kind} hue={d.hue}
+                onClick={() => onAct(act, item)}
+                style={{ fontSize: 13.5, padding: "8px 15px" }}>{ACT_LABEL[act].l}</Btn>
+            ))}
+          </div>
+        )}
+        {/* Locked, not hidden: the item still reads, it just cannot be answered
+            out of order. The line naming what stands in the way is drawn once,
+            on the first locked card, because the answer is the same for every
+            card below it and repeating it turns the rest of the night into a
+            wall of the same sentence. */}
+        {locked && blocker && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 7, marginTop: 12,
+            fontFamily: FONT_TEXT, fontSize: 13, color: T.faint,
+          }}>
+            <Lock size={13} />
+            <span>Log “{blocker.title}” at {fmt(blocker.at)} first.</span>
+          </div>
+        )}
       </Card>
     </div>
+  );
+}
+
+/* One answered item, folded to its title and when it was answered. Opening it
+   shows what the item said and puts undo within reach — the two things you come
+   back for. Everything else about the card belongs to items still ahead. */
+function LoggedRow({ item, log, T, onAct, first }) {
+  const [open, setOpen] = useState(false);
+  const d = DOMAIN[item.category] || DOMAIN.shift;
+  const status = log.value.status;
+  return (
+    <div style={{ borderTop: first ? "none" : `1px solid ${T.hair}` }}>
+      <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
+        width: "100%", background: "none", border: "none", cursor: "pointer",
+        padding: "12px 4px", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+      }}>
+        {status === "done"
+          ? <Check size={14} color={d.hue} weight="bold" style={{ flexShrink: 0 }} />
+          : <div style={{ width: 14, flexShrink: 0, display: "flex", justifyContent: "center" }}>
+              <div style={{ width: 9, height: 2, borderRadius: 1, background: T.faint }} />
+            </div>}
+        <span style={{
+          flex: 1, minWidth: 0, fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{item.title}</span>
+        <span style={{
+          flexShrink: 0, fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint,
+          fontVariantNumeric: "tabular-nums",
+        }}>{LOGGED_AS[status] || "Logged"} · {fmt(log.t)}</span>
+        <CaretRight size={13} color={T.faint} style={{
+          flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease",
+        }} />
+      </button>
+      {open && (
+        <div style={{ padding: "0 4px 14px 24px" }}>
+          <ItemMeta item={item} T={T} d={d} />
+          <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.45, color: T.muted, margin: "7px 0 0" }}>
+            {item.msg}
+          </p>
+          {item.why && (
+            <p style={{
+              fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
+              margin: "10px 0 0", padding: "11px 13px", borderRadius: 12,
+              background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.04)",
+            }}>{item.why}</p>
+          )}
+          <Btn T={T} kind="quiet" onClick={() => onAct("undo", item)}
+            style={{ fontSize: 13, padding: "7px 14px", marginTop: 12 }}>
+            <ArrowCounterClockwise size={14} /> Put it back
+          </Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* The recovery badge with a question mark clipped to its corner: the same round
+   tinted disc every domain uses, plus the one mark that says it opens something
+   rather than just labelling the row it sits in. */
+function WhyBadge({ T, onClick, label }) {
+  const hue = DOMAIN.recovery.hue;
+  return (
+    <button onClick={onClick} aria-label={label} className="gy-tap" style={{
+      position: "relative", flexShrink: 0, width: 38, height: 38, borderRadius: 19,
+      border: "none", padding: 0, cursor: "pointer", background: tint(hue, T.tintA),
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <Heart size={18} color={hue} />
+      {/* Filled, not tinted: at 17px a low-contrast mark on a low-contrast disc
+          reads as a smudge on the badge rather than as a second glyph. */}
+      <span style={{
+        position: "absolute", right: -3, bottom: -3, width: 17, height: 17, borderRadius: 9,
+        background: hue, border: `2px solid ${T.bg}`, boxSizing: "border-box",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Question size={10} color="#FFFFFF" weight="bold" />
+      </span>
+    </button>
+  );
+}
+
+/* Everything already answered, out of the way behind one row, with the reset
+   grouping riding on the right of the same strip. Both are view state about the
+   list below, so they share one bar rather than each claiming a row.
+   The strip renders with nothing logged too: it is where the reset control
+   lives, and that control has to exist from the first minute of the night. */
+function LoggedGroup({ rows, T, onAct, resets, onToggleResets }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card T={T} style={{ marginBottom: 14, padding: "2px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {rows.length ? (
+          <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
+            flex: 1, minWidth: 0, background: "none", border: "none", cursor: "pointer",
+            padding: "12px 4px", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
+          }}>
+            <ListChecks size={17} color={T.muted} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>
+              Already logged
+            </span>
+            <span style={{
+              fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600, color: T.muted,
+              background: T.sunken, borderRadius: 999, padding: "2px 9px",
+            }}>{rows.length}</span>
+            <CaretDown size={14} color={T.faint} style={{
+              transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms ease",
+            }} />
+          </button>
+        ) : (
+          <div style={{
+            flex: 1, minWidth: 0, padding: "12px 4px", display: "flex", alignItems: "center", gap: 10,
+            fontFamily: FONT_TEXT, fontSize: 15, color: T.faint,
+          }}>
+            <ListChecks size={17} color={T.faint} style={{ flexShrink: 0 }} />
+            <span>Nothing logged yet</span>
+          </div>
+        )}
+        {onToggleResets && (
+          /* aria-label rather than a caption: it is the button's whole name, so
+             it has to survive the label being an icon. */
+          <button onClick={onToggleResets} aria-pressed={resets === "expanded"}
+            aria-label={resets === "expanded" ? "Resets expanded" : "Resets grouped"}
+            style={{
+              flexShrink: 0, marginLeft: 6, width: 34, height: 34, borderRadius: 17, cursor: "pointer",
+              border: `1px solid ${resets === "expanded" ? "transparent" : T.hair}`,
+              background: resets === "expanded" ? tint(DOMAIN.movement.hue, T.tintA + 0.06) : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+            <Pulse size={17} color={resets === "expanded" ? DOMAIN.movement.hue : T.faint} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+      {open && rows.length > 0 && (
+        <div style={{ borderTop: `1px solid ${T.hair}`, paddingTop: 2 }}>
+          {rows.map((r, k) => (
+            <LoggedRow key={r.item.id} item={r.item} log={r.log} T={T} onAct={onAct} first={k === 0} />
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -1362,25 +1558,45 @@ const LOG_TYPES = [
   { v: "sleepStart", l: "Went to sleep", cat: "sleep", val: 1 },
 ];
 
+/* The row names the item and how it was answered. It used to read the status as
+   a two-way movement flag, so a completed meal filed itself as "Movement reset"
+   and everything not done as "Skipped a break". `title` only exists on entries
+   written since, hence the category fallback for logs already on disk. */
 function metaFor(l) {
   return LOG_TYPES.find((x) => x.v === l.type)
     || (l.type === "item"
-      ? { l: l.value.status === "done" ? "Movement reset" : "Skipped a break", cat: l.value.category }
+      ? {
+          l: `${LOGGED_AS[l.value.status] || "Logged"}: ${l.value.title || (DOMAIN[l.value.category] || DOMAIN.shift).label}`,
+          cat: l.value.category,
+        }
       : { l: l.type, cat: "shift" });
 }
 
 /* --------------------------------- plan --------------------------------- */
 function PlanTab({
-  T, plan, s, ph, profile, now, showAllPlan, setShowAllPlan, hideDone, setHideDone,
-  setScreen, onAct, setAdjustDraft, setAdjusting,
+  T, plan, s, ph, profile, showAllPlan, setShowAllPlan, setScreen, onAct,
 }) {
-  const moves = plan.items.filter((i) => i.id.startsWith("move-"));
-  const others = plan.items.filter((i) => !i.id.startsWith("move-"));
+  /* The list is what is left. Answered items come out of it entirely and go to
+     the group at the top, in the order they were answered rather than the order
+     they were scheduled — that is the order you would look for them in. */
+  const open = plan.items.filter((i) => s.itemStatus(i.id) === "open");
+  const logged = plan.items
+    .map((item) => ({ item, log: s.itemLog(item.id) }))
+    .filter((r) => r.log)
+    .sort((a, b) => a.log.t - b.log.t);
+
+  const moves = open.filter((i) => i.id.startsWith("move-"));
+  const others = open.filter((i) => !i.id.startsWith("move-"));
   const collapsed = !showAllPlan && moves.length > 1;
-  let display = collapsed
-    ? [...others, { ...moves[0], recurring: moves }].sort((a, b) => a.at - b.at)
-    : plan.items;
-  if (hideDone) display = display.filter((i) => s.itemStatus(i.id) === "open" || i.recurring);
+  /* `at` comes with the first still-open reset, so the grouped card carries
+     that reset's own actions and walks down the list as the night goes, rather
+     than sitting at the first reset's time all night. */
+  const display = collapsed
+    ? [...others, {
+        ...moves[0], recurring: moves,
+        msg: `Every ${movementInterval(profile)} minutes · ${moves.length} left, next at ${fmt(moves[0].at)}.`,
+      }].sort((a, b) => a.at - b.at)
+    : open;
 
   /* One flat, time-ordered list. The old build grouped items into phase bands,
      which silently dropped anything falling outside every phase window while
@@ -1388,56 +1604,49 @@ function PlanTab({
   const inDeepNight = (at) =>
     !!ph.deepNight && at >= ph.deepNight[0] && at < ph.deepNight[1];
 
-  const doneCount = plan.items.filter((i) => s.itemStatus(i.id) === "done").length;
+  /* Over plan.items, never over `display`: folding the resets must not change
+     which item the plan is waiting on. */
+  const gate = planGate(plan.items, s.itemStatus);
+  /* off `display`, not `plan.items`: the card that gets the explanation is the
+     first locked one the user can actually see */
+  const firstLocked = (display.find((i) => gate.locked(i.id)) || {}).id;
 
   return (
     <div style={{ padding: "4px 20px 0" }}>
       <Eyebrow T={T}>Tonight's plan</Eyebrow>
-      <Display T={T} size={32} style={{ marginBottom: 14 }}>
-        {doneCount} of {plan.items.length} done.
-      </Display>
-
-      <Card T={T} onClick={() => setScreen("recommendation-revisit")}
-        style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 13, padding: 15 }}>
-        <Badge category="recovery" T={T} size={34} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>
-            Why this plan
-          </div>
-          <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
+      {/* The plan's reasoning used to be a full card under the count — badge,
+          title, chevron. It is one tap either way, and the count is what you
+          open this tab for, so the card collapsed to the badge beside it and one
+          caption line. The caption stays because the Plan tab is the only screen
+          in the app that says which night of the stretch tonight is, and that is
+          the fact the whole adaptive plan turns on. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <WhyBadge T={T} onClick={() => setScreen("recommendation-revisit")} label="Why this plan" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Display T={T} size={32}>{logged.length} of {plan.items.length} logged.</Display>
+          <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 3 }}>
             {planSummary(profile).type} · Night {stretchNight(profile)} of your stretch
           </div>
         </div>
-        <CaretRight size={17} color={T.faint} />
-      </Card>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <Pill T={T} hue={DOMAIN.shift.hue} active={hideDone} onClick={() => setHideDone(!hideDone)}>
-          {hideDone ? "Remaining only" : "Showing everything"}
-        </Pill>
-        {moves.length > 1 && (
-          <Pill T={T} hue={DOMAIN.movement.hue} active={!collapsed}
-            onClick={() => setShowAllPlan(!showAllPlan)}>
-            {collapsed ? "Resets grouped" : "Resets expanded"}
-          </Pill>
-        )}
       </div>
 
-      {display.map((it) =>
-        it.recurring ? (
-          <RecurringCard key="recurring" item={it} T={T} gap={movementInterval(profile)}
-            onExpand={() => setShowAllPlan(true)}
-            onAdjust={() => { setAdjustDraft({}); setAdjusting(it.id); }} />
-        ) : (
-          <TimelineItem key={it.id} item={it} T={T} now={now}
-            status={s.itemStatus(it.id)} onAct={onAct}
-            inDeepNight={inDeepNight(it.at)} />
-        )
-      )}
+      <LoggedGroup rows={logged} T={T} onAct={onAct}
+        resets={collapsed ? "grouped" : "expanded"}
+        onToggleResets={moves.length > 1 ? () => setShowAllPlan(!showAllPlan) : null} />
+
+      {display.map((it, k) => (
+        <TimelineItem key={it.id} item={it} T={T} onAct={onAct}
+          onExpand={() => setShowAllPlan(true)}
+          current={!!gate.blocker && gate.blocker.id === it.id}
+          locked={gate.locked(it.id)}
+          blocker={gate.locked(it.id) && it.id === firstLocked ? gate.blocker : null}
+          last={k === display.length - 1}
+          inDeepNight={inDeepNight(it.at)} />
+      ))}
 
       {!display.length && (
         <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5 }}>
-          Nothing left open. Switch to showing everything if you want to look back over the night.
+          Nothing left open. The whole night is in Already logged above.
         </p>
       )}
     </div>
@@ -2199,7 +2408,7 @@ function Sheet({
 /* ------------------------------- adjust sheet ---------------------------- */
 function AdjustSheet({
   T, adjusting, setAdjusting, plan, profile, adjustDraft, setAdjustDraft,
-  logs, now, setProfile, say, setReview, setScreen,
+  logs, now, setProfile, say, setReview, setScreen, onAct,
 }) {
   if (!adjusting) return null;
   const item = plan.items.find((i) => i.id === adjusting);
@@ -2303,13 +2512,19 @@ function AdjustSheet({
               const next = { ...(profile.overrides || {}) };
               item.adjust.forEach((a) => { delete next[a.key]; });
               setProfile({ ...profile, overrides: next });
+              onAct("adjusted", item);
               close();
               say("Back to the default timing.");
             }}><ArrowCounterClockwise size={15} /> Reset</Btn>
           )}
+          {/* An adjustment counts as answering the item, so it is logged the
+              same way Done and Skip are. Only when something actually changed:
+              opening the sheet and closing it again is not an answer, and
+              treating it as one would let the plan be walked through untouched. */}
           <Btn T={T} style={{ flex: 1.6 }} onClick={() => {
             if (dirty) {
               setProfile({ ...profile, overrides: merged });
+              onAct("adjusted", item);
               say(`${item.title} moved to ${fmt(previewItem.at)}.`);
             }
             close();
@@ -2394,10 +2609,9 @@ export default function App() {
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   /* Where you are standing in tonight's plan, not something you told the app:
-     not persisted, and not reset at the roll. The pills name their own mode, so
-     neither one needs remembering. Decided, not overlooked. */
+     not persisted, and not reset at the roll. The pill names its own mode, so it
+     does not need remembering. Decided, not overlooked. */
   const [showAllPlan, setShowAllPlan] = useState(false);
-  const [hideDone, setHideDone] = useState(true);
   const [exportText, setExportText] = useState(null);
   const [logDraft, setLogDraft] = useState({ type: "water", h: 12, m: 0, ap: "AM", note: "" });
   /* opens on tonight, the rightmost chip of the day strip */
@@ -2547,8 +2761,12 @@ export default function App() {
       setLogs((L) => L.filter((l) => !(l.type === "item" && l.value.id === item.id)));
       return;
     }
-    if (act === "done" || act === "skip") {
-      push("item", { id: item.id, status: act === "done" ? "done" : "skipped", category: item.category });
+    /* One shape for all three ways of answering an item, so the timestamp, the
+       undo and the gate all read the same entry. `title` is carried for the log
+       list, which otherwise has only an id to name the row by. */
+    const ITEM_STATUS = { done: "done", skip: "skipped", adjusted: "adjusted" };
+    if (ITEM_STATUS[act]) {
+      push("item", { id: item.id, status: ITEM_STATUS[act], category: item.category, title: item.title });
       if (act === "skip" && item.category === "movement") say("Skipped breaks happen. The next reset will be shorter.");
       return;
     }
@@ -2725,11 +2943,9 @@ export default function App() {
         )}
         {tab === "plan" && (
           <PlanTab
-            T={T} plan={plan} s={s} ph={ph} profile={planProfile} now={now}
+            T={T} plan={plan} s={s} ph={ph} profile={planProfile}
             showAllPlan={showAllPlan} setShowAllPlan={setShowAllPlan}
-            hideDone={hideDone} setHideDone={setHideDone}
             setScreen={setScreen} onAct={onAct}
-            setAdjustDraft={setAdjustDraft} setAdjusting={setAdjusting}
           />
         )}
         {tab === "log" && (
@@ -2780,6 +2996,7 @@ export default function App() {
         T={T} adjusting={adjusting} setAdjusting={setAdjusting} plan={plan} profile={planProfile}
         adjustDraft={adjustDraft} setAdjustDraft={setAdjustDraft} logs={logs} now={now}
         setProfile={setProfile} say={say} setReview={setReview} setScreen={setScreen}
+        onAct={onAct}
       />
       {playing && (
         <CarePlayer
@@ -2864,55 +3081,6 @@ export default function App() {
         />
       )}
     </Frame>
-  );
-}
-
-function RecurringCard({ item, T, gap, onExpand, onAdjust }) {
-  const d = DOMAIN.movement;
-  const [open, setOpen] = useState(false);
-  const n = item.recurring.length;
-  return (
-    <div style={{ display: "flex", gap: 12 }}>
-      <div style={{ width: 52, flexShrink: 0, paddingTop: 17, textAlign: "right" }}>
-        <span style={{
-          fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: T.faint,
-          fontVariantNumeric: "tabular-nums",
-        }}>{fmt(item.at)}</span>
-      </div>
-      <Card T={T} style={{ flex: 1, marginBottom: 10, padding: 15 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <Badge category="movement" T={T} size={36} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink }}>
-              Movement resets
-            </div>
-            <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.45, color: T.muted, margin: "5px 0 0" }}>
-              Every {gap} minutes · {n} tonight, first at {fmt(item.at)}.
-            </p>
-            <button onClick={() => setOpen(!open)} style={{
-              background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
-              fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
-              display: "flex", alignItems: "center", gap: 5,
-            }}><Info size={13} /> Why this</button>
-            {open && (
-              <p style={{
-                fontFamily: FONT_TEXT, fontSize: 13.5, lineHeight: 1.5, color: T.muted,
-                margin: "8px 0 0", padding: "11px 13px", borderRadius: 12,
-                background: T.key === "warm" ? T.sunken : "rgba(255,255,255,0.04)",
-              }}>{item.why}</p>
-            )}
-            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-              <Btn T={T} kind="tinted" hue={d.hue} onClick={onExpand}
-                style={{ fontSize: 13.5, padding: "8px 15px" }}>
-                Show all {n} <CaretDown size={14} />
-              </Btn>
-              <Btn T={T} kind="quiet" onClick={onAdjust}
-                style={{ fontSize: 13.5, padding: "8px 15px" }}>Adjust</Btn>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
   );
 }
 

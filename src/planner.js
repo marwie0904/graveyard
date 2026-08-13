@@ -245,10 +245,29 @@ export function deriveState(profile, logs, now, ph) {
     poorSleep: quality ? quality.value === "poor" : false,
     endShift,
     sleepStarted,
+    /* The entry itself, not just its status, because the card shows the time it
+       was logged and `t` only lives on the entry. Last wins, so an undo-and-redo
+       reads as the second time, which is the one that happened. */
+    itemLog: (id) => itemLogs.filter((x) => x.value.id === id).slice(-1)[0] || null,
     itemStatus: (id) => {
       const l = itemLogs.filter((x) => x.value.id === id).slice(-1)[0];
       return l ? l.value.status : "open";
     },
+  };
+}
+
+/* Tonight is worked in order. The earliest item with no log against it is the
+   only one you can act on; everything after it is locked until it has one, of
+   any kind — done, skipped or adjusted all count as answered. Items is already
+   time-sorted, so the first open one is the earliest open one.
+   Rank by id rather than by `at`, because two items can share a minute and
+   comparing times would unlock a tie against itself. */
+export function planGate(items, status) {
+  const at = items.findIndex((i) => status(i.id) === "open");
+  const rank = new Map(items.map((i, k) => [i.id, k]));
+  return {
+    blocker: at < 0 ? null : items[at],
+    locked: (id) => at >= 0 && rank.get(id) > at,
   };
 }
 
