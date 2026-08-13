@@ -36,8 +36,11 @@ gap suggests.
   the archive, the reflection's answer writes an override instead of rewriting a
   quiz answer, and the sleep goal is proposed against what was measured.
 
-**Missing:** nothing on the original chain. What is left is Phase 6's citation
-field.
+- **Traceability** — Phase 6, shipped. Every plan item records the studies behind
+  it, or records that none exist. The paper's claim about its own method is now a
+  property of the running system.
+
+**Missing:** nothing. Every phase on this roadmap is done.
 
 So this was not a build-from-zero. It was: give time an identity, save it, roll it
 over, and swap the mock for the real thing. All four are done.
@@ -414,14 +417,83 @@ of the right copy, ruled out because it edits `generateTimeline`. A hand-edited
 
 ---
 
-## Phase 6 — Traceability (`src` field)
+## Phase 6 — Traceability (`src` field) ✅ done
 
-Orthogonal to all of the above; can land any time. Cheap and it is a thesis
-deliverable, so it should not wait for Phase 5.
+The only phase whose deliverable is a sentence in the paper becoming true rather
+than a behaviour on a screen. It touches no stored state, no boundary, no derived
+number and no rendered pixel; `generateTimeline` keeps its signature and gains one
+field on the objects it returns.
 
-One field on each plan item, one test that fails the build when an item has no
-citation. Spec'd in `app-design-basis.md` §3. This is what makes the paper's
-central methodological claim true of the running system.
+What shipped:
+
+- **`src: [...]` beside `why:` on all 25 items.** An array of lowercase
+  author-year keys, placed after the rationale because the paper's claim is that
+  the identifiers sit *alongside the user-facing rationale*. It costs nothing at
+  any trust boundary and needs no `boot` validation, unlike every field Phases 1–5
+  added: no plan item is ever serialised, so `src` adds zero bytes to `gy.v1` and
+  zero to the export. `grep -c src src/App.jsx` returns 0 — no render path can be
+  reading it by accident.
+- **`src/citations.js`** — thirteen study keys plus the two markers `structural`
+  and `judgement`, one line each, holding exactly what `docs/research-summary.md`
+  states and nothing more. The brief pointed at `reference-integration.md` and
+  that is the wrong document: it is the evidence for how the app was *built and
+  looks*. `research-summary.md` is 29 lines and is the entire evidence base for
+  what the planner *recommends* — thirteen of the seventeen circadian authors in
+  this repo appear there and nowhere else. `planner.js` never imports the file;
+  its only importer is the test, which is what a certificate looks like.
+- **Seven assertions in `planner.test.js`** — the spec's four plus three guards on
+  holes those four leave open. A source lint that reads `planner.js` as text (the
+  only thing that can see an item behind a condition no profile reaches) and its
+  own anchor check; an eight-profile runtime matrix reaching all 25 items; a shape
+  check; key resolution via `Object.hasOwn`; and two separately frozen marker
+  lists.
+- **Two `why` strings rewritten**, in the same commit as the keys. `light-early`
+  claimed an alertness benefit `cho2015` does not support, and `winddown`'s
+  rationale was about the one instruction of its three that nothing cites. Fix the
+  sentence, not the key — a citation that covers half a sentence is the mismatch
+  this phase exists to prevent. Landing the keys first and the copy later would
+  have left two items citing a source for a claim it does not support, across two
+  commits, inside the phase built to stop exactly that.
+
+**The finding, which is the deliverable.** Of 25 items, **13** have a genuine
+supporting study, **2** are structural (a shift has a start and an end), and **10**
+are marked `judgement`: the corpus contains nothing on hydration, meal timing,
+visual ergonomics, drowsy driving, or bright light as an alertness tool. None was
+dropped and none was laundered as `structural`, which would pass the same test and
+is a lie. Five of the ten carry a study key beside the marker naming the *risk*
+the rule addresses, not supporting the rule, and the file says so. The paper must
+therefore not claim "every plan item corresponds to a supporting study" — the true
+claim is that **every plan item records whether it does**.
+
+Spec: `docs/superpowers/specs/2026-08-13-traceability-design.md`. Summary:
+`docs/phase-6-summary.md`. Covered by 153 unit tests (up from 146) and 8 end-to-end
+checks in `drive-cite.mjs`, with Phase 3's 15, Phase 4's 6 and Phase 5's 12 as the
+regression gate — none of which moved, which is the point. Seven deliberate breaks,
+seven reds, seven reverts. Two worth naming: a key set to `"toString"` resolves
+under `key in CITATIONS` because every plain object inherits the name, which is why
+the test uses `Object.hasOwn`; and relabelling a `judgement` item as `structural`
+is caught only because the two marker lists are frozen separately — the merged
+twelve-id union is identical before and after, item for item.
+
+**What it cost, and what it deferred.** Nothing is user-visible and that is the
+answer, not a shortcut: the reader of a citation key is a panelist, not a shift
+worker at 03:00, and `judgement` would put a note on ten cards saying the
+literature does not back them. `drive-cite.mjs` is a smoke test over 25
+hand-edited object literals, not a gate — `src` reaches no screen, no key and no
+export, so the unit tests are the only check on the citations and there is no
+defect the driver catches that `npm test` misses first. Nothing proves a key is
+the *right* key: T3 proves resolution, and the spec's 25-row mapping plus a
+ten-minute read with `research-summary.md` open is the whole defence. An item
+behind a branch no matrix profile reaches is seen only by the text lint. A study
+key borrowed onto one of the 13 sourced items is invisible to the entire suite.
+`citations.js` carries no volumes, pages or DOIs because this repo does not
+contain them, and inventing them would be a fabrication in the one file whose
+purpose is that nothing in it is fabricated. `drive-cite.mjs`'s eight counts are
+pinned to a planner allowed to change. `sleep-window` clears the evidenced line by
+one key and is the one mapping a reviewer could defensibly move to `judgement`.
+`CARE`'s eight micro-care exercises carry no citation and are outside the claim.
+
+**Depends on:** nothing. It was never blocked by any of the chain above.
 
 ---
 
@@ -433,7 +505,7 @@ central methodological claim true of the running system.
                           │
                           └──────► 4 Plan page hardening ✅ done
 
-6 Traceability ── independent, do it whenever ── next
+6 Traceability ── independent, landed on its own ── ✅ done
 ```
 
 0 → 1 → 2 → 3 → 5 is a strict chain and every link is in. 4 came nearly free with
@@ -442,12 +514,20 @@ turned out to be a real bug that verifying is what found. 5 needed an archive wi
 nights in it and a Plan page that stays honest across a boundary, which is exactly
 what 3 and 4 delivered. 6 was never blocked by any of it.
 
-**Next is 6,** and it is the only one left. One `src` field on each plan item and
-one test that fails the build when an item has no citation. It is orthogonal to
-the whole chain above — it touches no stored state, no boundary and no derived
-number — and it is a thesis deliverable, which is what makes it the last thing
-worth doing here: it is what makes the paper's central methodological claim true
-of the running system rather than true of the design document.
+**The roadmap is complete.** Every phase on it is done, and the thing it set out
+to do — turn a plan that regenerated from scratch on every refresh into one that
+persists, rolls over, accumulates into a history, and reads that history back —
+is finished. Nothing below is a Phase 7.
+
+What is left is of two kinds. First, the out-of-scope list, which was never a
+chain and is tracked elsewhere. Second, the follow-ups the phases surfaced while
+doing their own work, each recorded in its phase above with the condition that
+should trigger it: `workDays`, to be built when the archive shows enough unlogged
+nights to distort a real number; `pageshow`, the first time a real device comes
+back stale; schema validation for a hand-edited `gy.v1`, still nobody's phase;
+storing raw logs plus a settings snapshot, if a later reason for the snapshot
+appears; and the drowsy-driving citation below, which is the largest of them and
+the only one that is a paper edit rather than a code change.
 
 ---
 
@@ -458,6 +538,17 @@ Tracked in `app-design-basis.md`, not here:
 - WARM theme contrast fixes (§4)
 - Multimodal content — build one audio track or reword the paper (§5)
 - Push notifications, accounts, backend, acceptance testing (§6)
+
+**The drowsy-driving citation gap** belongs here too, and it is the highest-value
+item on the list. `commute` is the only plan item with `priority: true` and the
+only one with no skip button, and the corpus has nothing on driving, drowsiness at
+the wheel or post-shift crash risk — a literature that certainly exists and is
+simply not in this repo. Phase 6 marked it honestly (`wickwire2021`, `boivin2014`,
+`judgement`: the state is cited, the driving recommendation is not) and did not
+weaken the item. The fix is one reference and one sentence in Chapter II, which
+converts the app's most consequential card from judgement into evidence. It is a
+paper edit, not a code change, which is exactly why it is out of scope here and
+worth naming here anyway.
 
 Worth noting: the export at `App.jsx:2547` serializes
 `{profile, logs, history, reflection, archive}`. Now that persistence and the
