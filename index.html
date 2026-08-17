@@ -142,6 +142,23 @@
         100% { transform: scale(1); }
       }
 
+      /* ---- focus ------------------------------------------------------- */
+      /* :focus-visible, not :focus, so a finger never lights this up — only a
+         keyboard, Switch Control or Full Keyboard Access.
+         Two tones because no single one survives every background here: the
+         warm page, the dark page, the hero band and the dusk gradient. One of
+         the two always contrasts. Neither comes from tokens.js on purpose —
+         the ring has to outlive a palette rework it knows nothing about.
+         outline and box-shadow both follow border-radius, so a 999px pill
+         gets a pill and not a box around it.
+         !important on the shadow alone: the one focusable element that sets
+         boxShadow inline would otherwise win and keep only half the ring. */
+      :focus-visible {
+        outline: 2px solid #0A0A0C;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 2px #FFFFFF !important;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .gy-sky, .gy-sky::before, .gy-sky::after, .gy-badge, .gy-spin { animation: none !important; }
         .gy-in, .gy-out, .gy-sheet, .gy-hero, .gy-step-out, .gy-pop,

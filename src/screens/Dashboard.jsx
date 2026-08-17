@@ -68,13 +68,13 @@ function Stat({ T, hue, k, v, of, note, fill, big }) {
 function Head({ T, children, action, onAction }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "18px 4px 8px" }}>
-      <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, flex: 1 }}>
+      <h2 style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, flex: 1, margin: 0 }}>
         {children}
-      </span>
+      </h2>
       {action && (
         <button onClick={onAction} style={{
           background: "none", border: "none", cursor: "pointer", padding: 0,
-          fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600, color: DOMAIN.sleep.hue,
+          fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600, color: DOMAIN.sleep.ink[T.key],
         }}>{action}</button>
       )}
     </div>
@@ -85,7 +85,7 @@ function Panel({ T, title, sub, children, height = 150 }) {
   return (
     <Card T={T} style={{ ...CARD, padding: "13px 10px 8px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "0 6px 8px" }}>
-        <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink }}>{title}</span>
+        <h2 style={{ fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink, margin: 0 }}>{title}</h2>
         <span style={{
           fontFamily: FONT_TEXT, fontSize: 11.5, color: T.faint, flex: 1,
           textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -210,7 +210,7 @@ export default function Dashboard({
       return (
         <div style={{ padding: "4px 20px 0" }}>
           <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
-          <Display T={T} size={26} style={{ marginBottom: 8 }}>
+          <Display T={T} size={26} as="h2" style={{ marginBottom: 8 }}>
             {off === 0 ? "Nothing logged yet." : "No record for this night."}
           </Display>
           <Lead T={T}>
@@ -290,7 +290,7 @@ export default function Dashboard({
     return (
       <div style={{ padding: "4px 20px 0" }}>
         <RangeControl T={T} value={rangeKey} onChange={setRangeKey} have={have} />
-        <Display T={T} size={26} style={{ marginBottom: 8 }}>No nights on record yet.</Display>
+        <Display T={T} size={26} as="h2" style={{ marginBottom: 8 }}>No nights on record yet.</Display>
         <Lead T={T}>Log tonight and this window fills in as you go.</Lead>
       </div>
     );

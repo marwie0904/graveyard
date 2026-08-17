@@ -1,8 +1,70 @@
-import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint } from "../tokens.js";
+import { useEffect, useRef } from "react";
+import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint, inkOf } from "../tokens.js";
 import { CaretDown, Check } from "../icons.jsx";
 import { RANGES, STRIP_DAYS, dayOffsetOf } from "../stats.js";
+import { FOCUSABLE, nextFocusIndex } from "../focus.js";
 
 /* ------------------------------ shared UI bits ---------------------------- */
+
+/* One overlay mechanism for all six of them: focus moves in when the sheet
+   opens, Tab is trapped inside it, Escape closes it, and focus returns to
+   whatever opened it. aria-modal on the panel is the half that matters on a
+   phone — it is what stops VoiceOver and TalkBack swiping out of the sheet
+   into the screen it covers, which no Tab trap can do.
+
+   Native <dialog> was the obvious answer and lost on measurement, not taste.
+   showModal() promotes the element to the browser's top layer, which is
+   viewport-relative; these sheets are position:absolute inside a 430px phone
+   frame centred in a letterbox, so the panel would leave the frame,
+   ::backdrop would dim the whole window instead of just the phone, and the
+   frame's screen-swap animation would stop applying to it. The frame is the
+   prototype's whole conceit, so the trap is hand-rolled.
+
+   ponytail: Tab and Shift-Tab only. Switch Control and the VoiceOver rotor
+   walk the accessibility tree rather than the tab ring, and aria-modal is
+   what covers them here. The upgrade is `inert` on everything the sheet
+   covers, which wants one wrapper around the app chrome that does not exist
+   yet. */
+const openOverlays = [];
+
+export function useOverlay(open, onClose) {
+  const ref = useRef(null);
+  /* held in a ref so the effect never has to depend on a handler that is a
+     new closure every render */
+  const close = useRef(onClose);
+  close.current = onClose;
+
+  useEffect(() => {
+    const el = open ? ref.current : null;
+    if (!el) return;
+    /* The profile sheet opens the time editor over itself, so two of these
+       can be mounted at once. Only the top one listens, or they fight. */
+    openOverlays.push(el);
+    const returnTo = document.activeElement;
+    (el.querySelector(FOCUSABLE) || el).focus();
+
+    const onKey = (e) => {
+      if (openOverlays[openOverlays.length - 1] !== el) return;
+      if (e.key === "Escape") { e.preventDefault(); close.current(); return; }
+      if (e.key !== "Tab") return;
+      const f = [...el.querySelectorAll(FOCUSABLE)];
+      const to = nextFocusIndex(f.length, f.indexOf(document.activeElement), e.shiftKey);
+      e.preventDefault();
+      (f[to] || el).focus();
+    };
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      openOverlays.splice(openOverlays.indexOf(el), 1);
+      /* Safari does not focus a button on click so this is often <body>, and
+         "Add details" closes the sheet by unmounting its own opener. */
+      if (returnTo && returnTo !== document.body && returnTo.isConnected) returnTo.focus();
+    };
+  }, [open]);
+
+  return ref;
+}
 
 export function Badge({ category, T, size = 40 }) {
   const d = DOMAIN[category] || DOMAIN.shift;
@@ -32,21 +94,21 @@ export function Card({ T, children, style, onClick, tone }) {
   );
 }
 
-export function Eyebrow({ children, T, color }) {
+export function Eyebrow({ children, T, color, as: Tag = "div" }) {
   return (
-    <div style={{
+    <Tag style={{
       fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em",
-      textTransform: "uppercase", color: color || T.faint, marginBottom: 10,
-    }}>{children}</div>
+      textTransform: "uppercase", color: color || T.faint, margin: "0 0 10px",
+    }}>{children}</Tag>
   );
 }
 
-export function Display({ children, T, size = 34, style }) {
+export function Display({ children, T, size = 34, style, as: Tag = "h1" }) {
   return (
-    <h1 style={{
+    <Tag style={{
       fontFamily: FONT_DISPLAY, fontSize: size, fontWeight: 700, letterSpacing: "-0.028em",
       lineHeight: 1.08, color: T.ink, margin: 0, ...style,
-    }}>{children}</h1>
+    }}>{children}</Tag>
   );
 }
 
@@ -57,7 +119,7 @@ export function Pill({ children, T, hue, active, onClick }) {
       padding: "9px 15px", borderRadius: 999, cursor: "pointer",
       border: `1px solid ${active ? "transparent" : T.hair}`,
       background: active ? tint(hue || DOMAIN.shift.hue, T.tintA + 0.06) : T.card,
-      color: active ? (hue || T.ink) : T.muted,
+      color: active ? (hue ? inkOf(hue, T) : T.ink) : T.muted,
       display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
     }}>{children}</button>
   );
@@ -73,7 +135,7 @@ export function Btn({ children, T, kind = "primary", onClick, hue, style, full }
     primary: { background: T.ink, color: T.bg },
     accent: { background: ACCENT, color: "#FFFFFF" },
     soft: { background: T.sunken, color: T.ink },
-    tinted: { background: tint(hue || DOMAIN.shift.hue, T.tintA + 0.04), color: hue || T.ink },
+    tinted: { background: tint(hue || DOMAIN.shift.hue, T.tintA + 0.04), color: hue ? inkOf(hue, T) : T.ink },
     quiet: { background: "transparent", color: T.muted, border: `1px solid ${T.hair}` },
   };
   return (
@@ -224,10 +286,10 @@ export function RangeControl({ T, value, onChange, have }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <span style={{
+        <h1 style={{
           fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700,
-          letterSpacing: "-0.03em", color: T.ink, flex: 1,
-        }}>{selectionLabel(value)}</span>
+          letterSpacing: "-0.03em", color: T.ink, flex: 1, margin: 0,
+        }}>{selectionLabel(value)}</h1>
         {/* held at "" so it always reads "Trends": which window is active is
             already spelled out by the title next to it, and a select showing
             "1 week" beside a title saying "1 week" is the same word twice */}
@@ -238,7 +300,7 @@ export function RangeControl({ T, value, onChange, have }) {
             aria-label="Longer windows"
             style={{
               appearance: "none", fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600,
-              color: range ? T.bg : T.muted,
+              color: range ? "#FFFFFF" : T.muted,
               background: range ? DOMAIN.sleep.hue : "transparent",
               border: `1px solid ${range ? DOMAIN.sleep.hue : T.hair}`,
               borderRadius: 999, padding: "6px 25px 6px 12px",
@@ -247,7 +309,7 @@ export function RangeControl({ T, value, onChange, have }) {
             <option value="">Trends</option>
             {RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
-          <CaretDown size={11} color={range ? T.bg : T.muted}
+          <CaretDown size={11} color={range ? "#FFFFFF" : T.muted}
             style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
         </div>
       </div>

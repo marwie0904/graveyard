@@ -16,7 +16,7 @@ import {
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements, countStretch, sleepBand } from "./stats.js";
 import { load, save, forNight, archived } from "./storage.js";
-import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice } from "./ui/index.jsx";
+import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice, useOverlay } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 
 /* ============================================================================
@@ -101,6 +101,7 @@ function suggestedCare(profile, plan, now, feeling) {
 }
 
 function CarePlayer({ T, activity, onClose, onDone }) {
+  const ref = useOverlay(true, onClose);
   const seq = useMemo(() => {
     if (!activity.cycle) return activity.steps;
     const len = activity.cycle.reduce((a, c) => a + c.s, 0);
@@ -130,7 +131,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
   const scale = finished ? 0.8 : step.scale !== undefined ? step.scale : 0.86;
 
   return (
-    <div style={{
+    <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={activity.l} style={{
       position: "absolute", inset: 0, background: T.bg, zIndex: 90,
       display: "flex", flexDirection: "column", padding: "44px 24px 32px",
     }}>
@@ -139,7 +140,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
           <Eyebrow T={T} color={hue}>Micro-care</Eyebrow>
           <Display T={T} size={26}>{activity.l}</Display>
         </div>
-        <button onClick={onClose} style={{
+        <button onClick={onClose} aria-label="Close" style={{
           width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
         }}><X size={18} color={T.ink} /></button>
@@ -160,11 +161,12 @@ function CarePlayer({ T, activity, onClose, onDone }) {
           }} />
           <span style={{
             position: "relative", fontFamily: FONT_DISPLAY, fontSize: 46, fontWeight: 700,
-            color: hue, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
+            color: DOMAIN[activity.cat].ink[T.key], fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
           }}>{finished ? "✓" : left}</span>
         </div>
 
-        <div style={{ textAlign: "center", minHeight: 54 }}>
+        {/* step changes and completion announce here; the per-second number stays outside the region on purpose */}
+        <div aria-live="polite" style={{ textAlign: "center", minHeight: 54 }}>
           <div style={{
             fontFamily: FONT_DISPLAY, fontSize: 23, fontWeight: 700, color: T.ink,
             letterSpacing: "-0.02em",
@@ -769,7 +771,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
       <div style={{ textAlign: "center", marginBottom: 14 }}>
         <div style={{
           fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 700, letterSpacing: "0.13em",
-          textTransform: "uppercase", color: d.hue,
+          textTransform: "uppercase", color: d.ink[T.key],
         }}>{single ? "Adjust" : `${si + 1} of ${REVIEW.length}`} · {d.label}</div>
       </div>
 
@@ -795,7 +797,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
       }}>
         <div style={{
           fontFamily: FONT_TEXT, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.13em",
-          textTransform: "uppercase", color: d.hue, marginBottom: 7,
+          textTransform: "uppercase", color: d.ink[T.key], marginBottom: 7,
         }}>Why this</div>
         <p style={{ fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.5, color: T.muted, margin: 0 }}>
           {seg.why}
@@ -1031,18 +1033,23 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <Badge category={cat} T={T} size={32} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <button onClick={() => setOpen(!open)} style={{
-            background: "none", border: "none", padding: 0, cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
-          }}>
-            <span style={{
-              flex: 1, fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 700, color: T.ink,
-              letterSpacing: "-0.02em", lineHeight: 1.25,
-            }}>{title}</span>
-            <CaretDown size={14} color={T.faint} style={{
-              flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 180ms ease",
-            }} />
-          </button>
+          {/* the heading wraps the button rather than sitting inside it, which
+              a button's content model does not allow; font: inherit keeps the
+              h3 from resizing the button, which index.html gives font: inherit */}
+          <h3 style={{ margin: 0, font: "inherit" }}>
+            <button onClick={() => setOpen(!open)} style={{
+              background: "none", border: "none", padding: 0, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
+            }}>
+              <span style={{
+                flex: 1, fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 700, color: T.ink,
+                letterSpacing: "-0.02em", lineHeight: 1.25,
+              }}>{title}</span>
+              <CaretDown size={14} color={T.faint} style={{
+                flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 180ms ease",
+              }} />
+            </button>
+          </h3>
           {open && (
           <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.muted, margin: "8px 0 0" }}>
             {body}
@@ -1062,7 +1069,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
           {open && adjustable !== undefined && (
             <button onClick={() => onAdjust(adjustable)} style={{
               background: "none", border: "none", cursor: "pointer", padding: "11px 0 0",
-              fontFamily: FONT_TEXT, fontSize: 13, color: DOMAIN[cat].hue, fontWeight: 600,
+              fontFamily: FONT_TEXT, fontSize: 13, color: DOMAIN[cat].ink[T.key], fontWeight: 600,
               display: "flex", alignItems: "center", gap: 5,
             }}><Pencil size={12} /> Adjust this</button>
           )}
@@ -1136,7 +1143,7 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         {fmt(ph.start)} to {fmt(ph.end)}, sleep protected from {fmt(ph.sleepStart)}.
       </p>
 
-      <Eyebrow T={T}>Tonight's timeline</Eyebrow>
+      <Eyebrow T={T} as="h2">Tonight's timeline</Eyebrow>
       <TimelinePreview T={T} profile={profile} ph={ph} />
       <p style={{
         fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "0 4px 22px",
@@ -1146,7 +1153,7 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
 
       {/* three groups, not seven: sleep and caffeine are one decision, rest and
           movement are one, light and food are one */}
-      <Eyebrow T={T}>Why these choices</Eyebrow>
+      <Eyebrow T={T} as="h2">Why these choices</Eyebrow>
       <Section T={T} onAdjust={onAdjust} cat="sleep" adjustable={0}
         title="Sleep and caffeine"
         body={`${r.sleepAnchor} ${r.caffeine.b}`}
@@ -1159,7 +1166,7 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
         title="Light and food"
         body={`${r.light.b} ${r.food.b}`} />
 
-      <Eyebrow T={T}>Plan details</Eyebrow>
+      <Eyebrow T={T} as="h2">Plan details</Eyebrow>
       <Card T={T} style={{ padding: "6px 18px 14px", marginBottom: 18 }}>
         <Row T={T} k="Plan type" v={r.p.type} />
         <Row T={T} k="Main focus" v={r.p.focus} />
@@ -1310,9 +1317,9 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
         border: current ? `1.5px solid ${tint(d.hue, 0.5)}` : (T.key === "dark" ? `1px solid ${T.hair}` : "none"),
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{
-            fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
-          }}>{item.title}</span>
+          <h2 style={{
+            fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink, margin: 0,
+          }}>{item.title}</h2>
           {/* the circadian low used to label a whole phase band; with a flat
               list it belongs on the items it actually covers */}
           {inDeepNight && (
@@ -1335,7 +1342,7 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
             padding: "9px 11px", borderRadius: 12, background: tint(d.hue, 0.11),
           }}>
             <ArrowCounterClockwise size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
-            <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.hue, fontWeight: 500 }}>
+            <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.ink[T.key], fontWeight: 500 }}>
               {item.changed}
             </span>
           </div>
@@ -1731,7 +1738,7 @@ function LogTab({
         For something happening right now, the plus button is faster.
       </p>
 
-      <Eyebrow T={T}>Add with your own time</Eyebrow>
+      <Eyebrow T={T} as="h2">Add with your own time</Eyebrow>
       <Card T={T} style={{ marginBottom: 24 }}>
         {/* thirteen pills wrapped to five rows before the time picker was even
             visible; one select keeps the whole control above the fold */}
@@ -1775,7 +1782,7 @@ function LogTab({
         </div>
       </Card>
 
-      <Eyebrow T={T}>Today's timeline</Eyebrow>
+      <Eyebrow T={T} as="h2">Today's timeline</Eyebrow>
       {entries.length === 0 && (
         <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.faint, lineHeight: 1.5, marginBottom: 24 }}>
           Nothing logged yet. Anything you record reshapes the rest of the plan.
@@ -1846,7 +1853,7 @@ function LogTab({
                     style={{
                       width: "100%", padding: "11px 13px", borderRadius: 13, marginBottom: 10,
                       border: `1px solid ${T.hair}`, background: "transparent", color: T.ink,
-                      fontFamily: FONT_TEXT, fontSize: 14.5, outline: "none",
+                      fontFamily: FONT_TEXT, fontSize: 14.5,
                     }} />
                   <div style={{ display: "flex", gap: 8 }}>
                     <Btn T={T} kind="quiet" style={{ flex: 1, fontSize: 13.5 }} onClick={() => {
@@ -1866,7 +1873,7 @@ function LogTab({
 
       {pattern.length > 0 && (
         <>
-          <Eyebrow T={T}>Today's pattern</Eyebrow>
+          <Eyebrow T={T} as="h2">Today's pattern</Eyebrow>
           <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
             {pattern.map((pp, k) => (
               <div key={pp} style={{
@@ -1886,7 +1893,7 @@ function LogTab({
 
       {changes.length > 0 && (
         <>
-          <Eyebrow T={T}>What your logs changed</Eyebrow>
+          <Eyebrow T={T} as="h2">What your logs changed</Eyebrow>
           <Card T={T} style={{ padding: "6px 18px", marginBottom: 24 }}>
             {changes.map((c, k) => (
               <div key={c} style={{
@@ -1901,7 +1908,7 @@ function LogTab({
         </>
       )}
 
-      <Eyebrow T={T}>Daily reflection</Eyebrow>
+      <Eyebrow T={T} as="h2">Daily reflection</Eyebrow>
       <ReflectionBlock T={T} reflection={reflection} setReflection={setReflection}
         push={push} profile={profile} setProfile={setProfile} say={say} />
     </div>
@@ -1940,7 +1947,7 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
                 {on && (
                   <span style={{
                     fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
-                    textTransform: "uppercase", color: hue, background: tint(hue, 0.14),
+                    textTransform: "uppercase", color: DOMAIN[c.cat].ink[T.key], background: tint(hue, 0.14),
                     padding: "3px 7px", borderRadius: 999,
                   }}>Suggested</span>
                 )}
@@ -1951,7 +1958,7 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
             </div>
             <span style={{
               fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
-              color: DOMAIN.caffeine.hue, whiteSpace: "nowrap",
+              color: DOMAIN.caffeine.ink[T.key], whiteSpace: "nowrap",
             }}>{c.mins} min</span>
             <div style={{
               width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: T.ink,
@@ -1998,6 +2005,7 @@ function ProfileSheet({
   const badges = achievements(profile, logs, history);
   /* two taps, because this erases a profile rather than one log entry */
   const [armed, setArmed] = useState(false);
+  const ref = useOverlay(true, () => setProfileOpen(false));
   /* The filter is the validation, not a formality: `overrides` comes off a
      hand-editable blob, ADJUSTABLE[k].l on an unknown key is a white screen
      inside this sheet, and a non-number renders as NaN. */
@@ -2005,13 +2013,13 @@ function ProfileSheet({
     .filter(([k, v]) => ADJUSTABLE[k] && typeof v === "number");
 
   return (
-    <div style={{
+    <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Your profile" style={{
       position: "absolute", inset: 0, background: T.bg, zIndex: 80, overflowY: "auto",
       padding: "44px 20px 40px",
     }}>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 22 }}>
         <Display T={T} size={30} style={{ flex: 1 }}>You.</Display>
-        <button onClick={() => setProfileOpen(false)} style={{
+        <button onClick={() => setProfileOpen(false)} aria-label="Close" style={{
           width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
         }}><X size={18} color={T.ink} /></button>
@@ -2025,7 +2033,7 @@ function ProfileSheet({
         }}>
           {profile.name
             ? <span style={{
-                fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.hue,
+                fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.ink[T.key],
               }}>{profile.name.trim().charAt(0).toUpperCase()}</span>
             : <User size={24} color={DOMAIN.sleep.hue} />}
         </div>
@@ -2033,7 +2041,7 @@ function ProfileSheet({
           <input value={profile.name || ""} placeholder="Add your name"
             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
             style={{
-              width: "100%", border: "none", background: "transparent", outline: "none",
+              width: "100%", border: "none", background: "transparent",
               fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
               letterSpacing: "-0.02em", padding: 0,
             }} />
@@ -2066,7 +2074,7 @@ function ProfileSheet({
         </button>
       </div>
 
-      <Eyebrow T={T}>Your setup</Eyebrow>
+      <Eyebrow T={T} as="h2">Your setup</Eyebrow>
       <ProfileRow T={T} Icon={Pencil} hue={DOMAIN.sleep.hue} l="Edit profile"
         sub="Walk back through all seven segments"
         onClick={() => { setProfileOpen(false); setReview({ index: 0, single: false, back: "app" }); setScreen("review"); }} />
@@ -2087,7 +2095,7 @@ function ProfileSheet({
       {set.length > 0 && (
         <>
           <div style={{ height: 18 }} />
-          <Eyebrow T={T}>Plan adjustments</Eyebrow>
+          <Eyebrow T={T} as="h2">Plan adjustments</Eyebrow>
           <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
             {set.map(([k, v], i) => (
               <div key={k} style={{
@@ -2112,7 +2120,7 @@ function ProfileSheet({
       )}
 
       <div style={{ height: 18 }} />
-      <Eyebrow T={T}>Achievements</Eyebrow>
+      <Eyebrow T={T} as="h2">Achievements</Eyebrow>
       <p style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, margin: "-4px 0 12px", lineHeight: 1.45 }}>
         Earned once, kept forever. No streaks to break.
       </p>
@@ -2125,7 +2133,7 @@ function ProfileSheet({
           }}>
             {b.got
               ? <b.Icon size={19} color={b.hue} />
-              : <Lock size={19} color={T.faint} />}
+              : <Lock size={19} color={T.faint} aria-hidden={false} role="img" aria-label="Not earned yet" />}
             <div style={{
               fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink, marginTop: 9,
             }}>{b.l}</div>
@@ -2136,11 +2144,11 @@ function ProfileSheet({
         ))}
       </div>
 
-      <Eyebrow T={T}>Personalize</Eyebrow>
+      <Eyebrow T={T} as="h2">Personalize</Eyebrow>
       <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <Palette size={16} color={DOMAIN.light.hue} />
-          <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Theme</span>
+          <h3 style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, margin: 0 }}>Theme</h3>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {[
@@ -2160,7 +2168,7 @@ function ProfileSheet({
       <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <Bell size={16} color={DOMAIN.caffeine.hue} />
-          <span style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>Reminders</span>
+          <h3 style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, margin: 0 }}>Reminders</h3>
           <div style={{ flex: 1 }} />
           <button onClick={() => setProfile({
             ...profile,
@@ -2239,7 +2247,7 @@ function ProfileSheet({
       </Card>
 
       <div style={{ height: 12 }} />
-      <Eyebrow T={T}>Your data</Eyebrow>
+      <Eyebrow T={T} as="h2">Your data</Eyebrow>
       <ProfileRow T={T} Icon={DownloadSimple} hue={DOMAIN.water.hue} l="Export data"
         sub="Everything logged, as a JSON file" onClick={exportData} />
       <ProfileRow T={T} Icon={ArrowCounterClockwise} hue={DOMAIN.food.hue}
@@ -2264,7 +2272,7 @@ function ProfileSheet({
       )}
 
       <div style={{ height: 12 }} />
-      <Eyebrow T={T}>About GraveYard</Eyebrow>
+      <Eyebrow T={T} as="h2">About GraveYard</Eyebrow>
       <Card T={T} style={{ padding: 18 }}>
         <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.ink, margin: 0 }}>
           GraveYard turns your shift into a timeline. It works backward from when you
@@ -2297,8 +2305,9 @@ function Sheet({
   T, sheet, setSheet, setQuickResult, push, say, quickResult, setEditingLog,
   setTab, now, quickLog, setLogs,
 }) {
-  if (!sheet) return null;
   const close = () => { setSheet(null); setQuickResult(null); };
+  const ref = useOverlay(!!sheet, close);
+  if (!sheet) return null;
 
   if (sheet === "nap") {
     const rows = [
@@ -2311,12 +2320,12 @@ function Sheet({
         position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
         display: "flex", alignItems: "flex-end",
       }}>
-        <div onClick={(e) => e.stopPropagation()} style={{
+        <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="How did the rest go?" onClick={(e) => e.stopPropagation()} style={{
           background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
           padding: "10px 20px 26px", maxHeight: "76%", overflowY: "auto",
         }}>
           <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
-          <Display T={T} size={24} style={{ marginBottom: 16 }}>How did the rest go?</Display>
+          <Display T={T} size={24} as="h2" style={{ marginBottom: 16 }}>How did the rest go?</Display>
           {rows.map((r) => (
             <button key={r.l} onClick={() => { r.f(); close(); }} style={{
               width: "100%", textAlign: "left", padding: "15px 17px", marginBottom: 8,
@@ -2337,7 +2346,7 @@ function Sheet({
       position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60,
       display: "flex", alignItems: "flex-end",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Quick log" onClick={(e) => e.stopPropagation()} style={{
         background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
         padding: "10px 20px 26px", maxHeight: "80%", overflowY: "auto",
       }}>
@@ -2345,7 +2354,7 @@ function Sheet({
 
         {!done ? (
           <>
-            <Display T={T} size={24}>Quick log.</Display>
+            <Display T={T} size={24} as="h2">Quick log.</Display>
             <p style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.muted, margin: "8px 0 4px" }}>
               What happened just now?
             </p>
@@ -2370,7 +2379,7 @@ function Sheet({
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <Badge category={doneMeta.cat} T={T} size={42} />
               <div>
-                <Display T={T} size={24} style={{ marginBottom: 2 }}>Logged.</Display>
+                <Display T={T} size={24} as="h2" style={{ marginBottom: 2 }}>Logged.</Display>
                 <div style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.muted }}>
                   {doneMeta.l} at {fmt(now)}
                 </div>
@@ -2410,6 +2419,8 @@ function AdjustSheet({
   T, adjusting, setAdjusting, plan, profile, adjustDraft, setAdjustDraft,
   logs, now, setProfile, say, setReview, setScreen, onAct,
 }) {
+  const close = () => { setAdjusting(null); setAdjustDraft({}); };
+  const ref = useOverlay(!!adjusting, close);
   if (!adjusting) return null;
   const item = plan.items.find((i) => i.id === adjusting);
   if (!item || !item.adjust) return null;
@@ -2429,14 +2440,12 @@ function AdjustSheet({
     setAdjustDraft({ ...adjustDraft, [a.key]: next });
   };
 
-  const close = () => { setAdjusting(null); setAdjustDraft({}); };
-
   return (
     <div onClick={close} style={{
       position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 70,
       display: "flex", alignItems: "flex-end",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Adjust ${item.title}`} onClick={(e) => e.stopPropagation()} style={{
         background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
         padding: "10px 20px 26px", maxHeight: "84%", overflowY: "auto",
       }}>
@@ -2445,8 +2454,8 @@ function AdjustSheet({
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
           <Badge category={item.category} T={T} size={40} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
-              letterSpacing: "-0.02em" }}>{item.title}</div>
+            <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontWeight: 700, color: T.ink,
+              letterSpacing: "-0.02em", margin: 0 }}>{item.title}</h2>
             <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>
               {previewItem.at === item.at
                 ? `Currently ${fmt(item.at)}`
@@ -2474,7 +2483,7 @@ function AdjustSheet({
                 }}>−</button>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <div style={{
-                    fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 700, color: d.hue,
+                    fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 700, color: d.ink[T.key],
                     fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em",
                   }}>{spec.decimals ? val.toFixed(1) : Math.round(val)}</div>
                   <div style={{ fontFamily: FONT_TEXT, fontSize: 12, color: T.faint, marginTop: 1 }}>
@@ -2623,6 +2632,7 @@ export default function App() {
   const [timeEdit, setTimeEdit] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
   const [shownScreen, screenAnim] = useScreenSwap(screen);
+  const timeEditRef = useOverlay(!!timeEdit, () => setTimeEdit(null));
 
   /* nightOf reads the wake boundary out of the profile, so editing your shift
      or sleep times can change which night the current clock belongs to. That is
@@ -2927,7 +2937,7 @@ export default function App() {
           color: T.ink,
         }}>graveyard.</span>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setProfileOpen(true)} style={{
+        <button onClick={() => setProfileOpen(true)} aria-label="Profile" style={{
           width: 38, height: 38, borderRadius: 19, border: "none", cursor: "pointer",
           background: tint(DOMAIN.sleep.hue, T.tintA),
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -2960,15 +2970,19 @@ export default function App() {
         {tab === "live" && <LiveTab T={T} profile={planProfile} plan={plan} now={now} setPlaying={setPlaying} />}
       </div>
 
-      {toast && (
-        <div style={{
-          position: "absolute", left: 20, right: 20, bottom: 96, zIndex: 50,
-          background: T.key === "warm" ? T.hero : T.card, color: T.key === "warm" ? T.heroInk : T.ink,
-          borderRadius: 18, padding: "14px 17px", fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.4,
-          border: T.key === "dark" ? `1px solid ${T.hair}` : "none",
-          boxShadow: "0 8px 26px rgba(0,0,0,0.18)",
-        }}>{toast}</div>
-      )}
+      {/* mounted up front, always — a live region that appears together with its text isn't reliably announced */}
+      <div role="status" aria-live="polite" style={{
+        position: "absolute", left: 20, right: 20, bottom: 96, zIndex: 50, pointerEvents: "none",
+      }}>
+        {toast && (
+          <div style={{
+            background: T.key === "warm" ? T.hero : T.card, color: T.key === "warm" ? T.heroInk : T.ink,
+            borderRadius: 18, padding: "14px 17px", fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.4,
+            border: T.key === "dark" ? `1px solid ${T.hair}` : "none",
+            boxShadow: "0 8px 26px rgba(0,0,0,0.18)",
+          }}>{toast}</div>
+        )}
+      </div>
 
       {/* tab bar, pinned */}
       <div style={{
@@ -2979,7 +2993,7 @@ export default function App() {
         display: "flex", alignItems: "center", justifyContent: "space-around", padding: "0 8px",
       }}>
         {TABS.slice(0, 2).map((t) => <TabBtn key={t.k} t={t} T={T} tab={tab} setTab={setTab} />)}
-        <button onClick={() => setSheet("log")} style={{
+        <button onClick={() => setSheet("log")} aria-label="Quick log" style={{
           width: 54, height: 54, borderRadius: 27, background: T.ink, border: "none",
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
           marginTop: -14, boxShadow: "0 6px 18px rgba(0,0,0,0.22)",
@@ -3027,12 +3041,12 @@ export default function App() {
             position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 95,
             display: "flex", alignItems: "flex-end",
           }}>
-            <div onClick={(e) => e.stopPropagation()} style={{
+            <div ref={timeEditRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={timeEdit === "shift" ? "Shift time" : "Sleep time"} onClick={(e) => e.stopPropagation()} style={{
               background: T.bg, width: "100%", borderRadius: "28px 28px 0 0",
               padding: "10px 20px 26px", maxHeight: "86%", overflowY: "auto",
             }}>
               <div style={{ width: 38, height: 5, borderRadius: 3, background: T.hair, margin: "6px auto 18px" }} />
-              <Display T={T} size={24} style={{ marginBottom: 6 }}>
+              <Display T={T} size={24} as="h2" style={{ marginBottom: 6 }}>
                 {timeEdit === "shift" ? "Shift time." : "Sleep time."}
               </Display>
               <p style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.faint, margin: "0 0 16px" }}>

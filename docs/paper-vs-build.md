@@ -37,40 +37,67 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 
 ## 2. Accessibility
 
-### 2.1 Contrast remediation — **declared, with measured values**
+This section was re-checked against the source on 2026-08-18, after the
+accessibility work described in `docs/accessibility.md`. The rest of the
+document still reflects commit `e8db150`.
+
+The direction of the discrepancy has now inverted for three of these: the build
+does the thing and the paper still says it does not. That is the safer failure,
+but it is still a discrepancy, and a panelist reading Ch. III against a live
+demo will find it.
+
+### 2.1 Contrast remediation — **closed; paper now understates the build**
 
 - **Paper**: Ch. III, first audit finding — "2.51:1 in the light theme and 3.17:1 in the dark theme… remediation is outstanding rather than complete."
-- **Build**: unchanged in `src/tokens.js`. Measured:
+- **Build**: remediated in `src/tokens.js`. Every text token now clears 4.5:1 against the darkest surface it is actually used on:
 
-| Token | Value | On surface | Ratio | AA body text (4.5:1) |
+| Token | Was | Now | Binding surface | Ratio |
 |---|---|---|---|---|
-| `WARM.faint` | `#A9A398` | card `#FFFFFF` | **2.51** | fail |
-| `WARM.faint` | `#A9A398` | bg `#F2F0EA` | **2.20** | fail |
-| `DARK.faint` | `#6E6B76` | card `#1E1E26` | **3.17** | fail |
-| `DARK.faint` | `#6E6B76` | bg `#121218` | **3.58** | fail |
-| `WARM.muted` | `#78736A` | bg `#F2F0EA` | **4.13** | fail |
-| `WARM.muted` | `#78736A` | card `#FFFFFF` | 4.71 | pass |
-| `DARK.muted` | `#96939E` | card `#1E1E26` | 5.49 | pass |
+| `WARM.faint` | `#A9A398` | `#6F6B63` | bg `#F2F0EA` | 2.20 → **4.65** |
+| `WARM.muted` | `#78736A` | `#6A655D` | sunken `#EAE7DF` | 3.81 → **4.68** |
+| `DARK.faint` | `#6E6B76` | `#8A8790` | card `#1E1E26` | 3.17 → **4.69** |
+| `DARK.muted` | `#96939E` | unchanged | card `#1E1E26` | 5.49 |
 
-- **Note**: the earlier draft claimed this "was adjusted." It was not. The paper now says so.
-- **Also not yet in the paper**: `WARM.muted` on `bg` at 4.13:1. It is used for the intro paragraphs on both the Reflection and Care screens (`src/App.jsx:1729`, `:1918`), which sit on `T.bg`. Add it to the finding or fix the token.
+- **Correction to the earlier draft of this section**: it named `bg` as `WARM.muted`'s worst ground at 4.13:1. The real floor is `sunken` at 3.81:1 — the token also prints the logged-count badge (`src/App.jsx:1497`) and two intro paragraphs on `T.sunken`. Fixed against that.
+- **Guarded**: `src/tokens.test.js` asserts the full table in both themes, so the palette cannot regress silently.
+- **To close in the paper**: the finding must be rewritten as remediated, with the post-fix figures. As written it concedes a failure the build no longer has.
 
-### 2.2 Reduced motion — **declared**
+### 2.2 Reduced motion — **closed; this section was itself stale**
 
 - **Paper**: third audit finding — "the prototype does not honor the operating system's reduced-motion preference."
-- **Build**: no `prefers-reduced-motion` anywhere in `src/`. The `CarePlayer` circle transitions on every interval (`src/App.jsx:156–160`), and `screenAnim` animates tab changes.
-- **Mitigation already present and claimed**: the pause control (`src/App.jsx:191`) satisfies the moving-content criterion. That part is true.
+- **Build**: honored. `index.html` carries a `@media (prefers-reduced-motion: reduce)` block that stops the ambient animations and collapses the transitions.
+- **Why the earlier entry said otherwise**: it grepped `src/` only. The app's sole global stylesheet lives in `index.html`, outside that path. Recorded here because the same blind spot would hide any future global CSS.
+- **Mitigation also present and correctly claimed**: the pause control satisfies the moving-content criterion independently.
+- **To close in the paper**: same as 2.1 — the finding needs restating as remediated.
 
-### 2.3 Domain hue used as text colour — **undeclared**
+### 2.3 Domain hue used as text colour — **closed**
 
-- **Build**: the Care screen renders the duration label in `DOMAIN.caffeine.hue` on card (`src/App.jsx:1952–1955`) = **3.94:1**, below 4.5:1 for normal-size text. Other domain hues on the light card: `light` 2.30, `water` 2.99, `movement` 3.00, `food` 3.37.
-- **Status**: a fourth genuine finding the paper does not mention. Domain hues are safe as *icon and accent* fills; they are not safe as small text.
+- **Was**: the Care screen rendered its duration label in `DOMAIN.caffeine.hue` on card at **3.94:1**. Other hues on the light card: `light` 2.30, `water` 2.99, `movement` 3.00, `food` 3.37.
+- **Build**: each domain now carries an `ink` value per theme alongside `hue`, calibrated against the tinted chip — the worst ground any of them prints on, worse than plain card. Twelve `color:` call sites moved over. The `hue` values are unchanged and still used for icons, meters, chips and `tint()` washes, where the 3:1 non-text floor applies.
+- **One further failure found and fixed in passing**: `RangeControl`'s "Trends" chip printed `T.bg` on `DOMAIN.sleep.hue` at 4.44:1 warm and **3.69:1** dark.
+- **Status**: this was never in the paper. It can now be added as a *finding that was remediated*, which reads better than either omitting it or conceding it open.
 
 ### 2.4 WCAG-EM audit artifact — **procedure described, artifact missing**
 
 - **Paper**: Ch. III now describes a preliminary review followed by a structured WCAG-EM evaluation "recorded in its report format."
 - **Build**: no report exists. The contrast numbers above were computed for this document; nothing is stored in the repo.
-- **To close**: run the WCAG-EM Report Tool over the implemented screens and put the output in an appendix. The scope statement must name only the four built screens.
+- **Status**: unchanged, but the reason to defer has expired. The argument was that auditing against a long list of known failures would only document them a second time. That list is now five items, three of them two-line fixes (see 2.5).
+- **To close**: fix 2.5's items 1 to 3, then run the WCAG-EM Report Tool over the implemented screens and put the output in an appendix. The scope statement must name only the four built screens.
+
+### 2.5 Remaining AA gaps — **undeclared**
+
+Five open items, listed in full with priorities and rationale in `docs/accessibility.md`. Summarised here because the paper asserts a WCAG 2.2 AA target and these are what stands between the build and that claim:
+
+| # | Gap | Criterion | Where |
+|---|---|---|---|
+| 1 | Care cards and log rows are `div`/`Card` with `onClick`, not buttons — not keyboard operable | 2.1.1 **A** | `src/App.jsx:1932`, `:1804` |
+| 2 | Six raw `<select>` time controls have no label | 3.3.2 / 4.1.2 **A** | `src/App.jsx:1764`–`:1775`, `:1829`–`:1844` |
+| 3 | `Pill` lacks `aria-pressed`; `Section`'s disclosure lacks `aria-expanded` | 4.1.2 **A** | `src/ui/index.jsx:115`, `src/App.jsx:1029` |
+| 4 | No announcement on screen change | 4.1.3 **AA** | route level; worst at `src/App.jsx:1201` |
+| 5 | Empty-night labels in the day strip print at ~1.08:1 | 1.4.3 **AA** | `DayChip`, `src/ui/index.jsx` |
+
+- **The sharpest of these is item 1**: the care activity card is the only route into the care player, so a keyboard or Switch Control user cannot start a care session at all — on the screen that is the paper's central design contribution.
+- **Items 1 to 3 are all Level A**, and all three are places where a shared component already does the right thing and a hand-rolled call site does not. Small diffs.
 
 ---
 
@@ -126,7 +153,8 @@ Verification that **is** real: `planner.test.js`, `stats.test.js`, `time.test.js
 ## Priority
 
 1. **1.3 reminders** — the only undeclared gap large enough to be challenged on its own.
-2. **2.3 hue-as-text** — one more measured finding, cheap to add, strengthens the audit.
-3. **2.1 / 2.2** — declared open; fixing the tokens and adding a `prefers-reduced-motion` guard would let both findings be reported as closed.
-4. **3.1** — `src`/`why` on `CARE` is a small diff and removes the only place where a recommendation escapes the traceability claim.
-5. **6** — the Esteves year is a two-minute check that a panelist can catch in one.
+2. **2.5 items 1–3** — three Level A failures, all small diffs, and the last thing standing between the build and a clean audit. Item 1 is the one to fix first: it locks keyboard users out of the care player entirely.
+3. **2.1 / 2.2 / 2.3** — all three are now fixed in the build and still conceded in Ch. III. Rewriting them as remediated findings, with the post-fix figures, turns the audit section from a list of admissions into a list of closures. Cheapest defensive win in the document.
+4. **2.4** — run the WCAG-EM tool once 2 lands, and the procedure the paper describes becomes a procedure that was followed.
+5. **3.1** — `src`/`why` on `CARE` is a small diff and removes the only place where a recommendation escapes the traceability claim.
+6. **6** — the Esteves year is a two-minute check that a panelist can catch in one.
