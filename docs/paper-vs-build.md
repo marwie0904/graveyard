@@ -74,7 +74,8 @@ demo will find it.
 
 - **Was**: the Care screen rendered its duration label in `DOMAIN.caffeine.hue` on card at **3.94:1**. Other hues on the light card: `light` 2.30, `water` 2.99, `movement` 3.00, `food` 3.37.
 - **Build**: each domain now carries an `ink` value per theme alongside `hue`, calibrated against the tinted chip — the worst ground any of them prints on, worse than plain card. Twelve `color:` call sites moved over. The `hue` values are unchanged and still used for icons, meters, chips and `tint()` washes, where the 3:1 non-text floor applies.
-- **One further failure found and fixed in passing**: `RangeControl`'s "Trends" chip printed `T.bg` on `DOMAIN.sleep.hue` at 4.44:1 warm and **3.69:1** dark.
+- **Two further failures found and fixed in passing**: `RangeControl`'s "Trends" chip printed `T.bg` on `DOMAIN.sleep.hue` at 4.44:1 warm and **3.69:1** dark; and the "Circadian low" badge (`src/App.jsx:1328`) carried a hardcoded `#6C6BE8` at **4.28:1** warm and **3.87:1** dark, theme-blind, now reading from the sleep `ink` at 6.62 and 6.04.
+- **Worth recording as method, not just result**: the badge was missed by both the palette sweep and `src/tokens.test.js`, because neither can see a hex literal written into a component — one matched token-shaped expressions, the other iterates the token table. It surfaced only when every rendered text node was measured against its actual painted background in the running app. A second test now bans non-white colour literals outside `tokens.js`. If the WCAG-EM evaluation in 2.4 is run from the source alone, it will inherit the same blind spot.
 - **Status**: this was never in the paper. It can now be added as a *finding that was remediated*, which reads better than either omitting it or conceding it open.
 
 ### 2.4 WCAG-EM audit artifact — **procedure described, artifact missing**
@@ -90,13 +91,13 @@ Five open items, listed in full with priorities and rationale in `docs/accessibi
 
 | # | Gap | Criterion | Where |
 |---|---|---|---|
-| 1 | Care cards and log rows are `div`/`Card` with `onClick`, not buttons — not keyboard operable | 2.1.1 **A** | `src/App.jsx:1932`, `:1804` |
+| 1 | Whole Care screen is keyboard-dead: 6 focusables, none of them its 5 activity rows or play controls | 2.1.1 **A** | `src/App.jsx:1932`, `:1804` |
 | 2 | Six raw `<select>` time controls have no label | 3.3.2 / 4.1.2 **A** | `src/App.jsx:1764`–`:1775`, `:1829`–`:1844` |
 | 3 | `Pill` lacks `aria-pressed`; `Section`'s disclosure lacks `aria-expanded` | 4.1.2 **A** | `src/ui/index.jsx:115`, `src/App.jsx:1029` |
 | 4 | No announcement on screen change | 4.1.3 **AA** | route level; worst at `src/App.jsx:1201` |
 | 5 | Empty-night labels in the day strip print at ~1.08:1 | 1.4.3 **AA** | `DayChip`, `src/ui/index.jsx` |
 
-- **The sharpest of these is item 1**: the care activity card is the only route into the care player, so a keyboard or Switch Control user cannot start a care session at all — on the screen that is the paper's central design contribution.
+- **The sharpest of these is item 1**, and it measured worse than it reads. The Care screen exposes six focusable elements — the profile button and the five tab-bar buttons. Its five activity rows are not focusable and neither are the five circular play controls inside them, which look like buttons and are not. A keyboard or Switch Control user who lands on the screen that is the paper's central design contribution can do one thing: leave it.
 - **Items 1 to 3 are all Level A**, and all three are places where a shared component already does the right thing and a hand-rolled call site does not. Small diffs.
 
 ---

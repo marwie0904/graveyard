@@ -105,3 +105,21 @@ describe("the contrast helper", () => {
     expect(ratio(rgb("#000000"), rgb("#FFFFFF"))).toBe(21);
   });
 });
+
+/* The table above can only guard colours that are in the table. A hex written
+   straight into a component is invisible to it and to the sweep that moved the
+   domain hues over — which is exactly how a 4.28:1 "Circadian low" badge
+   survived both. White is the one honest literal: it is the label colour on a
+   filled accent, where the fill is the token being checked. */
+describe("no colour escapes the token table", () => {
+  it("has no hardcoded text colour outside tokens.js", async () => {
+    const { readFileSync } = await import("node:fs");
+    const files = ["App.jsx", "ui/index.jsx", "screens/Dashboard.jsx"];
+    const offenders = files.flatMap((f) =>
+      readFileSync(new URL(f, import.meta.url), "utf8").split("\n")
+        .map((line, i) => ({ line: line.trim(), at: `${f}:${i + 1}` }))
+        .filter(({ line }) => /color: *"#/.test(line) && !/#FFFFFF|#FFF"/i.test(line))
+        .map(({ line, at }) => `${at}  ${line}`));
+    expect(offenders).toEqual([]);
+  });
+});

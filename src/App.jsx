@@ -1325,8 +1325,8 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
           {inDeepNight && (
             <span style={{
               fontFamily: FONT_TEXT, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-              textTransform: "uppercase", color: "#6C6BE8",
-              background: tint("#6C6BE8", 0.14), padding: "3px 8px", borderRadius: 999,
+              textTransform: "uppercase", color: DOMAIN.sleep.ink[T.key],
+              background: tint(DOMAIN.sleep.hue, 0.14), padding: "3px 8px", borderRadius: 999,
             }}>Circadian low</span>
           )}
         </div>

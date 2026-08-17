@@ -14,6 +14,15 @@ discrepancies live in `docs/paper-vs-build.md` §2.
 
 ## Implemented
 
+Each item below was checked in a browser on 2026-08-18, not only against the
+source: focus order and ring by keyboard, the trap by tabbing past the last
+control in both directions, the countdown by sampling the live region over
+several seconds, the heading outlines through the rendered document, and
+contrast by measuring every rendered text node against the surface behind it in
+both themes. That last sweep is what caught the `#6C6BE8` badge below — a
+hardcoded colour is invisible to a test that iterates the token table, so the
+table-based guard and a rendered sweep catch different things.
+
 - **Reduced motion is honored.** The operating system's reduce-motion setting
   switches off the ambient animations and collapses every transition, including
   the breathing circle on the care screen.
@@ -23,7 +32,12 @@ discrepancies live in `docs/paper-vs-build.md` §2.
   carry a separate `ink` value per theme for use as text; the original `hue`
   stays as the icon, meter, chip and wash fill, where the 3:1 non-text floor
   applies. `src/tokens.test.js` asserts the whole table in both themes, so the
-  palette cannot drift back.
+  palette cannot drift back. The "Circadian low" badge was the one colour that
+  escaped both the palette sweep and that guard, because it was a hex written
+  straight into the component (`#6C6BE8`, 4.28:1 warm and 3.87:1 dark, and not
+  theme-aware at all); it now reads from the sleep `ink`, and a second test bans
+  non-white colour literals outside `tokens.js` so the next one cannot hide the
+  same way.
 - **Changing content is announced.** The status region is mounted for the life
   of the app and only its text changes — a region that appears together with
   its message is not reliably read out. Every confirmation already routed
@@ -83,17 +97,29 @@ thing and one or two hand-rolled call sites did not.
 
 ### 1. Click targets that are not buttons — 2.1.1, Level A
 
-The care activity cards (`src/App.jsx:1932`) and the log rows on the reflection
+The care activity rows (`src/App.jsx:1932`) and the log rows on the reflection
 screen (`src/App.jsx:1804`) are a `Card` and a `div` with an `onClick`. They are
 not focusable, not operable from a keyboard, and not announced as controls.
 
+Measured in the browser rather than inferred: **the whole Care screen exposes
+six focusable elements — the profile button and the five tab-bar buttons.** All
+five activity rows are non-focusable, and so are the five circular play controls
+inside them, which look like buttons and are not. A keyboard or Switch Control
+user who lands on that screen can do exactly one thing: leave it.
+
 **Why:** first on the list because it is a Level A keyboard failure on the
 app's two main interaction paths, and because of what it makes unreachable —
-the care activity card is the only way into the care player, so a keyboard or
+the care activity row is the only way into the care player, so a keyboard or
 Switch Control user cannot start a session at all. The focus trap that screen
 now has is behind a door they cannot open. The log row is the reflection
 screen's only way to correct an entry. Both are the same fix: a real button,
 which the rest of the app already uses everywhere.
+
+**One knock-on, which closes with this item and not before:** because the
+opener is not focusable, the care player's overlay has nothing to return focus
+to, so closing it drops focus to `body`. The hook is behaving correctly — it
+restores what it was given. Making the row a button gives it something to
+restore.
 
 ### 2. Unlabelled time controls — 3.3.2 and 4.1.2, Level A
 
