@@ -116,6 +116,11 @@
       .gy-step .gy-list > *:nth-child(6) { animation-delay: 315ms; }
       .gy-step .gy-list > *:nth-child(n + 7) { animation-delay: 360ms; }
 
+      /* Placeholders are the one text colour the theme cannot reach inline,
+         so the field passes its own token down and this reads it. Without the
+         opacity reset Firefox dims it below the contrast floor. */
+      input::placeholder { color: var(--gy-placeholder, #6F6B63); opacity: 1; }
+
       .gy-step-out { animation: gy-step-out 190ms ease-in both; }
       @keyframes gy-step-out { to { opacity: 0; transform: translateY(-14px); } }
 

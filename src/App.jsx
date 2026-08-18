@@ -346,7 +346,8 @@ function Welcome({ onNext }) {
         <p style={{
           fontFamily: FONT_TEXT, fontSize: 15, lineHeight: 1.5, color: T.faint, marginTop: 14,
         }}>
-          Fourteen quick questions. Then get a plan you can adjust.
+          Thirteen quick questions, and the first one is optional.
+          Then get a plan you can adjust.
         </p>
       </div>
       <div style={{ flex: 1, minHeight: 24 }} />
@@ -369,6 +370,26 @@ function Disclaimer({ onNext, onBack }) {
           research-informed principles. It does not provide medical advice, diagnosis,
           or treatment. For health conditions, medications, supplements, sleep disorders,
           or persistent fatigue, consult a qualified healthcare professional.
+        </p>
+      </Card>
+
+      {/* Deliberately not "nothing is saved": it is saved, to localStorage,
+          which is what survives the reload. The honest claim is the narrower
+          one — it never leaves the device — and onboarding.test.js holds the
+          codebase to it by failing on the first fetch anyone adds. */}
+      <Card T={T} style={{ marginTop: 12, padding: 20 }}>
+        <Eyebrow T={T}>Stored on this device</Eyebrow>
+        <p style={{
+          fontFamily: FONT_TEXT, fontSize: 15.5, lineHeight: 1.55, color: T.ink, margin: 0,
+        }}>
+          Everything you enter stays in this browser, on this device. There is no
+          account, no server, and no analytics — nothing you enter is ever sent
+          anywhere.
+        </p>
+        <p style={{
+          fontFamily: FONT_TEXT, fontSize: 14, lineHeight: 1.5, color: T.muted, margin: "10px 0 0",
+        }}>
+          Clearing your browser data clears your plan with it.
         </p>
       </Card>
       <div style={{ flex: 1, minHeight: 24 }} />
@@ -441,6 +462,15 @@ function TimeWheel({ T, value, onChange }) {
 }
 
 const QUESTIONS = [
+  /* Optional, and optional for free: canNext only ever gates on `multi`, so a
+     text question is skippable without a skip button. Nothing in the plan
+     reads it — it is only ever the greeting on your own profile card. */
+  {
+    key: "name", kind: "text", eyebrow: "First things first",
+    q: "What should we call you?",
+    help: "Optional. It only ever appears on your own profile, on this device.",
+    placeholder: "Your name",
+  },
   { key: "shiftStart", kind: "time", q: "What time does your shift start?", help: "Everything else is calculated from this." },
   { key: "shiftEnd", kind: "time", q: "What time does it end?" },
   { key: "plannedSleep", kind: "time", q: "What time do you plan to sleep after work?", help: "Caffeine, light, and food timing are worked backward from here." },
@@ -580,7 +610,7 @@ function Quiz({ onDone, onBack }) {
         flex: 1, minHeight: 0, display: "flex", flexDirection: "column",
       }}>
       <div style={{ textAlign: "center" }}>
-        <Eyebrow T={T}>{q.part === 2 ? "How you work the night" : "Your shift"}</Eyebrow>
+        <Eyebrow T={T}>{q.eyebrow || (q.part === 2 ? "How you work the night" : "Your shift")}</Eyebrow>
         <Display T={T} size={28}>{q.q}</Display>
         {q.help && (
           <p style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.muted, marginTop: 10, lineHeight: 1.45 }}>{q.help}</p>
@@ -588,7 +618,22 @@ function Quiz({ onDone, onBack }) {
       </div>
 
       <div style={{ marginTop: 24, flex: 1, overflowY: "auto" }}>
-        {q.kind === "time" ? (
+        {q.kind === "text" ? (
+          /* Same card-on-sunken field the profile sheet already uses for this
+             exact value, so the one place you can edit it later looks like the
+             place you first typed it. */
+          <div style={{ background: T.card, borderRadius: 22, padding: "18px 20px" }}>
+            <input value={a[q.key] || ""} placeholder={q.placeholder} autoFocus
+              aria-label={q.q} enterKeyHint="next"
+              onChange={(e) => setA({ ...a, [q.key]: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter" && canNext) next(); }}
+              style={{
+                width: "100%", border: "none", background: "transparent", outline: "none",
+                fontFamily: FONT_DISPLAY, fontSize: 26, fontWeight: 700, color: T.ink,
+                letterSpacing: "-0.02em", padding: 0, "--gy-placeholder": T.faint,
+              }} />
+          </div>
+        ) : q.kind === "time" ? (
           <div>
             <TimeWheel T={T} value={a[q.key]} onChange={(v) => setA({ ...a, [q.key]: v })} />
             <div style={{
@@ -2035,7 +2080,7 @@ function ProfileSheet({
           background: tint(DOMAIN.sleep.hue, T.tintA + 0.06),
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {profile.name
+          {profile.name?.trim()
             ? <span style={{
                 fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.ink[T.key],
               }}>{profile.name.trim().charAt(0).toUpperCase()}</span>
@@ -2779,7 +2824,10 @@ export default function App() {
   };
 
   const finishQuiz = (a) => {
-    const p = { ...a, chronotype: "neither" };
+    /* Trimmed here and not on keystroke: the profile sheet edits the same
+       field live, where eating a trailing space would stop you typing a name
+       with two words in it. */
+    const p = { ...a, name: (a.name || "").trim(), chronotype: "neither" };
     setProfile(p);
     setNow(nightOf(calculateShiftPhases(p)).now);
     setScreen("generating");
