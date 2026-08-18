@@ -8,6 +8,7 @@ drive*.mjs
 !drive-loop.mjs
 !drive-cite.mjs
 shot-plan.mjs
+shot-tour.mjs
 check.mjs
 docs/*.pdf
 .claude/worktrees

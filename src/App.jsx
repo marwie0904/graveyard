@@ -18,6 +18,7 @@ import { foldNight, achievements, countStretch, sleepBand } from "./stats.js";
 import { load, save, forNight, archived } from "./storage.js";
 import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice, useOverlay } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
+import Tour, { TOUR } from "./screens/Tour.jsx";
 
 /* ============================================================================
    GRAVEYARD: a planner for the night shift
@@ -2001,6 +2002,7 @@ function ProfileRow({ T, Icon, l, sub, onClick, hue }) {
 function ProfileSheet({
   T, profile, logs, history, ph, setProfileOpen, setProfile, setTimeEdit,
   themeOverride, setThemeOverride, setReview, setScreen, exportData, exportText, say,
+  startTour,
 }) {
   const badges = achievements(profile, logs, history);
   /* two taps, because this erases a profile rather than one log entry */
@@ -2081,6 +2083,9 @@ function ProfileSheet({
       <ProfileRow T={T} Icon={FileText} hue={DOMAIN.light.hue} l="Why this plan"
         sub={planSummary(profile).type}
         onClick={() => { setProfileOpen(false); setScreen("recommendation-revisit"); }} />
+      <ProfileRow T={T} Icon={Question} hue={DOMAIN.movement.hue} l="Take the tour"
+        sub="Six cards over the running app"
+        onClick={startTour} />
       <ProfileRow T={T} Icon={Bed} hue={DOMAIN.recovery.hue} l="Sleep schedule"
         sub={`${dur(profile.sleepGoalHours * 60)} from ${fmt(ph.sleepStart)}`}
         onClick={() => { setProfileOpen(false); setReview({ index: 0, single: true, back: "app" }); setScreen("review"); }} />
@@ -2617,6 +2622,10 @@ export default function App() {
   const [review, setReview] = useState({ index: 0, single: false, back: "app" });
   const [whyOpen, setWhyOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  /* null when the tour is not running, otherwise the step it is on. Not
+     persisted: the only two ways in are "Start my plan" and the profile row,
+     so nothing has to remember that it already ran. */
+  const [tourStep, setTourStep] = useState(null);
   /* Where you are standing in tonight's plan, not something you told the app:
      not persisted, and not reset at the roll. The pill names its own mode, so it
      does not need remembering. Decided, not overlooked. */
@@ -2759,6 +2768,15 @@ export default function App() {
   };
   const say = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); };
 
+  /* The tour drives the tabs rather than illustrating them, so the step and
+     the tab move together and there is only one place that decides which. */
+  const goTour = (i) => { setTourStep(i); setTab(TOUR[i].tab); };
+  const endTour = () => {
+    setTourStep(null);
+    setTab("plan");
+    say("The tour is in your profile whenever you want it again.");
+  };
+
   const finishQuiz = (a) => {
     const p = { ...a, chronotype: "neither" };
     setProfile(p);
@@ -2826,7 +2844,7 @@ export default function App() {
       <Frame T={RT} anim={screenAnim}>
         <Recommendation
           T={RT} profile={planProfile} revisit={revisit}
-          onDone={() => setScreen("app")}
+          onDone={() => { setScreen("app"); if (!revisit) goTour(0); }}
           onAdjust={(idx) => {
             setReview({ index: idx, single: true, back: shownScreen });
             setScreen("review");
@@ -3085,13 +3103,16 @@ export default function App() {
           </div>
         );
       })()}
+      {tourStep !== null && (
+        <Tour T={T} step={tourStep} onGo={goTour} onClose={endTour} />
+      )}
       {profileOpen && (
         <ProfileSheet
           T={T} profile={planProfile} logs={logs} history={history} ph={ph}
           setProfileOpen={setProfileOpen} setProfile={setProfile} setTimeEdit={setTimeEdit}
           themeOverride={themeOverride} setThemeOverride={setThemeOverride}
           setReview={setReview} setScreen={setScreen} exportData={exportData} exportText={exportText}
-          say={say}
+          say={say} startTour={() => { setProfileOpen(false); goTour(0); }}
         />
       )}
     </Frame>

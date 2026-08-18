@@ -114,7 +114,7 @@ describe("the contrast helper", () => {
 describe("no colour escapes the token table", () => {
   it("has no hardcoded text colour outside tokens.js", async () => {
     const { readFileSync } = await import("node:fs");
-    const files = ["App.jsx", "ui/index.jsx", "screens/Dashboard.jsx"];
+    const files = ["App.jsx", "ui/index.jsx", "screens/Dashboard.jsx", "screens/Tour.jsx"];
     const offenders = files.flatMap((f) =>
       readFileSync(new URL(f, import.meta.url), "utf8").split("\n")
         .map((line, i) => ({ line: line.trim(), at: `${f}:${i + 1}` }))
