@@ -1,6 +1,8 @@
 # What the Paper Contains
 
-`sample-paper.html` → clean draft (35 pp.) and annotated draft (55 pp., 32 margin comments). The full manuscript as it stands: title page, Chapters I to III, and one merged reference list. The circadian chapters as originally written are combined with the design, software-engineering and accessibility material, and the passages that describe the artifact are stated against the build as of 18 August 2026.
+`sample-paper.html` → clean draft (71 pp.) and annotated draft (102 pp., 37 margin comments). The full manuscript on the 2022 BAMS Special Project template: front matter (permission page, acceptance page, biographical sketch and acknowledgement placeholders, contents with generated page numbers, lists of tables/figures/appendices, abstract with keywords), Chapters I to V, one merged reference list of 41 entries, and two appendices. The circadian chapters as originally written are combined with the design, software-engineering and accessibility material, and every passage describing the artifact is stated against the build as of 18 August 2026.
+
+**Template alignment.** Chapter II is now *Review of Related Literature* and carries Operational Definition of Terms and a Hypotheses section (none advanced, with the reason). Chapter III adds Locale of the Study and Sampling Procedure, both stating what replaces them in a study with no human respondents. Chapter IV opens with a profile of the assessed build in place of the template's socio-demographic profile of respondents. The contents pages are filled by a two-pass build: the clean PDF is printed once, `pdftotext` reports which page each heading landed on, and those numbers are written back before the final print.
 
 ---
 
@@ -68,6 +70,28 @@ Reproduced from the original: health risks, the day-shift comparison, caffeine a
 **Verification and validation.** Boehm's split: verification is the unit tests plus a traceability check run against citation identifiers stored on each plan item, so it executes against the running system rather than hand-maintained documentation. Validation is expert heuristic review plus scenario-based testing, legitimized as taught practice and explicitly *not* offered as equivalent to user testing. The instrument adapts an existing design-analysis rubric with numerical scoring removed.
 
 **Limitations.** Testing "discloses the presence of bugs, but not their absence." Health-adjacent systems "should have a higher level of confidence," so expert review alone leaves residual risk. Acceptance testing is out of scope, so **no claim** is advanced about health outcomes or behavior change.
+
+---
+
+## Chapter IV. Results and Discussion *(new)*
+
+*Scores below reflect the nine-section review pass of 18 August 2026, which rescored E2 to band 0 against the rubric's own descriptor.*
+
+**The instrument.** An analytic rubric built for this study, since no published scale covers this combination of properties. Domain structure adapted from the **Mobile App Rating Scale** (Stoyanov et al., 2015), still in active validation (Chen et al., 2025: α = .84, ICC .68–.86); engagement dropped as inappropriate to the artifact, accessibility added because Ch. III makes conformance a requirement. Analytic rather than holistic because analytic marking narrows examiner disagreement (Yeo et al., 2024); criteria state the property rather than a quality word (Brookhart, 2018) and descriptors are written to be re-applied by a second rater (Dawson, 2017). Multimedia domain grounded in meta-analytic evidence (Noetel et al., 2022; Cromley & Chen, 2025).
+
+**Shape.** 5 domains × 4 criteria = 20 criteria, equal weights fixed before scoring, 60 points. Bands 0–3, and **band 3 requires confirmation independent of the researcher** — a measurement against a published threshold, a passing test, or a standard's success criterion. Six anti-bias safeguards, including: evidence required or the lower band is taken, measurements override judgement, and a specified-but-unbuilt feature cannot exceed band 0. Self-assessment bias is declared and cited (Deffuant et al., 2024), not waved off.
+
+**Result: 36 / 60.** Communication effectiveness 10, Interaction and usability 10, Visual design 8, Multimedia instruction 5, Accessibility 3. Four band-3 scores, all test-backed (relevance, inclusivity, error prevention, reliability); two band 0 (modality, since there is no audio or video, and keyboard operability, since the care screen cannot be reached without a pointer). Every criterion reported with its evidence in Table 6, so any score can be re-checked.
+
+**Also reported.** Traceability (25 construction sites, all cited; 10 marked design judgment; 2 navigational; 13 resting on a study) and automated verification (171 assertions, 8 modules). The discussion says plainly what the numbers mean: the timing logic is the strong half, delivery is the weak half, and 36/60 is criterion-referenced, so it supports no comparison to any other app.
+
+## Chapter V. Summary, Conclusion, and Recommendations *(new)*
+
+Summary against each of the four objectives; conclusions that the evidence-to-artifact link is enforced rather than asserted, that the weaknesses sit in delivery rather than logic, and that no claim about health outcomes is available. Five recommendations, ordered: close the three Level A findings, produce the WCAG-EM report, build reminder delivery, add the audio modality, then have the expert panel re-score the same rubric and report the divergence.
+
+## Appendices *(new)*
+
+**A.** The full rubric — 20 criteria, four band descriptors each, by domain. **B.** Scoring evidence record: interface inventory, contrast measurements, keyboard reachability, labelling and state-reporting failures, traceability counts, test coverage, and the declared-not-built list.
 
 ---
 

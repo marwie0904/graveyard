@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync, unlinkSync } from "fs";
+import { execFileSync } from "child_process";
 import { pathToFileURL } from "url";
 
 const DOCS = "/Users/a1234/Business/Graveyard/docs";
@@ -93,13 +94,66 @@ const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage();
 const pdf = { printBackground: true, preferCSSPageSize: true, format: "Letter" };
 
-// --- the paper: annotated as authored, then the clean draft ---
-await page.goto(pathToFileURL(`${DOCS}/sample-paper.html`).href, { waitUntil: "networkidle" });
-await page.pdf({ ...pdf, path: `${DOCS}/sample-paper-annotated.pdf` });
-await page.evaluate(() => {
+// --- the paper ---
+// Two passes: the clean draft is printed once to find out which page each
+// heading landed on, those numbers are written into the contents pages, and
+// both variants are printed again. Chrome has no target-counter(), and a
+// contents list with dashes in it is not a contents list.
+const clean = () => page.evaluate(() => {
   document.body.classList.remove("annotated");
   document.querySelectorAll("aside").forEach((a) => a.remove());
 });
+const load = () => page.goto(pathToFileURL(`${DOCS}/sample-paper.html`).href,
+                             { waitUntil: "networkidle" });
+
+await load();
+await clean();
+const probe = `${DOCS}/.toc-probe.pdf`;
+await page.pdf({ ...pdf, path: probe });
+
+let pages = {};
+try {
+  execFileSync("pdftotext", ["-layout", probe, `${probe}.txt`]);
+  const text = readFileSync(`${probe}.txt`, "utf8").split("\f");
+  const keys = await page.evaluate(() =>
+    [...document.querySelectorAll(".pn[data-toc]")].map((e) => [e.dataset.toc, !!e.dataset.fm]));
+  // body headings are searched only past the abstract: the contents list spills
+  // over two pages, and its own rows are typed exactly like the headings
+  const afterAbstract = text.findIndex((pg) => /^\s*ABSTRACT\s*$/m.test(pg)) + 1;
+  // a page that lists captions is not the page that carries them
+  const index = /TABLE OF CONTENTS|LIST OF TABLES|LIST OF FIGURES|LIST OF APPENDICES/i;
+  for (const [k, isFm] of new Map(keys)) {
+    const from = isFm ? 0 : afterAbstract;
+    const lit = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // a heading prints on a line of its own; a caption wraps, so fall back to a
+    // loose match that skips the listing pages rather than pointing at them
+    const exact = new RegExp(`^\\s*${lit}\\s*$`, "im");
+    const loose = new RegExp(lit, "i");
+    // chapter and front-matter headings print uppercase, contents rows do not,
+    // so the case-sensitive form separates a heading from a row pointing at it
+    const upper = new RegExp(`^\\s*${lit.toUpperCase()}\\s*$`, "m");
+    // the listing pages name themselves, so only those keys may resolve to one
+    const scope = text.slice(from);
+    const ok = (pg) => isFm || !index.test(pg);
+    let i = scope.findIndex((pg) => upper.test(pg) && ok(pg));
+    if (i < 0) i = scope.findIndex((pg) => ok(pg) && exact.test(pg));
+    if (i < 0) i = scope.findIndex((pg) => ok(pg) && loose.test(pg.replace(/\s+/g, " ")));
+    if (i >= 0) pages[k] = from + i + 1;
+  }
+  unlinkSync(`${probe}.txt`);
+} catch (e) {
+  console.warn("contents page numbers skipped:", e.message.split("\n")[0]);
+}
+unlinkSync(probe);
+
+await load();
+await page.evaluate((map) => {
+  document.querySelectorAll(".pn[data-toc]").forEach((e) => {
+    if (map[e.dataset.toc]) e.textContent = map[e.dataset.toc];
+  });
+}, pages);
+await page.pdf({ ...pdf, path: `${DOCS}/sample-paper-annotated.pdf` });
+await clean();
 await page.pdf({ ...pdf, path: `${DOCS}/sample-paper-draft.pdf` });
 
 // --- the summary, rendered from its markdown ---
