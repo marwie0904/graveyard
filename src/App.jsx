@@ -908,9 +908,12 @@ const REST_STRATEGY = {
   none: "Quiet rest, eye rest, and breathing instead of naps.",
 };
 
-/* One row per plan item the planner can emit, because the card promises the
-   item stays on your plan. Waking and the reflection are logged after the plan
-   ends, so they had rows here that pointed at nothing. */
+/* One row per field the night record measures (foldNight, stats.js), because a
+   mute switch over something the app never counts is a preference with nothing
+   behind it. That leaves out the light and wind-down nudges, the fatigue
+   check-in, and waking and the reflection, which are logged after the plan ends.
+   The commute check has no row on purpose: it is the one plan item with no skip
+   button, so it must not be mutable from here either. */
 const REMINDERS = [
   { k: "preMeal", l: "Pre-shift meal", cat: "food" },
   { k: "hydration", l: "Hydration checks", cat: "water" },
@@ -919,12 +922,6 @@ const REMINDERS = [
   { k: "movement", l: "Movement resets", cat: "movement" },
   { k: "rest", l: "Rest block", cat: "sleep" },
   { k: "snack", l: "Planned snack", cat: "food" },
-  { k: "lightUp", l: "Alertness lighting", cat: "light" },
-  { k: "lightDown", l: "Light reduction", cat: "light" },
-  { k: "eyes", l: "Eye breaks", cat: "light" },
-  { k: "checkin", l: "Fatigue check-in", cat: "recovery" },
-  { k: "commute", l: "Commute safety check", cat: "recovery" },
-  { k: "windDown", l: "Wind-down", cat: "sleep" },
   { k: "sleepWindow", l: "Sleep window", cat: "sleep" },
 ];
 

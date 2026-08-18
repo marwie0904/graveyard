@@ -1,10 +1,20 @@
 # What the Paper Contains
 
-`sample-paper.html` → clean draft (14 pp.) and annotated draft (23 pp., 27 margin comments). Two chapter excerpts, not the full manuscript: Chapter II's design-foundations half, Chapter III's development and validation half. Circadian content from Chapters I and II is referenced, not reproduced.
+`sample-paper.html` → clean draft (35 pp.) and annotated draft (55 pp., 32 margin comments). The full manuscript as it stands: title page, Chapters I to III, and one merged reference list. The circadian chapters as originally written are combined with the design, software-engineering and accessibility material, and the passages that describe the artifact are stated against the build as of 18 August 2026.
+
+---
+
+## Chapter I. Introduction
+
+Reproduced from the original manuscript: background (24-hour economies, sedentary night work, chronodisruption), statement of the problem (interventions studied separately, timing rarely specified, few planning tools), four objectives, significance, and scope.
+
+**One addition.** The scope section now names the assessed build — four client-side screens (dashboard, plan, reflection, care), records held on the device — so that every later claim about "the prototype" has a fixed referent, and states that any feature specified but not implemented is identified where it is discussed.
 
 ---
 
 ## Chapter II. Study Framework
+
+Reproduced from the original: health risks, the day-shift comparison, caffeine and circadian timing, napping and sleep inertia, micro-care interventions, and the four theories (Demand-Control, Circadian Rhythm, Sedentary Work, Artificial Light). The design half below follows them, and the conceptual framework now lists the design and accessibility literatures at its input level so the diagram describes the chapter it introduces.
 
 **The hinge.** The circadian literature establishes *what* to recommend and *when*, not how to present it. Justified by the claim that "a highly-efficient system might still not be accepted if the interface is rejected by the users."
 
@@ -50,7 +60,9 @@
 - Framed as a functional requirement: "it is your responsibility to ensure that the digital products you produce are accessible to people of all abilities"
 - **Central argument:** night-shift workers show measurable declines in attention, working memory, and response inhibition (Wickwire et al., 2021), so the interface faces constraints similar in kind to those accessibility standards address, differing only in origin. WCAG 2.2 Level AA adopted as a direct response to the study's own findings
 - Guarded by the universal / inclusive / accessible design distinction: the claim is about design accommodating variable capacity, not about fatigue being a disability. Procedure named, not just the standard: POUR principles, preliminary review, then WCAG-EM conformance evaluation in its report format, scoped to implemented screens
-- **Three findings, two open:** (1) lowest-emphasis text fails 4.5:1, measured 2.51:1 light and 3.17:1 dark, **open**; (2) eight domains by hue, two converge under deuteranopia, but each carries a distinct icon, so color is redundant not sole, **closed**; (3) micro-care animates a scaling indicator, a pause control satisfies the moving-content criterion but reduced-motion is not honored, **open**
+- **Three findings, all closed:** (1) lowest-emphasis text failed 4.5:1 at 2.20:1 light and 3.17:1 dark against the surfaces it actually prints on, re-specified to 4.65:1 and 4.69:1 and guarded by a test over the whole palette; (2) eight domains by hue, two converge under deuteranopia, but each carries a distinct icon, so color is redundant not sole; (3) the scaling indicator has a pause control and the build honors the reduced-motion setting
+- **A fourth finding, kept for what it shows about method:** domain hues used as text now carry a separate value calibrated for text, and the one instance that escaped both the palette review and the automated check was a color written into a component, found only by measuring rendered text against its actual background. An evaluation run against source alone inherits that blind spot
+- **Table 2 lists five open findings** — three Level A (click targets that are not buttons, six unlabelled time controls, missing pressed and expanded states) and two AA (no screen-change announcement, empty-night labels at ~1.08:1). Two further items are declared rather than claimed: fixed type sizes, and the WCAG-EM report artifact
 - One decision passes: the reflection screen uses native select controls with visible labels, inheriting keyboard, focus, and assistive-technology semantics
 
 **Verification and validation.** Boehm's split: verification is the unit tests plus a traceability check run against citation identifiers stored on each plan item, so it executes against the running system rather than hand-maintained documentation. Validation is expert heuristic review plus scenario-based testing, legitimized as taught practice and explicitly *not* offered as equivalent to user testing. The instrument adapts an existing design-analysis rubric with numerical scoring removed.
@@ -66,17 +78,19 @@ Full detail in `docs/paper-vs-build.md`.
 **Declared in the paper** (honest as written, only needs building)
 
 - **Audio breathing guidance.** No audio anywhere in `src/`. The player is silent; guidance is visual and timed
-- **Contrast remediation.** `faint` tokens unchanged: 2.51:1 light, 3.17:1 dark
-- **Reduced motion.** No `prefers-reduced-motion` guard; the micro-care indicator animates regardless
+- **Reminders and notifications.** No Notification API, no service worker, no scheduling. `REMINDERS` is a list of labels used in copy, not a delivery mechanism. Now declared in Ch. III under *Prototype development*: four of the five MVP components are present, this one is specified and unbuilt
+- **Video.** Movement sequences are timed text. Declared in Ch. II and again in Ch. III under *Design of interaction and multimodal content*
+- **Text scaling.** Type sizes are fixed; declared in the accessibility section as a direction, not a feature
+- **The five open accessibility findings** in Table 2, and the WCAG-EM artifact
 
 **Undeclared** (reads as though it exists, so it can be challenged)
 
-- **Reminders and notifications.** No Notification API, no service worker, no scheduling. `REMINDERS` is a list of labels used in copy, not a delivery mechanism. Largest gap, and the premise of the thesis is timing
-- **Domain hue as small text.** The micro-care duration label measures 3.94:1; other hues on the light card fall to 2.30:1. A fourth real finding the audit paragraph does not mention
-- **Movement videos.** Claim removed from the paper, but `docs/research-summary.md` still says "short movement videos" and needs the same edit
+- **Movement videos in the other docs.** The paper no longer claims them, but `docs/research-summary.md` still says "short movement videos" and needs the same edit
 
 **Described but not yet performed.** Expert heuristic review, scenario-based testing, the adapted evaluation instrument, and the WCAG-EM report artifact. The unit tests and the traceability check are real and passing.
 
 **Smaller.** The five micro-care activities carry no citation keys, so they sit outside the traceability check that plan items are subject to. The functional requirement list, use-case diagram, and creative brief do not exist. `Esteves (2025)` may need to be 2026: the guide's own schedule runs June to September 2026.
+
+**Reference list.** One merged alphabetical list of 32 entries: the 18 circadian and occupational health sources from the original manuscript plus the 14 design, engineering and accessibility sources introduced by this integration.
 
 **Sources introduced here.** DeRose et al. (1990), Dutton (2005), Heinrich (2013); W3C WCAG 2.2 (2023) and WCAG-EM 1.0 (2014); Clariño (2024), Esteves (2025), Goli-Cruz (2023a–c), UPOU (2023a–d). APA 7, no em dashes.
