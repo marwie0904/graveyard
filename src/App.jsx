@@ -954,12 +954,19 @@ const REST_STRATEGY = {
   none: "Quiet rest, eye rest, and breathing instead of naps.",
 };
 
-/* One row per field the night record measures (foldNight, stats.js), because a
-   mute switch over something the app never counts is a preference with nothing
-   behind it. That leaves out the light and wind-down nudges, the fatigue
-   check-in, and waking and the reflection, which are logged after the plan ends.
-   The commute check has no row on purpose: it is the one plan item with no skip
-   button, so it must not be mutable from here either. */
+/* A row needs both halves: the plan has to schedule it, or the card's promise
+   that it "keeps it on your plan" is over nothing, and the night record has to
+   measure it, or the switch is a preference the app never counts. That leaves
+   out wind-down and the fatigue check-in, which the record does not carry, and
+   waking and the reflection, which are logged after the plan ends. The commute
+   check has no row for the opposite reason: it is the one plan item with no
+   skip button, so it must not be mutable from here either.
+
+   Light passes both halves and was cut anyway, on the grounds that its nudges
+   collapse into one lateLightDone boolean. That is the argument for one row per
+   measured field, not for none — and caffeine already spends two rows on the
+   one field it is measured by, because the plan schedules two distinct moments.
+   Light schedules two the same way. reminders.test.js holds this now. */
 const REMINDERS = [
   { k: "preMeal", l: "Pre-shift meal", cat: "food" },
   { k: "hydration", l: "Hydration checks", cat: "water" },
@@ -968,6 +975,8 @@ const REMINDERS = [
   { k: "movement", l: "Movement resets", cat: "movement" },
   { k: "rest", l: "Rest block", cat: "sleep" },
   { k: "snack", l: "Planned snack", cat: "food" },
+  { k: "lightUp", l: "Alertness lighting", cat: "light" },
+  { k: "lightDown", l: "Light reduction", cat: "light" },
   { k: "sleepWindow", l: "Sleep window", cat: "sleep" },
 ];
 
