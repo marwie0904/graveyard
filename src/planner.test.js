@@ -453,7 +453,7 @@ describe("traceability", () => {
   /* T4b. Clause 2 of the judgement rule: a study key may sit beside the marker
      to name the risk a judgement rule addresses, but it does not support the
      rule. Exactly five items do that. A sixth means somebody borrowed a citation
-     because the CATEGORY matched — eye-break is a short break and dallora2020 is
+     because the CATEGORY matched — eye-break is a short break and albulescu2022 is
      about short breaks, but the item's claim is ocular. A key that survives a
      category match and fails a claim match converts a known gap into a hidden
      one, which is worse than judgement, and this line is the only thing in the

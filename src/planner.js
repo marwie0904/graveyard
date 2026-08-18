@@ -397,7 +397,7 @@ export function generateTimeline(profile, logs, now) {
         ? "Ninety seconds. Stand, roll your shoulders, stretch your wrists, sip water."
         : `${ov(profile, "moveLength", 3)} minutes. Stand, stretch neck and shoulders, sip water, rest your eyes.`,
       why: "Long unbroken sitting adds stiffness and drowsiness on top of the night's own fatigue, and short frequent resets beat long occasional ones because you will actually do them.",
-      src: ["dallora2020", "tucker2018", "owen2010"],
+      src: ["albulescu2022", "tucker2003", "owen2010"],
       changed: s.skippedMovement >= 2
         ? "Shortened to a desk version because you skipped recent resets."
         : shortened
@@ -523,7 +523,7 @@ export function generateTimeline(profile, logs, now) {
       end: "You said the end of the shift is hardest. That is also when the commute happens, so this check-in feeds the safety handling.",
       varies: "Your sleepiest time changes, so this sits in the back half of the shift where it is most often reported.",
     }[profile.sleepiestTime] || "Fatigue is easier to work with when it is caught early.",
-    src: ["wickwire2021", "baron2015"],
+    src: ["vlasak2022", "baron2015"],
     changed: deepStretch
       ? `Weighted heavier because this is night ${stretchNight(profile)} of your stretch.`
       : risky
@@ -564,7 +564,7 @@ export function generateTimeline(profile, logs, now) {
     why: profile.commute === "drive"
       ? "The drive home after a night shift falls at the end of a long stretch awake, which is when sleepiness is hardest to judge from the inside. This is the one item in the plan with no skip button."
       : "Daylight on the way home is a strong signal to your body that the day is starting, which makes the sleep you are about to attempt harder to fall into.",
-    src: ["wickwire2021", "boivin2014", "judgement"],
+    src: ["folkard2003", "boivin2014", "judgement"],
     priority: profile.commute === "drive",
     actions: profile.commute === "drive" ? ["done", "adjust"] : ["done", "skip", "adjust"],
   });
