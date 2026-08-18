@@ -10,7 +10,7 @@ import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, ACCENT, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
-  movementInterval, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
+  movementInterval, movementMode, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
   reflectionAdjust, planGate,
 } from "./planner.js";
 import { materializeNights } from "./mockNights.js";
