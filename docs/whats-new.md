@@ -16,6 +16,13 @@ file is just the features and how to try them.
 data. On day one you see one night, and the charts say how many more they need
 instead of drawing a line through nothing.
 
+**A tour of the app, on the app.** After the plan is generated, "Start my plan"
+walks you through six cards over the running app rather than a screenshot of it:
+how a plan item is answered, why the plan waits on one item at a time, how to
+log something it never asked for, where the reflection and the resets live, and
+what the Dashboard is counting. It is in the profile sheet as "Take the tour" if
+you skip it or want it again.
+
 **A demo mode.** The 45 sample nights still exist, behind `?seed` in the URL.
 They never touch your saved data.
 
