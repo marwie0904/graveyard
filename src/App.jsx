@@ -908,6 +908,9 @@ const REST_STRATEGY = {
   none: "Quiet rest, eye rest, and breathing instead of naps.",
 };
 
+/* One row per plan item the planner can emit, because the card promises the
+   item stays on your plan. Waking and the reflection are logged after the plan
+   ends, so they had rows here that pointed at nothing. */
 const REMINDERS = [
   { k: "preMeal", l: "Pre-shift meal", cat: "food" },
   { k: "hydration", l: "Hydration checks", cat: "water" },
@@ -923,8 +926,6 @@ const REMINDERS = [
   { k: "commute", l: "Commute safety check", cat: "recovery" },
   { k: "windDown", l: "Wind-down", cat: "sleep" },
   { k: "sleepWindow", l: "Sleep window", cat: "sleep" },
-  { k: "wake", l: "Log your wake-up", cat: "sleep" },
-  { k: "reflection", l: "Daily reflection", cat: "recovery" },
 ];
 
 /* timings the app may move are shown as a range, not a fixed number */
@@ -2011,6 +2012,10 @@ function ProfileSheet({
      inside this sheet, and a non-number renders as NaN. */
   const set = Object.entries(profile.overrides || {})
     .filter(([k, v]) => ADJUSTABLE[k] && typeof v === "number");
+  /* Same trust boundary as `set`: a profile saved before a reminder row was
+     dropped still carries its key, and a key with no row can never be turned
+     back on, so the "All on" label would be stuck over an all-on card. */
+  const muted = (profile.mutedReminders || []).filter((k) => REMINDERS.some((r) => r.k === k));
 
   return (
     <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Your profile" style={{
@@ -2172,17 +2177,17 @@ function ProfileSheet({
           <div style={{ flex: 1 }} />
           <button onClick={() => setProfile({
             ...profile,
-            mutedReminders: (profile.mutedReminders || []).length ? [] : REMINDERS.map((r) => r.k),
+            mutedReminders: muted.length ? [] : REMINDERS.map((r) => r.k),
           })} style={{
             background: "none", border: "none", cursor: "pointer", padding: 0,
             fontFamily: FONT_TEXT, fontSize: 13, color: T.faint,
-          }}>{(profile.mutedReminders || []).length ? "All on" : "All off"}</button>
+          }}>{muted.length ? "All on" : "All off"}</button>
         </div>
         <p style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, margin: "0 0 12px", lineHeight: 1.4 }}>
           Turning one off keeps it on your plan, it just stops nudging you.
         </p>
         {REMINDERS.map((r, k) => {
-          const on = !(profile.mutedReminders || []).includes(r.k);
+          const on = !muted.includes(r.k);
           return (
             <div key={r.k} style={{
               display: "flex", alignItems: "center", gap: 11, padding: "10px 0",
@@ -2202,7 +2207,6 @@ function ProfileSheet({
                 color: on ? T.ink : T.faint,
               }}>{r.l}</span>
               <button onClick={() => {
-                const muted = profile.mutedReminders || [];
                 setProfile({
                   ...profile,
                   mutedReminders: on ? [...muted, r.k] : muted.filter((x) => x !== r.k),

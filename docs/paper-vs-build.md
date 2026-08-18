@@ -23,7 +23,7 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 ### 1.3 Reminders and notifications — **undeclared**
 
 - **Paper**: Ch. II, *Content architecture* — an item "can be rendered as a timeline entry, a reminder, or an exported record." `docs/research-summary.md` goes further and lists "a notification and reminder component" as an MVP component.
-- **Build**: no `Notification`, no service worker, no scheduling. `REMINDERS` (`src/App.jsx:909`) is a list of **labels** used to describe the plan in copy — it delivers nothing.
+- **Build**: no `Notification`, no service worker, no scheduling. `REMINDERS` (`src/App.jsx:914`) is a list of **labels** used to describe the plan in copy — it delivers nothing.
 - **Risk**: this is the largest undeclared gap. A night-shift tool whose whole premise is timing, that cannot interrupt the user at the right moment, invites the question directly.
 - **To close**: either build it, or add one clause to the *Content architecture* paragraph in the same form used for audio.
 
