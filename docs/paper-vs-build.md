@@ -111,7 +111,7 @@ Five open items, listed in full with priorities and rationale in `docs/accessibi
 
 - **Paper**: "the traceability check confirms that each planning rule corresponds to at least one supporting study, and is performed against citation identifiers recorded on each **plan item**."
 - **Build**: plan items in `src/planner.js` carry `src: [...]` and `why:`, enforced by `src/planner.test.js:408–427` against `src/citations.js`. The five `CARE` entries (`src/App.jsx:36`) carry neither.
-- **Status**: the sentence is literally true — care activities are not plan items. But they *are* recommendations, and `dallora2020` / `tucker2018` already support stretching and controlled breathing.
+- **Status**: the sentence is literally true — care activities are not plan items. But they *are* recommendations, and `albulescu2022` / `tucker2003` already support stretching and controlled breathing.
 - **To close**: add `src` and `why` to `CARE` and widen the test.
 - **Paper now**: scoped. Ch. III says the check runs against "each generated plan item," and Comment 29 records the care activities as the outstanding case.
 
