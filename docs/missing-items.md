@@ -26,6 +26,7 @@ over the rebuild.
 | **Basis for the conceptual framework** | The section had no citation at all. It now grounds the input–process–output structure in design science research, citing Hevner et al. (2004), Hevner (2007), and Peffers et al. (2007), all three added to the reference list. |
 | **Biographical sketch** | Written from the researcher's own answers and CV: eight years of night shift from 2018, four of them at a contact centre in Rizal, the named progression through it, the current Operations Manager role and its team of thirty-five, and the hair loss and insomnia the study came out of. Third person, per the template convention. Employers are unnamed by request. |
 | **Research Design** | Chapter III now names the paradigm Chapter II cites. Two additions: a paragraph calling the study a design science study (Hevner et al., 2004), drawing the consequence the panel asks about — no independent and dependent variables, because evaluation is artifact-based — and placing the report on the Peffers et al. (2007) process model chapter by chapter; and a replacement for the sentence that offered future expert validation as the only evaluation, which now names the rubric and the verification suite as what actually evaluated the build, keeping expert validation as the future step it is in Chapter V. Domínguez (2017) stays. |
+| **Permission page classifications** | Ticked: Invention **No**, Publication **Yes**, Confidential **No**, Free **Yes**. The four pairs are floating rectangles with no text frame, so the tick is a filled box, applied to both the DrawingML and the VML fallback. Applied in `build-docx.mjs` by shape name, and the build throws if it does not find all four, so a renumbered template cannot silently ship an unticked form. |
 
 The first six live in the `FIELDS` map in `build-docx.mjs`. Change them there,
 not in the generated file, or the next build overwrites the edit.
@@ -47,24 +48,7 @@ The adviser's spelling is settled: **BENIGNO JR. AGAPITO** is correct, and the
 suffix belongs where it sits. His UPOU address, `benignojr.agapito@upou.edu.ph`,
 carries the Jr. in the given-name half, not after the surname.
 
-### 2. Permission page classifications
-
-Four Yes/No pairs, none ticked. They are the UP IPR classifications, and they
-govern what the University may do with the work.
-
-| Classification | Suggested | Why |
-|---|---|---|
-| Invention (I) | **No** | Nothing here is filed or being filed for a patent. Answer Yes only if you intend to protect the planner as an invention, in which case disclosure is normally deferred and the rest of these answers change with it. |
-| Publication (P) | **Yes** | This is the permission the page's own text grants, and the paper is written to be read. |
-| Confidential (C) | **No** | The study collects no data from end users, uses no employer data, and holds no third-party material under agreement. It says so in Chapter III and again in Appendix B. |
-| Free (F) | **Yes** | Consistent with granting open access, which the quoted licence text already asks you to allow. |
-
-The one genuine decision is **Invention**. Everything else follows from it: if
-you intend to commercialise the planner, say so before signing, because the
-paper as written already publishes the rule set, the timing logic, and the
-citation table in full, which is disclosure.
-
-### 3. Acknowledgement
+### 2. Acknowledgement
 
 Currently `[To be supplied by the researcher.]`
 
@@ -103,7 +87,7 @@ input, a nurse, a physician, an occupational-health officer, name them here,
 because the paper states that no expert panel has been convened yet and an
 acknowledged informant is not the same thing as a panel.
 
-### 4. Contents page numbers are blank
+### 3. Contents page numbers are blank
 
 Deliberate. Word paginates differently from the PDF build, so numbers taken from
 the PDF would contradict the document they sit in. The headings are real
@@ -111,7 +95,7 @@ headings, so **References → Table of Contents** generates a live list with
 correct numbers. Do it last, after any remaining edits, so the numbering is
 settled.
 
-### 5. List of Appendices has no section
+### 4. List of Appendices has no section
 
 The template's contents list names one, but the template never defines the
 section. The two appendices are present in the body and in the contents list.

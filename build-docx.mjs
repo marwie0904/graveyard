@@ -339,7 +339,35 @@ edits.push({
 
 for (const e of edits.sort((a, b) => b.at - a.at)) blocks.splice(e.at, e.count, ...e.newBlocks);
 
-const keep = blocks.map(fillFields);
+/* -- permission page classifications --
+
+   The four Yes/No pairs are floating rectangles rather than form fields, two to
+   a row: the box at roughly 708000 EMU from the column is Yes, the one at
+   1826000 is No. Neither carries a text frame, so a tick has to be a filled box
+   rather than an X in one. Both halves of the AlternateContent are filled, as
+   Word draws the DrawingML and older readers fall back to the VML.
+
+   Invention No, because nothing here is filed or being filed for a patent, and
+   the paper already discloses the rule set in full. Publication and Free Yes,
+   which is the permission the page's own text grants. Confidential No, because
+   the study collects nothing from end users and holds no third-party material,
+   as Chapter III and Appendix B both state. */
+const TICKED = ["Rectangle 112", "Rectangle 9", "Rectangle 117", "Rectangle 36"];
+let ticks = 0;
+const tickBox = (b, name) => {
+  const at = b.indexOf(`name="${name}"`);
+  if (at < 0) return b;
+  const from = b.lastIndexOf("<mc:AlternateContent", at);
+  const end = b.indexOf("</mc:AlternateContent>", at) + "</mc:AlternateContent>".length;
+  ticks++;
+  return b.slice(0, from) + b.slice(from, end)
+    .replace("</a:prstGeom>", '</a:prstGeom><a:solidFill><a:srgbClr val="000000"/></a:solidFill>')
+    .replace(/fillcolor="#FFFFFF[^"]*"/, 'fillcolor="#000000"') + b.slice(end);
+};
+
+const keep = blocks.map((b) => TICKED.reduce(tickBox, fillFields(b)));
+if (ticks !== TICKED.length)
+  throw new Error(`permission page: ticked ${ticks} of ${TICKED.length} boxes; the template's rectangles have been renumbered`);
 
 /* Three signature blocks read "NAME" and are identical, so they are told apart
    by position: the first is the adviser, and the title page names them. The
