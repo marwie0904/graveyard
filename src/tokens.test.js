@@ -41,6 +41,11 @@ const rowsFor = (T) => {
        pinning it to `sunken` too would collapse it into `muted`. */
     [`${k} faint/bg`, T.faint, T.bg],
     [`${k} faint/card`, T.faint, T.card],
+    /* The label of a night that holds nothing, in the DayChip strip. It printed
+       in `hair` — about 1.08:1 — until the emptiness moved onto the chip's
+       circle and its aria-label; the same pair as faint/bg above, kept as its
+       own row so a future re-dimming has to fail under its own name. */
+    [`${k} empty-night label/bg`, T.faint, T.bg],
     [`${k} heroInk/hero`, T.heroInk, T.hero],
     [`${k} heroMuted/hero`, rgb(T.heroMuted, T.hero), rgb(T.hero)],
   ].map(([name, fg, bg]) => [name, typeof fg === "string" ? rgb(fg) : fg, typeof bg === "string" ? rgb(bg) : bg, 4.5]);
