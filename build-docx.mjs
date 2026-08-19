@@ -56,6 +56,7 @@ const bodyPara = (runs) => P(tabRun() + runs, { dbl: true });
 const flatPara = (runs, o = {}) => P(runs, { dbl: true, ...o });
 const refPara = (runs) => P(runs, { dbl: true, ind: `<w:ind w:firstLine="720"/>` });
 const blank = () => P("", {});
+const pageBreak = () => `<w:p><w:r>${rPr()}<w:br w:type="page"/></w:r></w:p>`;
 
 /* ------------------------- inline HTML -> runs -------------------------- */
 
@@ -275,9 +276,8 @@ const replaceAfter = (heading, stop, newBlocks) => {
    the full text of one run in the template, which is how they happen to be
    split, so an exact run match is enough and no run has to be re-cut.
    What is not here is not known: the program chair and the dean are still
-   "NAME", and the permission classifications are still unticked. The adviser
-   is filled from the title page, spelled exactly as the title page spells it,
-   including the placement of the suffix. */
+   "NAME". The adviser is filled from the title page, spelled exactly as the
+   title page spells it, including the placement of the suffix. */
 const TITLE = "INTERACTIVE PLANNER: CIRCADIAN-AWARE PLANNER FOR NIGHT-SHIFT WORKERS: TIMING CAFFEINE, NAPS, AND MICRO-CARE";
 const FIELDS = {
   "GABRELLA ANG": "GABRELLA C. ANG",
@@ -315,8 +315,14 @@ replaceAfter("TABLE OF CONTENTS", (b) => isHeading(b),
   tocRows("<h2>Table of Contents</h2>", "<h2>List of Tables</h2>").concat(blank()));
 replaceAfter("List of Tables", (b) => isHeading(b),
   tocRows("<h2>List of Tables</h2>", "<h2>List of Figures</h2>").concat(blank()));
+/* The template names a List of Appendices in its contents but never defines the
+   section, so unlike the other two lists there is no heading to replace after.
+   It is written here instead, onto the page the List of Figures ends, which is
+   why this one call emits two sections rather than one. */
 replaceAfter("List of Figures", (b) => isHeading(b),
-  tocRows("<h2>List of Figures</h2>", "<h2>List of Appendices</h2>").concat(blank()));
+  tocRows("<h2>List of Figures</h2>", "<h2>List of Appendices</h2>").concat(
+    pageBreak(), sectionHead("List of Appendices"),
+    tocRows("<h2>List of Appendices</h2>", "<h2>Abstract</h2>"), blank()));
 
 /* -- abstract, up to the section break that starts the numbered body -- */
 const abstractParas = [...between("<h2>Abstract</h2>", "<h2>I. Introduction")

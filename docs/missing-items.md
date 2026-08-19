@@ -27,6 +27,7 @@ over the rebuild.
 | **Biographical sketch** | Written from the researcher's own answers and CV: eight years of night shift from 2018, four of them at a contact centre in Rizal, the named progression through it, the current Operations Manager role and its team of thirty-five, and the hair loss and insomnia the study came out of. Third person, per the template convention. Employers are unnamed by request. |
 | **Research Design** | Chapter III now names the paradigm Chapter II cites. Two additions: a paragraph calling the study a design science study (Hevner et al., 2004), drawing the consequence the panel asks about — no independent and dependent variables, because evaluation is artifact-based — and placing the report on the Peffers et al. (2007) process model chapter by chapter; and a replacement for the sentence that offered future expert validation as the only evaluation, which now names the rubric and the verification suite as what actually evaluated the build, keeping expert validation as the future step it is in Chapter V. Domínguez (2017) stays. |
 | **Permission page classifications** | Ticked: Invention **No**, Publication **Yes**, Confidential **No**, Free **Yes**. The four pairs are floating rectangles with no text frame, so the tick is a filled box, applied to both the DrawingML and the VML fallback. Applied in `build-docx.mjs` by shape name, and the build throws if it does not find all four, so a renumbered template cannot silently ship an unticked form. |
+| **List of Appendices** | Written, on its own page. The template names the section in its contents list but never defines it, so unlike the other two lists there was no heading to replace after; the build now emits a page break, the heading, and the two rows at the end of the List of Figures. |
 
 The first six live in the `FIELDS` map in `build-docx.mjs`. Change them there,
 not in the generated file, or the next build overwrites the edit.
@@ -94,13 +95,6 @@ the PDF would contradict the document they sit in. The headings are real
 headings, so **References → Table of Contents** generates a live list with
 correct numbers. Do it last, after any remaining edits, so the numbering is
 settled.
-
-### 4. List of Appendices has no section
-
-The template's contents list names one, but the template never defines the
-section. The two appendices are present in the body and in the contents list.
-Nothing to fix unless your reader wants the separate page, which is one heading
-and two lines if so.
 
 ---
 
