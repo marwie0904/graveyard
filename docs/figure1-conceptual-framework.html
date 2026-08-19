@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; font-family: Arial, Helvetica, sans-serif; }
+  /* border-box, so 660 minus 5 a side leaves the 650 the SVG is drawn at */
+  #fig { width: 660px; padding: 5px; background: #fff; }
+  svg { display: block; }
+  text { fill: #111; }
+  .zone { font-size: 8.5px; font-weight: 700; letter-spacing: 1.5px; fill: #111; }
+  .grp  { font-size: 8px; font-weight: 700; letter-spacing: 0.8px; fill: #444; }
+  .chip { font-size: 8.2px; fill: #111; }
+  .phase{ font-size: 7.6px; fill: #333; }
+  .ctr  { font-size: 8.6px; font-weight: 700; letter-spacing: 0.8px; fill: #111; }
+  .ctr2 { font-size: 7.4px; fill: #555; }
+  .step { font-size: 7.8px; fill: #222; }
+  .out  { font-size: 8.2px; fill: #111; }
+  .outb { font-size: 9px; font-weight: 700; fill: #111; }
+  .note { font-size: 8.2px; fill: #333; }
+  .noti { font-size: 8.2px; fill: #333; font-style: italic; }
+</style>
+<div id="fig"><svg id="s" width="650" height="376" viewBox="0 0 650 376"></svg></div>
+<script>
+const S = document.getElementById("s");
+const NS = "http://www.w3.org/2000/svg";
+const el = (n, a = {}, t) => {
+  const e = document.createElementNS(NS, n);
+  for (const k in a) e.setAttribute(k, a[k]);
+  if (t !== undefined) e.textContent = t;
+  S.appendChild(e); return e;
+};
+
+/* ---- zone headers ---------------------------------------------------- */
+const zone = (x, w, label) => {
+  el("text", { x: x, y: 11, class: "zone" }, label);
+  el("line", { x1: x, y1: 17, x2: x + w, y2: 17, stroke: "#111", "stroke-width": 1 });
+};
+zone(0, 186, "INPUT");
+zone(232, 186, "PROCESS");
+zone(478, 172, "OUTPUT");
+
+/* ---- input: two clusters of chips ------------------------------------ */
+const chip = (x, y, w, label) => {
+  el("rect", { x, y, width: w, height: 17, rx: 8.5,
+    fill: "#fff", stroke: "#111", "stroke-width": 0.8 });
+  el("text", { x: x + w / 2, y: y + 11.6, class: "chip", "text-anchor": "middle" }, label);
+};
+const cluster = (y0, title, items) => {
+  el("text", { x: 0, y: y0, class: "grp" }, title);
+  items.forEach((t, i) => chip(0, y0 + 8 + i * 21, 186, t));
+  return y0 + 8 + items.length * 21;
+};
+const endA = cluster(34, "CIRCADIAN AND OCCUPATIONAL EVIDENCE", [
+  "Circadian rhythm", "Shift-work fatigue", "Caffeine timing",
+  "Naps and sleep inertia", "Micro-care practices", "Sedentary screen work",
+]);
+cluster(endA + 22, "DESIGN LITERATURE", [
+  "Visual communication", "Elements and principles",
+  "Aesthetic response", "Content architecture", "Web accessibility",
+]);
+
+/* ---- converging connectors ------------------------------------------- */
+el("marker", { id: "a", viewBox: "0 0 10 10", refX: "9", refY: "5",
+  markerWidth: "5", markerHeight: "5", orient: "auto-start-reverse" });
+S.lastChild.appendChild(
+  Object.assign(document.createElementNS(NS, "path"), {}))
+  .setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+S.lastChild.firstChild.setAttribute("fill", "#111");
+
+const RX = 325, RY = 158, R = 74;             // ring centre and radius
+const link = (fromY) => el("path", {
+  d: `M 192 ${fromY} C 226 ${fromY}, 218 ${RY}, ${RX - R - 12} ${RY}`,
+  fill: "none", stroke: "#111", "stroke-width": 1.1, "marker-end": "url(#a)",
+});
+link(112); link(300);
+
+/* ---- process: the six shift phases as a ring ------------------------- */
+const PHASES = ["Pre-shift", "Early shift", "Mid-shift", "Late shift", "Post-shift", "Sleep"];
+const pol = (cx, cy, r, deg) => [cx + r * Math.cos((deg - 90) * Math.PI / 180),
+                                 cy + r * Math.sin((deg - 90) * Math.PI / 180)];
+PHASES.forEach((name, i) => {
+  /* midpoints land on 0, 60, 120, 180, 240 and 300 degrees, which keeps every
+     phase label off the horizontal where the two flow arrows arrive and leave */
+  const a0 = i * 60 - 30 + 1.6, a1 = (i + 1) * 60 - 30 - 1.6, inner = R - 17;
+  const [x0, y0] = pol(RX, RY, R, a0), [x1, y1] = pol(RX, RY, R, a1);
+  const [x2, y2] = pol(RX, RY, inner, a1), [x3, y3] = pol(RX, RY, inner, a0);
+  el("path", {
+    d: `M ${x0} ${y0} A ${R} ${R} 0 0 1 ${x1} ${y1} L ${x2} ${y2} A ${inner} ${inner} 0 0 0 ${x3} ${y3} Z`,
+    fill: i % 2 ? "#EDEDED" : "#DCDCDC", stroke: "#111", "stroke-width": 0.8,
+  });
+  const mid = i * 60, [lx, ly] = pol(RX, RY, R + 13, mid);
+  const anchor = Math.abs(mid % 360) < 1 || Math.abs(mid - 180) < 1
+    ? "middle" : (mid < 180 ? "start" : "end");
+  el("text", { x: lx, y: ly + 2.8, class: "phase", "text-anchor": anchor }, name);
+});
+el("circle", { cx: RX, cy: RY, r: R - 21, fill: "#fff", stroke: "#111", "stroke-width": 1 });
+el("text", { x: RX, y: RY - 4, class: "ctr", "text-anchor": "middle" }, "DECISION");
+el("text", { x: RX, y: RY + 8, class: "ctr", "text-anchor": "middle" }, "RULES");
+el("text", { x: RX, y: RY + 21, class: "ctr2", "text-anchor": "middle" }, "one per plan item");
+
+/* ---- process: the four analytical steps, as one strip ---------------- */
+const STEPS = ["Compare findings", "Extract timing principles", "Place against phase", "Encode as rules"];
+{
+  const y = 268, x0 = 232, w = 186;
+  el("line", { x1: x0, y1: y - 13, x2: x0 + w, y2: y - 13, stroke: "#BBB", "stroke-width": 0.8 });
+  STEPS.forEach((t, i) => {
+    const yy = y + i * 13.5;
+    el("text", { x: x0 + 4, y: yy, class: "step", fill: "#777" }, `${i + 1}`);
+    el("text", { x: x0 + 14, y: yy, class: "step" }, t);
+  });
+}
+
+/* ---- output: the artifact -------------------------------------------- */
+el("path", { d: `M ${RX + R + 12} ${RY} L 512 ${RY}`, fill: "none",
+  stroke: "#111", "stroke-width": 1.1, "marker-end": "url(#a)" });
+
+const PX = 520, PY = 40, PW = 108, PH = 196;
+el("rect", { x: PX, y: PY, width: PW, height: PH, rx: 11,
+  fill: "#fff", stroke: "#111", "stroke-width": 1.2 });
+el("rect", { x: PX + 38, y: PY + 6, width: 32, height: 3.4, rx: 1.7, fill: "#111" });
+el("text", { x: PX + 10, y: PY + 26, class: "chip", "font-weight": "700" }, "Tonight’s plan");
+[["23:10", "Last caffeine"], ["01:30", "Movement reset"], ["03:00", "Rest block"],
+ ["04:45", "Box breathing"], ["06:30", "Wind-down"]].forEach(([t, l], i) => {
+  const y = PY + 40 + i * 29;
+  el("rect", { x: PX + 8, y, width: PW - 16, height: 24, rx: 4,
+    fill: i === 2 ? "#EDEDED" : "#fff", stroke: "#999", "stroke-width": 0.7 });
+  el("text", { x: PX + 14, y: y + 10, class: "phase", "font-weight": "700" }, t);
+  el("text", { x: PX + 14, y: y + 19, class: "phase" }, l);
+});
+
+el("text", { x: 478, y: 262, class: "outb" }, "Interactive planner prototype");
+["Schedules placed by shift phase", "Reminders timed to the plan",
+ "Multimodal micro-care content",
+ "Every rule carries its citation identifier"].forEach((t, i) => {
+  const y = 278 + i * 14;
+  el("text", { x: 478, y, class: "out", fill: i === 3 ? "#555" : "#111" }, (i === 3 ? "" : "— ") + t);
+});
+
+/* ---- note ------------------------------------------------------------- */
+el("line", { x1: 0, y1: 340, x2: 650, y2: 340, stroke: "#CCC", "stroke-width": 0.8 });
+const n = el("text", { x: 0, y: 353, class: "note" });
+const t1 = document.createElementNS(NS, "tspan");
+t1.setAttribute("class", "noti"); t1.textContent = "Note. ";
+n.appendChild(t1);
+n.appendChild(document.createTextNode("The framework describes the relationship between evidence domains, analytical synthesis, and design"));
+const l2 = el("text", { x: 0, y: 365, class: "note" },
+  "outputs. It does not depict causal health outcomes, and it does not evaluate user outcomes.");
+</script>

@@ -3,6 +3,7 @@ dist
 .superpowers
 *.png
 !docs/figure1-conceptual-framework.png
+!docs/figure2-domain-scores.png
 drive*.mjs
 !drive-history.mjs
 !drive-plan-state.mjs
