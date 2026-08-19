@@ -457,7 +457,11 @@ function Column({ T, items, selected, onPick, width, fmtItem }) {
       {items.map((it) => {
         const on = it === selected;
         return (
-          <button key={String(it)} data-on={on ? "1" : "0"} onClick={() => onPick(it)}
+          /* The size and weight jump was the whole of "this is the one".
+             aria-pressed the way the day strip states its night, rather than a
+             listbox: that would want roles on all three columns and on the
+             wheel around them to say the same sentence out loud. */
+          <button key={String(it)} data-on={on ? "1" : "0"} aria-pressed={on} onClick={() => onPick(it)}
             style={{
               display: "block", width: "100%", height: 44, scrollSnapAlign: "center",
               border: "none", background: "transparent", cursor: "pointer",
@@ -1445,7 +1449,7 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
         )}
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           {item.why && (
-            <button onClick={() => setOpen(!open)} style={{
+            <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
               background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
               fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
               display: "flex", alignItems: "center", gap: 5,
@@ -2329,7 +2333,10 @@ function ProfileSheet({
                 flex: 1, fontFamily: FONT_TEXT, fontSize: 14.5,
                 color: on ? T.ink : T.faint,
               }}>{r.l}</span>
-              <button onClick={() => {
+              {/* A bare track and knob: on and off were a background colour and
+                  18px of travel and nothing else, and the button carried no name
+                  either, because the row's label is a sibling span outside it. */}
+              <button aria-pressed={on} aria-label={r.l} onClick={() => {
                 setProfile({
                   ...profile,
                   mutedReminders: on ? [...muted, r.k] : muted.filter((x) => x !== r.k),
@@ -3283,7 +3290,14 @@ export default function App() {
 function TabBtn({ t, T, tab, setTab }) {
   const on = tab === t.k;
   return (
-    <button onClick={() => setTab(t.k)} style={{
+    /* The active tab was spent entirely on ink, stroke weight and font weight,
+       so which screen you were on was a thing only a sighted user knew.
+       aria-current rather than role="tab": a tablist wants a wrapping
+       container, a roving tabindex and arrow keys, and these five swap whole
+       screens rather than panels inside one page, so "the current page" is the
+       truer word for them anyway. It is not a boolean attribute — the way to
+       say no is to leave it off, not to write "false". */
+    <button onClick={() => setTab(t.k)} aria-current={on ? "page" : undefined} style={{
       background: "none", border: "none", cursor: "pointer", flex: 1,
       display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 0",
     }}>
