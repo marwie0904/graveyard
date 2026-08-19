@@ -10,11 +10,12 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 
 ## 1. Modalities
 
-### 1.1 Audio breathing guidance — **declared**
+### 1.1 Audio breathing guidance — **built, 18 August 2026**
 
 - **Paper**: Ch. II, *Aesthetic grounding*. Heinrich's "aural landscape" (p. 752) is retained "as a stated design direction and not as a description of the implemented prototype."
 - **Build**: no audio of any kind. `grep -rn "Audio\|speechSynthesis\|AudioContext" src/` returns nothing. `CarePlayer` (`src/App.jsx:103`) is a silent scaling circle, countdown, step label, and progress bar.
-- **To close**: an audio track or spoken cue per `cycle` step in `CARE` (`src/App.jsx:36`). Note this pulls in WCAG obligations — see 2.4.
+- **Closed**: `src/cues.js` speaks each step through `speechSynthesis` and marks boundaries with a synthesised Web Audio tone. Off on open, its own control, and the player's live region drops to `aria-live="off"` while speech runs so a screen-reader user is not told the step twice. No audio file, so no licence to track. `src/cues.test.js` asserts every step of every activity has a cue.
+- **Paper now**: Ch. II and Ch. III describe the audio channel; Ch. IV re-scores C4 Modality from 0 to 2; Appendix B Table 9 records the provenance.
 
 ### 1.2 Movement videos — **claim withdrawn, feature still absent**
 

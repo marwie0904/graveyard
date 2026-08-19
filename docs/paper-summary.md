@@ -81,9 +81,9 @@ Reproduced from the original: health risks, the day-shift comparison, caffeine a
 
 **Shape.** 5 domains × 4 criteria = 20 criteria, equal weights fixed before scoring, 60 points. Bands 0–3, and **band 3 requires confirmation independent of the researcher** — a measurement against a published threshold, a passing test, or a standard's success criterion. Six anti-bias safeguards, including: evidence required or the lower band is taken, measurements override judgement, and a specified-but-unbuilt feature cannot exceed band 0. Self-assessment bias is declared and cited (Deffuant et al., 2024), not waved off.
 
-**Result: 36 / 60.** Communication effectiveness 10, Interaction and usability 10, Visual design 8, Multimedia instruction 5, Accessibility 3. Four band-3 scores, all test-backed (relevance, inclusivity, error prevention, reliability); two band 0 (modality, since there is no audio or video, and keyboard operability, since the care screen cannot be reached without a pointer). Every criterion reported with its evidence in Table 6, so any score can be re-checked.
+**Result: 38 / 60.** Communication effectiveness 10, Interaction and usability 10, Visual design 8, Multimedia instruction 7, Accessibility 3. Four band-3 scores, all test-backed (relevance, inclusivity, error prevention, reliability); one band 0 (keyboard operability, since the care screen cannot be reached without a pointer). Modality was scored 0, then closed and re-scored to 2 when spoken guidance landed. Every criterion reported with its evidence in Table 6, so any score can be re-checked.
 
-**Also reported.** Traceability (25 construction sites, all cited; 10 marked design judgment; 2 navigational; 13 resting on a study) and automated verification (182 assertions, 12 modules). The discussion says plainly what the numbers mean: the timing logic is the strong half, delivery is the weak half, and 36/60 is criterion-referenced, so it supports no comparison to any other app.
+**Also reported.** Traceability (25 construction sites, all cited; 10 marked design judgment; 2 navigational; 13 resting on a study) and automated verification (192 assertions, 13 modules). The discussion says plainly what the numbers mean: the timing logic is the strong half, delivery is the weak half, and 38/60 is criterion-referenced, so it supports no comparison to any other app.
 
 ## Chapter V. Summary, Conclusion, and Recommendations *(new)*
 
@@ -91,7 +91,7 @@ Summary against each of the four objectives; conclusions that the evidence-to-ar
 
 ## Appendices *(new)*
 
-**A.** The full rubric — 20 criteria, four band descriptors each, by domain. **B.** Scoring evidence record: interface inventory, contrast measurements, keyboard reachability, labelling and state-reporting failures, traceability counts, test coverage, and the declared-not-built list.
+**A.** The full rubric — 20 criteria, four band descriptors each, by domain. **B.** Scoring evidence record: interface inventory, contrast measurements, keyboard reachability, labelling and state-reporting failures, traceability counts, test coverage, the declared-not-built list, and **Table 9, the provenance and licence of every sound in the prototype** (all of it synthesised at run time, so there is no third-party audio asset and nothing to attribute).
 
 ---
 
