@@ -190,12 +190,23 @@ function CarePlayer({ T, activity, onClose, onDone }) {
       {finished ? (
         <Btn T={T} full onClick={onDone}>Log it and close</Btn>
       ) : (
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => setRunning(!running)}>
-            {running ? "Pause" : "Resume"}
-          </Btn>
-          <Btn T={T} style={{ flex: 1.4 }} onClick={() => setElapsed(total)}>Finish early</Btn>
-        </div>
+        <>
+          {/* The clock was the only thing that could move the sequence on, so
+              anyone reading slower than 30 seconds a step had no way to keep
+              up or move ahead. `acc` is already the start of the current step,
+              so the next one starts one step's length later; on the last step
+              that lands exactly on total, and the min says so out loud.
+              Its own row rather than a third button beside the other two:
+              three of these labels do not fit a 375px phone without wrapping. */}
+          <Btn T={T} kind="soft" full style={{ marginBottom: 10 }}
+            onClick={() => setElapsed(Math.min(acc + step.s, total))}>Next step</Btn>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => setRunning(!running)}>
+              {running ? "Pause" : "Resume"}
+            </Btn>
+            <Btn T={T} style={{ flex: 1.4 }} onClick={() => setElapsed(total)}>Finish early</Btn>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1994,9 +2005,18 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
         const on = c.k === suggested;
         const hue = DOMAIN[c.cat].hue;
         return (
-          <Card T={T} key={c.k} onClick={() => setPlaying(c.k)} style={{
+          /* A real button, not a Card with an onClick: the row is the only way
+             into the player, and as a div it was unreachable by keyboard or
+             Switch Control — the whole screen offered six stops, none of them
+             here. Card itself stays a div because it is a surface, not a
+             control, everywhere else it is used, so its styling is repeated
+             here instead. */
+          <button key={c.k} onClick={() => setPlaying(c.k)} style={{
+            width: "100%", background: T.card, borderRadius: 22, cursor: "pointer",
+            boxShadow: T.key === "warm" ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
             marginBottom: 10, padding: 14, display: "flex", alignItems: "center", gap: 13,
-            border: on ? `1.5px solid ${tint(hue, 0.45)}` : undefined,
+            textAlign: "left",
+            border: on ? `1.5px solid ${tint(hue, 0.45)}` : "none",
           }}>
             <div style={{
               width: 44, height: 44, borderRadius: 22, flexShrink: 0,
@@ -2025,11 +2045,14 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
               fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
               color: DOMAIN.caffeine.ink[T.key], whiteSpace: "nowrap",
             }}>{c.mins} min</span>
-            <div style={{
+            {/* decorative now that the row itself is the control — a button
+                inside a button is invalid, and a second stop here would only
+                say the same thing twice */}
+            <div aria-hidden style={{
               width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: T.ink,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}><Play size={15} color={T.bg} fill={T.bg} /></div>
-          </Card>
+          </button>
         );
       })}
       <p style={{
