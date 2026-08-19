@@ -1,6 +1,6 @@
 # Rubric score breakdown
 
-**49 / 60** at commit `main`, 19 August 2026. Twenty criteria, five domains, bands 0–3.
+**51 / 60** at commit `main`, 19 August 2026. Twenty criteria, five domains, bands 0–3.
 
 Band 3 requires confirmation independent of the researcher — a measurement, a passing test, or a standard's success criterion. Band 2 is "done correctly but only checked by eye."
 
@@ -8,23 +8,23 @@ Band 3 requires confirmation independent of the researcher — a measurement, a 
 
 | Domain | Score | Bands |
 |---|---|---|
-| A. Visual design | 8 / 12 | 2, 2, 2, 2 |
+| A. Visual design | 10 / 12 | 2, 3, 3, 2 |
 | B. Communication effectiveness | 11 / 12 | 3, 3, 3, 2 |
 | C. Multimedia instruction | 11 / 12 | 3, 3, 3, 2 |
 | D. Interaction and usability | 10 / 12 | 2, 2, 3, 3 |
 | E. Accessibility | 9 / 12 | 3, 2, 3, 2 |
-| **Total** | **49 / 60** | |
+| **Total** | **51 / 60** | |
 
 ---
 
-## A. Visual design — 8 / 12
+## A. Visual design — 10 / 12
 
 | Criterion | Band | Why |
 |---|---|---|
 | A1 Hierarchy | 2 | Title, time and rationale are ranked by size and weight in one shared card, but the ranking was judged by inspection rather than checked automatically. |
-| A2 Non-text contrast | 2 | Control boundaries were raised from ~1.2:1 to ≥3:1 and are now asserted by test in both themes, but three domain hues still fail 3:1 as chip and icon fills in the warm theme — the exact class this criterion names. |
-| A3 Grouping | 2 | Plan items group under their shift phase and logs under their night, consistently across screens, but verified by eye rather than by test. |
-| A4 Consistency | 2 | One component vocabulary spans all four screens, and a test bans stray colour literals, but component reuse itself is unchecked. |
+| A2 Non-text contrast | **3** ↑ | Every hue drawn as a mark rather than washed as a background — a Badge icon on its own tinted disc, the chart marks, the border on the plan's current item — now clears 3:1 on `card`, `bg` and `sunken` in both themes, asserted by 64 rows per theme. The finding this row used to carry was wrong in both directions: the failing surface is the icon's own wash, not the card, and six hues failed across both themes, not three in the warm one. |
+| A3 Grouping | **3** ↑ | Logged and open cover every plan item exactly once at every log depth, `planGate` partitions without overlap, the list is ordered by absolute minutes so a morning cannot precede the evening it follows, and the six phases tile the shift with every minute in exactly one — 61 tests, each confirmed to fail when the property it names is mutated. The previous justification described phase banding, which this build removed on purpose. |
+| A4 Consistency | 2 | Five hand-rolled disclosures became one `Disclosure`, and a test bans a sixth appearing outside `ui/index.jsx` — padding ran 0, 9px and 12px, gaps 5, 8 and 10, and one had no caret at all. Reuse beyond that one class is still unchecked, and the vocabulary is thinner than this row used to imply: 25 raw buttons and 6 raw selects remain in `App.jsx`, and type, spacing and radius have no named scale for a test to point at — 22 distinct font sizes, 21 radii, 15 gap values. |
 
 ## B. Communication effectiveness — 11 / 12
 
@@ -66,7 +66,8 @@ Band 3 requires confirmation independent of the researcher — a measurement, a 
 
 ## Open findings
 
-- **Three domain hues fail 3:1 in the warm theme** as chip and icon fills: `light` 2.30:1, `water` 2.99:1, `movement` 3.00:1. Moving a domain hue moves every chip, meter, tint and icon plus its paired ink value, so this is a deliberate deferral, not an oversight. It is what holds A2 at 2.
+- **The reminder toggle's knob is 2.30:1 against a lit track** in the dark theme — white on `light`'s fill, the same pair the domain hues used to fail as icons. Whether 1.4.11 reaches it is genuinely unsettled rather than deferred: the on/off state is already carried by the track's own colour change, which clears 3:1 against the card at 7.20, so the knob's position may be redundant rather than load-bearing. Recorded rather than argued, because a 1px ring on the knob closes it either way and costs less than the argument.
+- **No named scale for type, spacing or radius.** Colour is tokenised and swept; geometry is not, so A1 has nothing to assert and A4 can only be checked one control class at a time. 156 inline `fontSize` literals across four files, in half-point steps. This is what holds A1 at 2 and caps A4.
 - **22 of 40 rationale sentences exceed grade 8** when scored individually (worst 14.3), though the rationales read at grade 7.5 as a body of text — which is the unit the formula was fitted on. Left as a skipped test with a comment saying to fix it by shortening sentences, never by raising the threshold.
 - **Care cards overstate their length.** `sequenceOf` rounds to whole cycle repetitions, so "Box breathing — 2 min" runs 128s and opens saying "3 min left". The countdown is internally honest; the label is not.
 - **The active `Pill` has no 3:1 boundary** — transparent border over a 1.28:1 tint. Excluded on the grounds that its own label identifies it at ≥4.5:1; giving every active pill an outline is a design change, not a conformance one.
@@ -75,4 +76,4 @@ Band 3 requires confirmation independent of the researcher — a measurement, a 
 
 - **Keyboard activation and Tab traversal.** Browser automation delivered zero keydown events to the page, so Enter/Space and tab order are inferred from the elements being real focusable buttons, not measured. E2 stays at 2 until a human presses keys.
 - **Screen-reader output.** The state attributes are confirmed present in the live DOM; whether VoiceOver speaks them is unconfirmed. This is what holds E4 at 2.
-- **The visual result of the contrast changes.** `Choice`, `Pill`, `Select` and the day strip's empty ring changed colour and border style. Contrast is measured; whether it still looks right has not been checked.
+- **The visual result of the contrast changes.** `Choice`, `Pill`, `Select` and the day strip's empty ring changed colour and border style. Since then: five warm domain fills moved, locked plan cards recede by surface instead of by opacity, estimated sleep bars are outlined rather than faded, and four containers stopped dimming their own text. Contrast is measured throughout; whether any of it still looks right has not been checked by eye in a browser.
