@@ -374,7 +374,9 @@ export function generateTimeline(profile, logs, now) {
       why: `Caffeine takes hours to clear, so stopping now leaves time for it to fade before your sleep window opens at ${fmt(ph.sleepStart)}.`,
       src: ["burke2015", "mchill2014"],
       changed: s.lateCaffeine
-        ? "The plan switched to sleep protection because you logged caffeine inside the protected window."
+        /* Two sentences, not one: the single 14-word version read at grade 8.4,
+           over the floor readability.test.js asserts. Same claim, same order. */
+        ? "Switched to sleep protection. You logged caffeine inside the protected window."
         : undefined,
       actions: ["done", "adjust"],
     });
