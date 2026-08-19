@@ -1809,23 +1809,29 @@ function LogTab({
             onChange={(note) => setLogDraft({ ...logDraft, note: note || "" })} />
         )}
 
-        <div style={{
+        {/* the clock icon and the colon are the whole label for a sighted user;
+            read aloud the three are just three pop-up buttons in a row, and
+            picking the wrong one writes a wrong time into what the plan is
+            built from. role=group on the row rather than a fieldset: a fieldset
+            brings its own box and margins and would knock the picker off the
+            line it shares with Save. */}
+        <div role="group" aria-label="Time of the new entry" style={{
           display: "flex", alignItems: "center", gap: 7, paddingTop: 14,
           borderTop: `1px solid ${T.hair}`,
         }}>
           <Clock size={16} color={T.faint} />
-          <select value={logDraft.h} style={sel}
+          <select value={logDraft.h} style={sel} aria-label="Hour"
             onChange={(e) => setLogDraft({ ...logDraft, h: Number(e.target.value) })}>
             {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
           </select>
           <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-          <select value={logDraft.m} style={sel}
+          <select value={logDraft.m} style={sel} aria-label="Minute"
             onChange={(e) => setLogDraft({ ...logDraft, m: Number(e.target.value) })}>
             {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
               <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
             ))}
           </select>
-          <select value={logDraft.ap} style={sel}
+          <select value={logDraft.ap} style={sel} aria-label="AM or PM"
             onChange={(e) => setLogDraft({ ...logDraft, ap: e.target.value })}>
             <option value="AM">AM</option><option value="PM">PM</option>
           </select>
@@ -1854,7 +1860,12 @@ function LogTab({
               borderRadius: 16, background: open ? T.card : "transparent",
               padding: open ? 14 : 0, marginBottom: open ? 10 : 0,
             }}>
-              <div onClick={() => setEditingLog(open ? null : l.id)} style={{
+              {/* a button, because correcting a time is the only thing this
+                  screen can do to an entry and a div gets no tab stop and no
+                  Enter. border:none has to sit before borderBottom or the
+                  shorthand wipes the hairline the closed row is drawn with. */}
+              <button onClick={() => setEditingLog(open ? null : l.id)} aria-expanded={open} style={{
+                width: "100%", background: "none", border: "none", textAlign: "left",
                 display: "flex", alignItems: "center", gap: 12, padding: "11px 4px",
                 borderBottom: open ? "none" : `1px solid ${T.hair}`, cursor: "pointer",
               }}>
@@ -1873,20 +1884,21 @@ function LogTab({
                 }}>{fmt(l.t)}</span>
                 <CaretRight size={15} color={T.faint}
                   style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
-              </div>
+              </button>
 
               {open && (
                 <div style={{ paddingTop: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                  <div role="group" aria-label="Time of this entry"
+                    style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
                     <Clock size={15} color={T.faint} />
-                    <select value={hh} style={sel} onChange={(e) => {
+                    <select value={hh} style={sel} aria-label="Hour" onChange={(e) => {
                       const nt = clockToAbs(Number(e.target.value), m % 60, ap);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
                       {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
                     </select>
                     <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-                    <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} onChange={(e) => {
+                    <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} aria-label="Minute" onChange={(e) => {
                       const nt = clockToAbs(hh, Number(e.target.value), ap);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
@@ -1894,7 +1906,7 @@ function LogTab({
                         <option key={mm} value={mm}>{String(mm).padStart(2, "0")}</option>
                       ))}
                     </select>
-                    <select value={ap} style={sel} onChange={(e) => {
+                    <select value={ap} style={sel} aria-label="AM or PM" onChange={(e) => {
                       const nt = clockToAbs(hh, m % 60, e.target.value);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
