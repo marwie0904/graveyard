@@ -42,10 +42,9 @@ the title page; the other two read `NAME`:
 - **Dean**, Faculty of Information and Communication Studies — name as it should
   be printed
 
-Worth confirming at the same time: the title page spells the adviser
-**BENIGNO JR. AGAPITO**. If the suffix belongs after the surname — Benigno
-Agapito Jr. — it is wrong in two places now rather than one, and both come from
-that single spelling.
+The adviser's spelling is settled: **BENIGNO JR. AGAPITO** is correct, and the
+suffix belongs where it sits. His UPOU address, `benignojr.agapito@upou.edu.ph`,
+carries the Jr. in the given-name half, not after the surname.
 
 ### 2. Permission page classifications
 

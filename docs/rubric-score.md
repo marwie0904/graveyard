@@ -1,6 +1,6 @@
 # Rubric score breakdown
 
-**51 / 60** at commit `main`, 19 August 2026. Twenty criteria, five domains, bands 0–3.
+**52 / 60** at commit `main`, 19 August 2026. Twenty criteria, five domains, bands 0–3.
 
 Band 3 requires confirmation independent of the researcher — a measurement, a passing test, or a standard's success criterion. Band 2 is "done correctly but only checked by eye."
 
@@ -12,8 +12,8 @@ Band 3 requires confirmation independent of the researcher — a measurement, a 
 | B. Communication effectiveness | 11 / 12 | 3, 3, 3, 2 |
 | C. Multimedia instruction | 11 / 12 | 3, 3, 3, 2 |
 | D. Interaction and usability | 10 / 12 | 2, 2, 3, 3 |
-| E. Accessibility | 9 / 12 | 3, 2, 3, 2 |
-| **Total** | **51 / 60** | |
+| E. Accessibility | 10 / 12 | 3, 2, 3, 2 |
+| **Total** | **52 / 60** | |
 
 ---
 
@@ -53,7 +53,7 @@ Band 3 requires confirmation independent of the researcher — a measurement, a 
 | D3 Error prevention | 3 | Overrides are clamped, invalid values ignored, and adjustments never move a hand-set number backward — all confirmed by test. |
 | D4 Reliability | 3 | Plan generation is a pure function of profile, logs and time, and the full suite passes over the assessed build. |
 
-## E. Accessibility — 9 / 12
+## E. Accessibility — 10 / 12
 
 | Criterion | Band | Why |
 |---|---|---|
