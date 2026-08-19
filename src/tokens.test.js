@@ -60,6 +60,70 @@ const rowsFor = (T) => {
   return rows;
 };
 
+/* The other floor, 1.4.11: 3:1 for non-text. Every row here is either the
+   boundary that tells you a control is there or the mark that tells you which
+   state it is in — the three rings in the day strip, and the borders that are
+   the only thing drawing an unselected Pill, Choice, Select or quiet Btn on
+   the surface behind them.
+
+   Divider hairlines are deliberately absent, and their absence is the point.
+   1.4.11 applies to what is "required to identify user interface components
+   and states" and exempts what is "purely decorative"; T.hair separates rows
+   and cards and identifies no control, so putting it in this table would fail
+   43 call sites and buy a global repaint the success criterion never asked
+   for. That exemption is why the empty ring got `edge` rather than a louder
+   `hair`. */
+const nonTextRowsFor = (T) => {
+  const k = T.key;
+  return [
+    /* DayChip, three states. Empty was `hair` under opacity 0.5 — measured at
+       1.08:1 warm and 1.11:1 dark in a browser — and the chip stays tappable
+       when empty, so the inactive-control exception does not reach it. */
+    [`${k} empty-night ring/bg`, T.edge, T.bg],
+    [`${k} logged-night ring/bg`, T.faint, T.bg],
+    [`${k} selected-night fill/bg`, T.ink, T.bg],
+    /* One token for every unselected control border. Asserted on all three
+       surfaces rather than tracing each call site: Pill and Select sit on
+       `card`, the day strip and quiet Btn on `bg`, and `sunken` is the one
+       left, so the table covers wherever a later screen puts them. */
+    [`${k} control edge/card`, T.edge, T.card],
+    [`${k} control edge/bg`, T.edge, T.bg],
+    [`${k} control edge/sunken`, T.edge, T.sunken],
+    /* Choice selected: the accent is both the row's border and the fill of the
+       dot, and the dot is the whole of the on/off signal. */
+    [`${k} choice selected border/card`, ACCENT, T.card],
+    [`${k} choice selected dot/card`, ACCENT, T.card],
+    /* RangeControl's Trends select once a longer window is picked */
+    [`${k} trends select active/bg`, DOMAIN.sleep.hue, T.bg],
+  ].map(([name, fg, bg]) => [name, rgb(fg), rgb(bg), 3]);
+};
+
+describe("non-text contrast", () => {
+  for (const T of [WARM, DARK]) {
+    it(`clears 3:1 for every ${T.key} control boundary and state indicator`, () => {
+      const failures = nonTextRowsFor(T)
+        .map(([name, fg, bg, min]) => [name, ratio(fg, bg), min])
+        .filter(([, r, min]) => r < min)
+        .map(([name, r]) => `${name}: ${r.toFixed(2)}`);
+      expect(failures).toEqual([]);
+    });
+  }
+
+  /* The table proves the token clears 3:1. It cannot prove the ring still uses
+     the token, and `hair` under an opacity is exactly the shape of the bug it
+     would miss — so the one component carrying the state reads its own source,
+     the way the sweep at the foot of this file does. */
+  it("draws the empty-night ring from edge and never dims it back down", async () => {
+    const { readFileSync } = await import("node:fs");
+    const chip = readFileSync(new URL("ui/index.jsx", import.meta.url), "utf8")
+      .split("function DayChip(")[1].split("\n}")[0];
+    expect(chip).toContain("T.edge");
+    // the prose above the ring is free to name what it stopped doing; the style is not
+    expect(chip).not.toMatch(/border:[^\n]*T\.hair/);
+    expect(chip).not.toMatch(/opacity\s*:/);
+  });
+});
+
 describe("WARM contrast", () => {
   it("clears 4.5:1 for every text token on every surface it is used on", () => {
     const failures = rowsFor(WARM)
