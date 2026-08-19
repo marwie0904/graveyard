@@ -67,11 +67,15 @@ citation table in full, which is disclosure.
 
 Currently `[To be supplied by the researcher.]`
 
+The adviser's name is settled — **Benigno Jr. Agapito** — so the first line
+needs only what he did. The rest of the blanks are still open.
+
 No standard form, one page or less, most specific first. The convention is to
 thank in this order, skipping anyone who does not apply:
 
-> I thank my adviser, [name], for [something specific — the question that
-> redirected the study, the draft they read closely, the deadline they held].
+> I thank my adviser, Benigno Jr. Agapito, for [something specific — the
+> question that redirected the study, the draft he read closely, the deadline
+> he held].
 >
 > I thank [program chair / faculty member] for [specific help], and the Faculty
 > of Information and Communication Studies for [what it provided].
@@ -84,6 +88,13 @@ thank in this order, skipping anyone who does not apply:
 > patience, the shifts covered].
 >
 > [Optional closing line: any error that remains is mine.]
+
+**What is still needed.** One true detail per person, nothing more: what
+Agapito actually did; the name of whoever chairs the programme and whoever the
+Dean is, if either is to be thanked as well as signed under; the colleagues or
+former teammates worth naming, or the generic "the contact centres where I
+worked"; and the family or friends, with the specific support rather than the
+word support.
 
 Two notes. Specifics beat superlatives — one true sentence about what someone
 actually did outranks a paragraph of thanks. And if anyone gave you domain
