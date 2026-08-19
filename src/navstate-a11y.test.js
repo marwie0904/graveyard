@@ -31,7 +31,10 @@ describe("a control that is one of a set says which one it is", () => {
     expect(row).toContain("aria-label={r.l}");
   });
 
+  /* It also shipped without a caret, which is what moved it onto the shared
+     Disclosure; the attribute went with it. controls-a11y.test.js holds the
+     other half — that Disclosure is the thing writing aria-expanded. */
   it("a plan item's Why this says whether it is open", () => {
-    expect(bodyOf("function TimelineItem(")).toContain("aria-expanded={open}");
+    expect(bodyOf("function TimelineItem(")).toMatch(/<Disclosure[\s\S]*?open=\{open\}/);
   });
 });

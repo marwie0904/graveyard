@@ -15,7 +15,14 @@ describe("toggle controls report their state", () => {
     expect(bodyOf("ui/index.jsx", "export function Pill(")).toContain("aria-pressed={active}");
   });
 
+  /* The five hand-rolled disclosures — this one, a plan item's "Why this", the
+     logged row, the logged group and a log entry — became one shared
+     Disclosure, so the attribute moved with them. Two halves now: Section has
+     to be using the control, and the control has to carry the attribute.
+     visual-consistency.test.js is what stops a sixth being hand-rolled. */
   it("the plan section's disclosure says whether it is open", () => {
-    expect(bodyOf("App.jsx", "function Section(")).toContain("aria-expanded={open}");
+    expect(bodyOf("App.jsx", "function Section(")).toContain("<Disclosure");
+    expect(readFileSync(new URL("ui/index.jsx", import.meta.url), "utf8"))
+      .toMatch(/export function Disclosure\([\s\S]*?aria-expanded=\{open\}/);
   });
 });

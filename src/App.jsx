@@ -8,7 +8,7 @@ import {
 } from "./icons.jsx";
 import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "./time.js";
 import { sequenceOf, cueFor, DONE_CUE, tone, speak, hush } from "./cues.js";
-import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, ACCENT, tint } from "./tokens.js";
+import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, ACCENT, tint, fillOf } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
   movementInterval, movementMode, ov, generateTimeline, generateAdvice, ADJUSTABLE, stretchNight,
@@ -17,7 +17,7 @@ import {
 import { materializeNights } from "./mockNights.js";
 import { foldNight, achievements, countStretch, sleepBand } from "./stats.js";
 import { load, save, forNight, archived } from "./storage.js";
-import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice, useOverlay } from "./ui/index.jsx";
+import { Card, Btn, Pill, Badge, Display, Eyebrow, Select, Arch, Choice, Disclosure, useOverlay } from "./ui/index.jsx";
 import Dashboard from "./screens/Dashboard.jsx";
 import Tour, { TOUR } from "./screens/Tour.jsx";
 
@@ -130,7 +130,8 @@ function CarePlayer({ T, activity, onClose, onDone }) {
   }
   const step = seq[Math.min(idx, seq.length - 1)];
   const left = Math.max(0, step.s - (elapsed - acc));
-  const hue = DOMAIN[activity.cat].hue;
+  const d = DOMAIN[activity.cat];
+  const hue = d.hue;
   const scale = finished ? 0.8 : step.scale !== undefined ? step.scale : 0.86;
 
   /* One cue per step change and one at the end. The tone marks the boundary for
@@ -157,7 +158,10 @@ function CarePlayer({ T, activity, onClose, onDone }) {
     }}>
       <div style={{ display: "flex", alignItems: "center" }}>
         <div style={{ flex: 1 }}>
-          <Eyebrow T={T} color={hue}>Micro-care</Eyebrow>
+          {/* an 11px uppercase caption is text, so it takes the domain's `ink`
+              like the countdown and the sound button below it — the raw hue
+              read 2.02:1 here for `light` in warm, against 5.25:1 for its ink */}
+          <Eyebrow T={T} color={d.ink[T.key]}>Micro-care</Eyebrow>
           <Display T={T} size={26}>{activity.l}</Display>
         </div>
         <button
@@ -169,7 +173,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
             background: sound ? tint(hue, 0.22) : T.card, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>{sound
-            ? <SpeakerHigh size={17} color={DOMAIN[activity.cat].ink[T.key]} />
+            ? <SpeakerHigh size={17} color={d.ink[T.key]} />
             : <SpeakerSlash size={17} color={T.muted} />}</button>
         <button onClick={onClose} aria-label="Close" style={{
           width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
@@ -192,7 +196,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
           }} />
           <span style={{
             position: "relative", fontFamily: FONT_DISPLAY, fontSize: 46, fontWeight: 700,
-            color: DOMAIN[activity.cat].ink[T.key], fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
+            color: d.ink[T.key], fontVariantNumeric: "tabular-nums", letterSpacing: "-0.03em",
           }}>{finished ? "✓" : left}</span>
         </div>
 
@@ -215,7 +219,7 @@ function CarePlayer({ T, activity, onClose, onDone }) {
       <div style={{ height: 4, borderRadius: 2, background: T.hair, marginBottom: 18 }}>
         <div style={{
           width: `${Math.min(100, (elapsed / total) * 100)}%`, height: "100%",
-          borderRadius: 2, background: hue, transition: "width 1s linear",
+          borderRadius: 2, background: d.fill[T.key], transition: "width 1s linear",
         }} />
       </div>
 
@@ -700,8 +704,12 @@ function Quiz({ onDone, onBack }) {
       </div>
       </div>
 
-      <Btn T={T} kind="accent" full onClick={canNext ? next : undefined}
-        style={{ marginTop: 18, opacity: canNext ? 1 : 0.35, cursor: canNext ? "pointer" : "default" }}>
+      {/* Not-yet-answerable used to be opacity 0.35 over the whole button, which
+          took its own white label down with it. `soft` is the same swap the
+          rest of the app makes for a button with nothing behind it, and its
+          ink-on-sunken pair is already in the token table at 4.68:1. */}
+      <Btn T={T} kind={canNext ? "accent" : "soft"} full onClick={canNext ? next : undefined}
+        style={{ marginTop: 18, cursor: canNext ? "pointer" : "default" }}>
         {i === QUESTIONS.length - 1 ? "Build my plan" : "Continue"} <ArrowRight size={18} />
       </Btn>
     </Arch>
@@ -879,7 +887,7 @@ function Review({ T, profile, onSave, startAt = 0, single = false, onDone }) {
             display: "flex", alignItems: "center", gap: 11, padding: "13px 14px",
             borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
           }}>
-            <Check size={15} color={d.hue} weight="bold" style={{ flexShrink: 0 }} />
+            <Check size={15} color={d.fill[T.key]} weight="bold" style={{ flexShrink: 0 }} />
             <span style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.ink, lineHeight: 1.35 }}>{l}</span>
           </div>
         ))}
@@ -1137,18 +1145,11 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
               a button's content model does not allow; font: inherit keeps the
               h3 from resizing the button, which index.html gives font: inherit */}
           <h3 style={{ margin: 0, font: "inherit" }}>
-            <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
-              background: "none", border: "none", padding: 0, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
-            }}>
-              <span style={{
-                flex: 1, fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 700, color: T.ink,
-                letterSpacing: "-0.02em", lineHeight: 1.25,
-              }}>{title}</span>
-              <CaretDown size={14} color={T.faint} style={{
-                flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 180ms ease",
-              }} />
-            </button>
+            {/* padding 0 because the row is already inset by the Card and has to
+                stay on the Badge's top line, which is the one box property the
+                shared control cannot know about */}
+            <Disclosure T={T} kind="heading" label={title}
+              open={open} onToggle={() => setOpen(!open)} style={{ padding: 0 }} />
           </h3>
           {open && (
           <p style={{ fontFamily: FONT_TEXT, fontSize: 14.5, lineHeight: 1.55, color: T.muted, margin: "8px 0 0" }}>
@@ -1159,7 +1160,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
             <div style={{ marginTop: 12 }}>
               {items.map((it) => (
                 <div key={it} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                  <Check size={14} color={DOMAIN[cat].hue} weight="bold"
+                  <Check size={14} color={DOMAIN[cat].fill[T.key]} weight="bold"
                     style={{ flexShrink: 0, marginTop: 3 }} />
                   <span style={{ fontFamily: FONT_TEXT, fontSize: 14, color: T.ink, lineHeight: 1.4 }}>{it}</span>
                 </div>
@@ -1287,11 +1288,13 @@ function Recommendation({ T, profile, revisit, onDone, onAdjust }) {
    the same everywhere. React reuses this div across states, so swapping the
    class is what fires the pop. */
 function StepMark({ done, active, T }) {
-  const hue = DOMAIN.movement.hue;
+  /* the halo is a wash and takes `hue`; the filled disc and the spinner's
+     leading arc are drawn and take `fill` */
+  const { hue, fill } = DOMAIN.movement;
   if (done) {
     return (
       <div className="gy-pop" style={{
-        width: 22, height: 22, borderRadius: 11, flexShrink: 0, background: hue,
+        width: 22, height: 22, borderRadius: 11, flexShrink: 0, background: fill[T.key],
         display: "flex", alignItems: "center", justifyContent: "center",
       }}><Check size={12} color="#FFFFFF" weight="bold" /></div>
     );
@@ -1300,7 +1303,7 @@ function StepMark({ done, active, T }) {
     <div className={active ? "gy-spin" : undefined} style={{
       width: 22, height: 22, borderRadius: 11, flexShrink: 0, boxSizing: "border-box",
       border: `2px solid ${active ? tint(hue, 0.22) : T.hair}`,
-      borderTopColor: active ? hue : undefined,
+      borderTopColor: active ? fill[T.key] : undefined,
     }} />
   );
 }
@@ -1321,9 +1324,13 @@ function Generating({ onDone }) {
     <Arch T={T} Icon={Moon} center pad="64px 28px 190px">
       <Display T={T} size={30} style={{ marginBottom: 22, textAlign: "center" }}>Building your plan.</Display>
       {steps.map((s, k) => (
+        /* A step still to come was dimmed to 0.34, which took its label with it
+           to 1.58:1 — a whole screen of text under the floor for two seconds.
+           The dimming was redundant anyway: StepMark already says which step is
+           running with a spinner and which are done with a check, and the label
+           already goes from muted to ink as each one lands. */
         <div key={s} style={{
           display: "flex", alignItems: "center", gap: 13, padding: "10px 0",
-          opacity: k <= i ? 1 : 0.34, transition: "opacity 320ms ease",
         }}>
           <StepMark done={k < i} active={k === i} T={T} />
           <span style={{
@@ -1396,7 +1403,7 @@ function ItemMeta({ item, T, d }) {
       display: "flex", alignItems: "center", gap: 6, margin: "6px 0 0",
       fontFamily: FONT_TEXT, fontSize: 12.5, fontWeight: 500, color: T.faint,
     }}>
-      <d.Icon size={13} color={d.hue} />
+      <d.Icon size={13} color={d.fill[T.key]} />
       <span>{d.label}</span>
       <span aria-hidden>·</span>
       <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(item.at)}</span>
@@ -1411,10 +1418,26 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
   return (
     <div style={{ display: "flex", gap: 10 }}>
       <Rail T={T} current={current} last={last} />
-      <Card T={T} style={{
+      {/* Locked was `opacity: 0.72` over the whole card, which composited every
+          descendant with it: muted fell to 3.23:1 warm / 3.47:1 dark and faint —
+          ItemMeta, the domain label and the scheduled time — to 3.06:1 / 3.05:1.
+          A container opacity is invisible to a token-pair contrast table, so it
+          silently voided every guarantee the table makes, which is the same bug
+          tokens.test.js already bans inside DayChip.
+
+          `tone` instead, and `bg` rather than `sunken`: a locked card stops
+          being a raised white surface and lies flush with the page, which is
+          what "you cannot answer this yet" should look like. bg was picked over
+          sunken because faint on sunken is 4.29:1 in warm — the one pair
+          tokens.test.js deliberately leaves out of its table — while ink, muted
+          and faint on bg are all already in it. Worst text on a locked card is
+          now faint at 4.65:1 warm / 5.29:1 dark. */}
+      <Card T={T} tone={locked ? T.bg : undefined} style={{
         flex: 1, minWidth: 0, marginBottom: 10, padding: 15,
-        opacity: locked ? 0.72 : 1, transition: "opacity 250ms ease",
-        border: current ? `1.5px solid ${tint(d.hue, 0.5)}` : (T.key === "dark" ? `1px solid ${T.hair}` : "none"),
+        /* the one thing on the Plan screen that says which item the night is
+           waiting on, and it was tint(d.hue, 0.5): 1.50:1 to 2.08:1 in warm,
+           against a 3:1 floor 1.4.11 names state indicators in by name */
+        border: current ? `1.5px solid ${d.fill[T.key]}` : (T.key === "dark" ? `1px solid ${T.hair}` : "none"),
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <h2 style={{
@@ -1441,21 +1464,20 @@ function TimelineItem({ item, T, onAct, onExpand, current, locked, blocker, last
             display: "flex", alignItems: "flex-start", gap: 7, marginTop: 10,
             padding: "9px 11px", borderRadius: 12, background: tint(d.hue, 0.11),
           }}>
-            <ArrowCounterClockwise size={13} color={d.hue} style={{ flexShrink: 0, marginTop: 2 }} />
+            <ArrowCounterClockwise size={13} color={d.fill[T.key]} style={{ flexShrink: 0, marginTop: 2 }} />
             <span style={{ fontFamily: FONT_TEXT, fontSize: 13, lineHeight: 1.4, color: d.ink[T.key], fontWeight: 500 }}>
               {item.changed}
             </span>
           </div>
         )}
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {/* This one shipped without a caret while its three siblings had one,
+              so the only expandable control the user meets on every card was
+              the only one that did not look expandable. It gets the shared
+              caret now, which is most of the point of there being one control. */}
           {item.why && (
-            <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
-              background: "none", border: "none", padding: "9px 0 0", cursor: "pointer",
-              fontFamily: FONT_TEXT, fontSize: 13, color: T.faint, fontWeight: 500,
-              display: "flex", alignItems: "center", gap: 5,
-            }}>
-              <Info size={13} /> Why this
-            </button>
+            <Disclosure T={T} kind="quiet" label="Why this" lead={<Info size={13} color={T.faint} />}
+              open={open} onToggle={() => setOpen(!open)} />
           )}
           {item.recurring && (
             <button onClick={onExpand} style={{
@@ -1512,27 +1534,16 @@ function LoggedRow({ item, log, T, onAct, first }) {
   const status = log.value.status;
   return (
     <div style={{ borderTop: first ? "none" : `1px solid ${T.hair}` }}>
-      <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
-        width: "100%", background: "none", border: "none", cursor: "pointer",
-        padding: "12px 4px", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
-      }}>
-        {status === "done"
-          ? <Check size={14} color={d.hue} weight="bold" style={{ flexShrink: 0 }} />
+      <Disclosure T={T} label={item.title} open={open} onToggle={() => setOpen(!open)}
+        lead={status === "done"
+          ? <Check size={14} color={d.fill[T.key]} weight="bold" style={{ flexShrink: 0 }} />
           : <div style={{ width: 14, flexShrink: 0, display: "flex", justifyContent: "center" }}>
               <div style={{ width: 9, height: 2, borderRadius: 1, background: T.faint }} />
             </div>}
-        <span style={{
-          flex: 1, minWidth: 0, fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>{item.title}</span>
-        <span style={{
+        trail={<span style={{
           flexShrink: 0, fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint,
           fontVariantNumeric: "tabular-nums",
-        }}>{LOGGED_AS[status] || "Logged"} · {fmt(log.t)}</span>
-        <CaretRight size={13} color={T.faint} style={{
-          flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease",
-        }} />
-      </button>
+        }}>{LOGGED_AS[status] || "Logged"} · {fmt(log.t)}</span>} />
       {open && (
         <div style={{ padding: "0 4px 14px 24px" }}>
           <ItemMeta item={item} T={T} d={d} />
@@ -1560,19 +1571,20 @@ function LoggedRow({ item, log, T, onAct, first }) {
    tinted disc every domain uses, plus the one mark that says it opens something
    rather than just labelling the row it sits in. */
 function WhyBadge({ T, onClick, label }) {
-  const hue = DOMAIN.recovery.hue;
+  /* the disc is a wash and the two marks on it are drawn, so they split */
+  const { hue, fill } = DOMAIN.recovery;
   return (
     <button onClick={onClick} aria-label={label} className="gy-tap" style={{
       position: "relative", flexShrink: 0, width: 38, height: 38, borderRadius: 19,
       border: "none", padding: 0, cursor: "pointer", background: tint(hue, T.tintA),
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      <Heart size={18} color={hue} />
+      <Heart size={18} color={fill[T.key]} />
       {/* Filled, not tinted: at 17px a low-contrast mark on a low-contrast disc
           reads as a smudge on the badge rather than as a second glyph. */}
       <span style={{
         position: "absolute", right: -3, bottom: -3, width: 17, height: 17, borderRadius: 9,
-        background: hue, border: `2px solid ${T.bg}`, boxSizing: "border-box",
+        background: fill[T.key], border: `2px solid ${T.bg}`, boxSizing: "border-box",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <Question size={10} color="#FFFFFF" weight="bold" />
@@ -1592,22 +1604,15 @@ function LoggedGroup({ rows, T, onAct, resets, onToggleResets }) {
     <Card T={T} style={{ marginBottom: 14, padding: "2px 12px" }}>
       <div style={{ display: "flex", alignItems: "center" }}>
         {rows.length ? (
-          <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
-            flex: 1, minWidth: 0, background: "none", border: "none", cursor: "pointer",
-            padding: "12px 4px", display: "flex", alignItems: "center", gap: 10, textAlign: "left",
-          }}>
-            <ListChecks size={17} color={T.muted} style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, fontFamily: FONT_TEXT, fontSize: 15, fontWeight: 600, color: T.ink }}>
-              Already logged
-            </span>
-            <span style={{
+          /* flex 1 rather than the control's own full width: it shares this
+             strip with the reset toggle to its right */
+          <Disclosure T={T} kind="heading" label="Already logged"
+            open={open} onToggle={() => setOpen(!open)} style={{ flex: 1, minWidth: 0 }}
+            lead={<ListChecks size={17} color={T.muted} style={{ flexShrink: 0 }} />}
+            trail={<span style={{
               fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600, color: T.muted,
               background: T.sunken, borderRadius: 999, padding: "2px 9px",
-            }}>{rows.length}</span>
-            <CaretDown size={14} color={T.faint} style={{
-              transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms ease",
-            }} />
-          </button>
+            }}>{rows.length}</span>} />
         ) : (
           <div style={{
             flex: 1, minWidth: 0, padding: "12px 4px", display: "flex", alignItems: "center", gap: 10,
@@ -1628,7 +1633,7 @@ function LoggedGroup({ rows, T, onAct, resets, onToggleResets }) {
               background: resets === "expanded" ? tint(DOMAIN.movement.hue, T.tintA + 0.06) : "transparent",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-            <Pulse size={17} color={resets === "expanded" ? DOMAIN.movement.hue : T.faint} strokeWidth={2} />
+            <Pulse size={17} color={resets === "expanded" ? DOMAIN.movement.fill[T.key] : T.faint} strokeWidth={2} />
           </button>
         )}
       </div>
@@ -1907,31 +1912,31 @@ function LogTab({
               borderRadius: 16, background: open ? T.card : "transparent",
               padding: open ? 14 : 0, marginBottom: open ? 10 : 0,
             }}>
-              {/* a button, because correcting a time is the only thing this
-                  screen can do to an entry and a div gets no tab stop and no
-                  Enter. border:none has to sit before borderBottom or the
-                  shorthand wipes the hairline the closed row is drawn with. */}
-              <button onClick={() => setEditingLog(open ? null : l.id)} aria-expanded={open} style={{
-                width: "100%", background: "none", border: "none", textAlign: "left",
-                display: "flex", alignItems: "center", gap: 12, padding: "11px 4px",
-                borderBottom: open ? "none" : `1px solid ${T.hair}`, cursor: "pointer",
-              }}>
-                <Badge category={meta.cat} T={T} size={30} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: FONT_TEXT, fontSize: 15, color: T.ink }}>{meta.l}</div>
+              {/* The fifth hand-rolled one, and the reason the guard in
+                  visual-consistency.test.js is a ban rather than a list of
+                  four: it did the same job as the logged row on the Plan tab
+                  with a different caret, a different gap and a different type
+                  size. Still a real button — correcting a time is the only
+                  thing this screen can do to an entry, and a div gets no tab
+                  stop and no Enter — because that is what Disclosure is.
+                  The hairline stays a per-call-site override: it belongs to the
+                  list, not to the control, and it survives only because the
+                  control writes border:none before spreading this in. */}
+              <Disclosure T={T} open={open} onToggle={() => setEditingLog(open ? null : l.id)}
+                style={{ borderBottom: open ? "none" : `1px solid ${T.hair}` }}
+                lead={<Badge category={meta.cat} T={T} size={30} />}
+                label={<>
+                  {meta.l}
                   {l.note && (
                     <div style={{ fontFamily: FONT_TEXT, fontSize: 12.5, color: T.faint, marginTop: 1 }}>
                       {l.note}
                     </div>
                   )}
-                </div>
-                <span style={{
+                </>}
+                trail={<span style={{
                   fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600, color: T.faint,
                   fontVariantNumeric: "tabular-nums",
-                }}>{fmt(l.t)}</span>
-                <CaretRight size={15} color={T.faint}
-                  style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
-              </button>
+                }}>{fmt(l.t)}</span>} />
 
               {open && (
                 <div style={{ paddingTop: 12 }}>
@@ -2012,7 +2017,7 @@ function LogTab({
                 display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0",
                 borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
               }}>
-                <ArrowCounterClockwise size={13} color={DOMAIN.recovery.hue} style={{ flexShrink: 0, marginTop: 4 }} />
+                <ArrowCounterClockwise size={13} color={DOMAIN.recovery.fill[T.key]} style={{ flexShrink: 0, marginTop: 4 }} />
                 <span style={{ fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink, lineHeight: 1.5 }}>{c}</span>
               </div>
             ))}
@@ -2039,7 +2044,7 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
       </p>
       {CARE.map((c) => {
         const on = c.k === suggested;
-        const hue = DOMAIN[c.cat].hue;
+        const { hue, fill } = DOMAIN[c.cat];
         return (
           /* A real button, not a Card with an onClick: the row is the only way
              into the player, and as a div it was unreachable by keyboard or
@@ -2052,13 +2057,16 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
             boxShadow: T.key === "warm" ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
             marginBottom: 10, padding: 14, display: "flex", alignItems: "center", gap: 13,
             textAlign: "left",
-            border: on ? `1.5px solid ${tint(hue, 0.45)}` : "none",
+            /* the outline is the whole of "this is the one we suggest", the
+               same job the current plan item's border does, so it stopped
+               being a 0.45 wash of the hue for the same reason */
+            border: on ? `1.5px solid ${fill[T.key]}` : "none",
           }}>
             <div style={{
               width: 44, height: 44, borderRadius: 22, flexShrink: 0,
               background: tint(hue, T.tintA),
               display: "flex", alignItems: "center", justifyContent: "center",
-            }}><c.Icon size={20} color={hue} /></div>
+            }}><c.Icon size={20} color={fill[T.key]} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontFamily: FONT_TEXT, fontSize: 16, fontWeight: 600, color: T.ink,
@@ -2112,7 +2120,11 @@ function ProfileRow({ T, Icon, l, sub, onClick, hue }) {
       <div style={{
         width: 34, height: 34, borderRadius: 17, flexShrink: 0,
         background: tint(hue, T.tintA), display: "flex", alignItems: "center", justifyContent: "center",
-      }}><Icon size={16} color={hue} /></div>
+      }}>
+        {/* the disc behind it is the wash, the glyph on it is the mark; fillOf
+            maps the hue the call site already holds onto the drawable one */}
+        <Icon size={16} color={fillOf(hue, T)} />
+      </div>
       <div style={{ flex: 1 }}>
         <div style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink }}>{l}</div>
         {sub && <div style={{ fontFamily: FONT_TEXT, fontSize: 13, color: T.muted, marginTop: 2 }}>{sub}</div>}
@@ -2164,7 +2176,7 @@ function ProfileSheet({
             ? <span style={{
                 fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 700, color: DOMAIN.sleep.ink[T.key],
               }}>{profile.name.trim().charAt(0).toUpperCase()}</span>
-            : <User size={24} color={DOMAIN.sleep.hue} />}
+            : <User size={24} color={DOMAIN.sleep.fill[T.key]} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <input value={profile.name || ""} placeholder="Add your name"
@@ -2258,13 +2270,18 @@ function ProfileSheet({
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 20 }}>
         {badges.map((b) => (
+          /* Unearned was the whole tile at opacity 0.5, which took its title to
+             3.58:1 warm and its description to 2.16:1 — a badge you cannot read
+             is a worse reward than one you have not got. Three things already
+             say unearned without touching the text: no tint behind it, a
+             hairline instead of a coloured border, and a padlock in place of
+             the icon that carries its own "Not earned yet" label. */
           <div key={b.key} style={{
             background: b.got ? tint(b.hue, T.tintA) : T.card, borderRadius: 18, padding: 14,
-            opacity: b.got ? 1 : 0.5,
             border: b.got ? `1px solid ${tint(b.hue, 0.28)}` : `1px solid ${T.hair}`,
           }}>
             {b.got
-              ? <b.Icon size={19} color={b.hue} />
+              ? <b.Icon size={19} color={fillOf(b.hue, T)} />
               : <Lock size={19} color={T.faint} aria-hidden={false} role="img" aria-label="Not earned yet" />}
             <div style={{
               fontFamily: FONT_TEXT, fontSize: 14.5, fontWeight: 600, color: T.ink, marginTop: 9,
@@ -2279,7 +2296,7 @@ function ProfileSheet({
       <Eyebrow T={T} as="h2">Personalize</Eyebrow>
       <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <Palette size={16} color={DOMAIN.light.hue} />
+          <Palette size={16} color={DOMAIN.light.fill[T.key]} />
           <h3 style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, margin: 0 }}>Theme</h3>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -2299,7 +2316,7 @@ function ProfileSheet({
       </Card>
       <Card T={T} style={{ marginBottom: 8, padding: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-          <Bell size={16} color={DOMAIN.caffeine.hue} />
+          <Bell size={16} color={DOMAIN.caffeine.fill[T.key]} />
           <h3 style={{ fontFamily: FONT_TEXT, fontSize: 15.5, fontWeight: 600, color: T.ink, margin: 0 }}>Reminders</h3>
           <div style={{ flex: 1 }} />
           <button onClick={() => setProfile({
@@ -2326,7 +2343,7 @@ function ProfileSheet({
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 {React.createElement(DOMAIN[r.cat].Icon, {
-                  size: 13, color: on ? DOMAIN[r.cat].hue : T.faint,
+                  size: 13, color: on ? DOMAIN[r.cat].fill[T.key] : T.faint,
                 })}
               </div>
               <span style={{
@@ -2343,7 +2360,7 @@ function ProfileSheet({
                 });
               }} style={{
                 width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer",
-                background: on ? DOMAIN[r.cat].hue : T.hair, position: "relative",
+                background: on ? DOMAIN[r.cat].fill[T.key] : T.hair, position: "relative",
                 transition: "background 160ms ease",
               }}>
                 <span style={{
@@ -2634,7 +2651,7 @@ function AdjustSheet({
               </div>
               <input type="range" min={spec.min} max={spec.max} step={spec.step} value={val}
                 onChange={(e) => setAdjustDraft({ ...adjustDraft, [a.key]: Number(e.target.value) })}
-                style={{ width: "100%", marginTop: 12, accentColor: d.hue }} />
+                style={{ width: "100%", marginTop: 12, accentColor: d.fill[T.key] }} />
               {!isDefault && (
                 <button onClick={() => setAdjustDraft({ ...adjustDraft, [a.key]: a.def })} style={{
                   background: "none", border: "none", cursor: "pointer", padding: "8px 0 0",
@@ -3129,7 +3146,7 @@ export default function App() {
           width: 38, height: 38, borderRadius: 19, border: "none", cursor: "pointer",
           background: tint(DOMAIN.sleep.hue, T.tintA),
           display: "flex", alignItems: "center", justifyContent: "center",
-        }}><User size={18} color={DOMAIN.sleep.hue} /></button>
+        }}><User size={18} color={DOMAIN.sleep.fill[T.key]} /></button>
       </div>
 
       {/* the only scrolling region */}

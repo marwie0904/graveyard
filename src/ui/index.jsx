@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint, inkOf } from "../tokens.js";
+import { FONT_DISPLAY, FONT_TEXT, DOMAIN, ACCENT, DUSK, tint, inkOf, fillOf } from "../tokens.js";
 import { CaretDown, Check } from "../icons.jsx";
 import { RANGES, STRIP_DAYS, dayOffsetOf } from "../stats.js";
 import { FOCUSABLE, nextFocusIndex } from "../focus.js";
@@ -75,7 +75,11 @@ export function Badge({ category, T, size = 40 }) {
       background: tint(d.hue, T.tintA),
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      <I size={size * 0.45} color={d.hue} strokeWidth={2} />
+      {/* the icon is a mark, not a wash, and it lands on the hue's own tint —
+          the worst surface the hue ever gets, and where `light` printed at
+          2.09:1 in warm. `fill` is the same colour walked until it clears 3:1
+          there; the disc behind it stays the raw hue. */}
+      <I size={size * 0.45} color={d.fill[T.key]} strokeWidth={2} />
     </div>
   );
 }
@@ -148,6 +152,46 @@ export function Btn({ children, T, kind = "primary", onClick, hue, style, full }
   );
 }
 
+/* Five hand-rolled "open this" buttons across App.jsx, and they had drifted into
+   five different controls: two caret glyphs, one of them missing its caret
+   entirely, four paddings, four gaps and four type treatments for one gesture.
+   The caret is deliberately not a prop — an expandable control with no
+   affordance is the inconsistency this replaced, so every one of them gets the
+   same one, and it is the same glyph and the same rotation everywhere.
+
+   Three kinds, because the call sites are three roles and no more: the heading
+   of a collapsible block, a row in a list of them, and a quiet inline action
+   under a paragraph. Anything past that — padding, gap, caret side, a second
+   line of label — is the drift, not a requirement. `style` is the one escape
+   hatch, and it exists because two call sites need a box property the button
+   cannot know about: the logged group shares its strip with the reset toggle
+   and the log entry carries the row hairline. */
+export function Disclosure({ T, open, onToggle, label, lead, trail, kind = "row", style }) {
+  const kinds = {
+    heading: { width: "100%", padding: "12px 4px", gap: 10,
+      font: { fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.25, color: T.ink } },
+    row: { width: "100%", padding: "12px 4px", gap: 10,
+      font: { fontFamily: FONT_TEXT, fontSize: 14.5, color: T.ink } },
+    quiet: { width: "auto", padding: "9px 0 0", gap: 5,
+      font: { fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 500, color: T.faint } },
+  }[kind];
+
+  return (
+    <button onClick={onToggle} aria-expanded={open} style={{
+      width: kinds.width, padding: kinds.padding, gap: kinds.gap,
+      background: "none", border: "none", cursor: "pointer", textAlign: "left",
+      display: "flex", alignItems: "center", ...style,
+    }}>
+      {lead}
+      <div style={{ flex: 1, minWidth: 0, ...kinds.font }}>{label}</div>
+      {trail}
+      <CaretDown size={14} color={T.faint} style={{
+        flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 180ms ease",
+      }} />
+    </button>
+  );
+}
+
 /* Onboarding shell: a colored hero band with the content sheet arcing up into
    it. The arc is one elliptical border-radius rather than an SVG mask, so the
    sheet still scrolls and grows with its content. */
@@ -201,9 +245,12 @@ export function Choice({ T, label, sub, on, onClick, hue = ACCENT }) {
       padding: "13px 14px 13px 20px", display: "flex", alignItems: "center", gap: 12,
       /* the selected border was tint(hue, 0.4) — 1.77:1 warm, 1.54:1 dark —
          which drew the row's own outline below the 3:1 floor in the one state
-         it is meant to shout about; the undiluted hue clears it on every
-         surface Choice is used on, and is less code besides */
-      border: `1.5px solid ${on ? hue : T.edge}`,
+         it is meant to shout about. The undiluted hue answered that and then
+         sat one rule away from every other mark in the app, at 3.27:1 on the
+         dark card with nothing holding it there; `fill` is the same colour
+         walked per theme, 3.66:1, and it is the value the rest of the drawn
+         marks read. The dot below takes it for the same reason. */
+      border: `1.5px solid ${on ? fillOf(hue, T) : T.edge}`,
       background: on ? tint(hue, 0.08) : T.card,
       transition: "background 140ms ease, border-color 140ms ease",
     }}>
@@ -221,7 +268,7 @@ export function Choice({ T, label, sub, on, onClick, hue = ACCENT }) {
           switched on. It is the same unfilled ring the day strip uses. */}
       <div className={on ? "gy-pop" : undefined} style={{
         width: 26, height: 26, borderRadius: 13, flexShrink: 0, boxSizing: "border-box",
-        background: on ? hue : "transparent",
+        background: on ? fillOf(hue, T) : "transparent",
         border: on ? "none" : `1.5px solid ${T.edge}`,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>{on && <Check size={14} color="#FFFFFF" weight="bold" />}</div>
@@ -325,8 +372,11 @@ export function RangeControl({ T, value, onChange, have }) {
             style={{
               appearance: "none", fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600,
               color: range ? "#FFFFFF" : T.muted,
-              background: range ? DOMAIN.sleep.hue : "transparent",
-              border: `1px solid ${range ? DOMAIN.sleep.hue : T.edge}`,
+              /* both the chip's fill and its outline are drawn, not washed, so
+                 they take the sleep hue's `fill`: 4.44:1 on bg warm, 4.13:1
+                 dark, and the white label on it clears 4.5:1 in both. */
+              background: range ? DOMAIN.sleep.fill[T.key] : "transparent",
+              border: `1px solid ${range ? DOMAIN.sleep.fill[T.key] : T.edge}`,
               borderRadius: 999, padding: "6px 25px 6px 12px",
             }}
           >

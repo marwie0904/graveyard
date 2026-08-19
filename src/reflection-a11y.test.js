@@ -18,10 +18,13 @@ describe("the reflection screen's time controls", () => {
 });
 
 describe("a logged entry's row", () => {
-  it("is a button that says whether it is open", () => {
+  /* Still a real control with a real state — it is the shared Disclosure now,
+     which is the button and writes the attribute. Sliced from the opening
+     bracket up to the toggle itself, so a plain div here still fails. */
+  it("is a disclosure that says whether it is open", () => {
     const i = region.indexOf("setEditingLog(open ? null : l.id)");
-    const tag = region.slice(region.lastIndexOf("<", i), region.indexOf("<Badge", i));
-    expect(tag.startsWith("<button")).toBe(true);
-    expect(tag).toMatch(/aria-expanded=\{open\}/);
+    const tag = region.slice(region.lastIndexOf("<", i), i);
+    expect(tag.startsWith("<Disclosure")).toBe(true);
+    expect(tag).toMatch(/open=\{open\}/);
   });
 });
