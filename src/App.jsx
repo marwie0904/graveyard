@@ -2690,6 +2690,29 @@ const seeded = new URLSearchParams(location.search).has("seed");
    ground truth. Module scope because it closes over nothing. */
 const stored = ({ stretch, ...p }) => p;
 
+/* The four destinations of the tab bar. Module scope so the announcement below
+   can name a tab without a second copy of its label: that effect is declared
+   above the early returns, and a const built after them is still uninitialised
+   on every screen that returned early. */
+const TABS = [
+  { k: "dashboard", l: "Dashboard", Icon: ChartBar },
+  { k: "plan", l: "Plan", Icon: ListChecks },
+  { k: "log", l: "Reflection", Icon: FileText },
+  { k: "live", l: "Care", Icon: Heart },
+];
+
+/* What each screen calls itself on arrival. "generating" is missing on purpose:
+   its four steps flip every 520ms, which no screen reader can follow, so that
+   screen stays silent and the plan landing is what gets announced. */
+const WHERE = {
+  welcome: "Welcome to graveyard.",
+  disclaimer: "Before you start.",
+  quiz: "Setting up your plan.",
+  recommendation: "Your plan is ready.",
+  "recommendation-revisit": "Your plan.",
+  review: "Adjusting your plan.",
+};
+
 export default function App() {
   const [screen, setScreen] = useState(boot.profile ? "app" : "welcome");
   const [tab, setTab] = useState("dashboard");
@@ -2732,6 +2755,21 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [shownScreen, screenAnim] = useScreenSwap(screen);
   const timeEditRef = useOverlay(!!timeEdit, () => setTimeEdit(null));
+
+  /* Says where you just landed. A second live region, not the toast's near the
+     bottom of this file: a destination and a confirmation are different
+     messages, and one region carrying both means whichever arrives second wipes
+     the other mid-sentence. The node sits in index.html rather than in this
+     tree because every screen returns its own Frame — a region that mounts with
+     the screen it announces is exactly the case the toast's comment warns
+     about, while an effect runs on the early-return screens too. `screen`, not
+     `shownScreen`: the announcement should not wait out the 300ms exit. */
+  useEffect(() => {
+    const t = TABS.find((x) => x.k === tab);
+    const where = screen === "app" ? t && t.l : WHERE[screen];
+    const region = document.getElementById("gy-where");
+    if (region && where) region.textContent = where;
+  }, [screen, tab]);
 
   /* nightOf reads the wake boundary out of the profile, so editing your shift
      or sleep times can change which night the current clock belongs to. That is
@@ -3029,15 +3067,13 @@ export default function App() {
   };
 
   /* -------------------------------- chrome -------------------------------- */
-  const TABS = [
-    { k: "dashboard", l: "Dashboard", Icon: ChartBar },
-    { k: "plan", l: "Plan", Icon: ListChecks },
-    { k: "log", l: "Reflection", Icon: FileText },
-    { k: "live", l: "Care", Icon: Heart },
-  ];
 
+  /* gy-hushed rides on the animation class because that is the only className
+     Frame hands the phone body, and the sky has to be a descendant of it: the
+     drifting dusk is decoration, and it does not run under a care session that
+     is telling you when to breathe. */
   return (
-    <Frame T={T} raw anim={screenAnim}>
+    <Frame T={T} raw anim={playing ? `${screenAnim} gy-hushed` : screenAnim}>
       {/* header, pinned */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", padding: "2px 20px 14px",
