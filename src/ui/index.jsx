@@ -114,7 +114,7 @@ export function Display({ children, T, size = 34, style, as: Tag = "h1" }) {
 
 export function Pill({ children, T, hue, active, onClick }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} aria-pressed={active} style={{
       fontFamily: FONT_TEXT, fontSize: 14, fontWeight: 500,
       padding: "9px 15px", borderRadius: 999, cursor: "pointer",
       border: `1px solid ${active ? "transparent" : T.hair}`,
@@ -256,13 +256,20 @@ export function selectionLabel(value) {
    the night; both are one button so the tap area is the whole column. */
 function DayChip({ T, label, on, dim, onClick }) {
   return (
-    <button onClick={onClick} aria-pressed={on} aria-label={label} style={{
+    <button onClick={onClick} aria-pressed={on} aria-label={dim ? `${label}, nothing logged` : label} style={{
       flex: 1, minWidth: 0, padding: "2px 0", background: "none", border: "none",
       cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
     }}>
+      {/* An empty night used to print its label in T.hair, about 1.08:1 — dim
+          enough to say "nothing here" and too dim to read, and the night is
+          still tappable so WCAG's inactive-control exception does not cover it.
+          Lowering the label to some middle grey was rejected: anything that
+          clears 4.5:1 stops reading as dimmed anyway, so the emptiness moved
+          off text contrast entirely and onto the circle below, which already
+          carries dim in its border and opacity, and onto the aria-label. */}
       <span style={{
         fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 500,
-        color: on ? T.ink : dim ? T.hair : T.faint,
+        color: on ? T.ink : T.faint,
       }}>{label}</span>
       <span style={{
         width: 28, height: 28, borderRadius: 14, boxSizing: "border-box",

@@ -1090,7 +1090,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
               a button's content model does not allow; font: inherit keeps the
               h3 from resizing the button, which index.html gives font: inherit */}
           <h3 style={{ margin: 0, font: "inherit" }}>
-            <button onClick={() => setOpen(!open)} style={{
+            <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
               background: "none", border: "none", padding: 0, cursor: "pointer",
               display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
             }}>
