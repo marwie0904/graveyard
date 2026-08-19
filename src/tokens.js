@@ -7,19 +7,32 @@ export const FONT_DISPLAY =
 export const FONT_TEXT =
   '-apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif';
 
-/* `hue` is the fill: icons, meters, chips and tint() washes, where the 3:1
-   non-text floor applies. `ink` is the same colour moved in lightness until it
-   clears 4.5:1 as text on the tinted chip it sits on, one value per theme and
-   keyed by T.key. A hue is never a text colour; src/tokens.test.js holds that. */
+/* Three values per domain, and each one is answering a different floor.
+
+   `hue` is the wash: the argument to tint(), where the result is a background
+   and nothing has to be legible against it.
+
+   `fill` is the mark — the icon inside a Badge, a chart bar or dot, the border
+   of the card the plan is currently on. 1.4.11 asks these for 3:1, and the
+   surface they land on is not always the card: a Badge icon sits on tint(hue,
+   T.tintA), which is the hue's own wash and therefore the worst case. So `fill`
+   is the hue walked in lightness (saturation held, so the colour keeps its
+   identity) until it clears 3:1 on `card`, `bg`, `sunken` and on that wash over
+   each of them. Three of eight warm values and six of eight dark ones came back
+   unchanged; the warm theme is the one that had to move, because a pale hue on
+   a near-white card is the case with no headroom.
+
+   `ink` is text: the same colour moved until it clears 4.5:1 on the tinted chip
+   it sits on. A hue is never a text colour; src/tokens.test.js holds that. */
 export const DOMAIN = {
-  sleep:    { hue: "#5E5CE6", ink: { warm: "#4F4DC2", dark: "#9493EE" }, label: "Sleep",    Icon: Moon },
-  caffeine: { hue: "#C2683A", ink: { warm: "#904D2B", dark: "#D49270" }, label: "Caffeine", Icon: Coffee },
-  water:    { hue: "#2C9FD4", ink: { warm: "#1D678A", dark: "#57B3DD" }, label: "Water",    Icon: Drop },
-  movement: { hue: "#2FA96B", ink: { warm: "#1F6E46", dark: "#35BE78" }, label: "Movement", Icon: Pulse },
-  light:    { hue: "#DDA02B", ink: { warm: "#815D19", dark: "#DFA637" }, label: "Light",    Icon: Sun },
-  food:     { hue: "#DC6A55", ink: { warm: "#97493A", dark: "#E48E7E" }, label: "Food",     Icon: ForkKnife },
-  recovery: { hue: "#9A5FD0", ink: { warm: "#7749A1", dark: "#B88FDE" }, label: "Recovery", Icon: Heart },
-  shift:    { hue: "#6E7685", ink: { warm: "#585E6A", dark: "#9AA0AB" }, label: "Shift",    Icon: Clock },
+  sleep:    { hue: "#5E5CE6", fill: { warm: "#5E5CE6", dark: "#6866E7" }, ink: { warm: "#4F4DC2", dark: "#9493EE" }, label: "Sleep",    Icon: Moon },
+  caffeine: { hue: "#C2683A", fill: { warm: "#BB6438", dark: "#C2683A" }, ink: { warm: "#904D2B", dark: "#D49270" }, label: "Caffeine", Icon: Coffee },
+  water:    { hue: "#2C9FD4", fill: { warm: "#2485B2", dark: "#2C9FD4" }, ink: { warm: "#1D678A", dark: "#57B3DD" }, label: "Water",    Icon: Drop },
+  movement: { hue: "#2FA96B", fill: { warm: "#278E5A", dark: "#2FA96B" }, ink: { warm: "#1F6E46", dark: "#35BE78" }, label: "Movement", Icon: Pulse },
+  light:    { hue: "#DDA02B", fill: { warm: "#A4761B", dark: "#DDA02B" }, ink: { warm: "#815D19", dark: "#DFA637" }, label: "Light",    Icon: Sun },
+  food:     { hue: "#DC6A55", fill: { warm: "#D54D34", dark: "#DC6A55" }, ink: { warm: "#97493A", dark: "#E48E7E" }, label: "Food",     Icon: ForkKnife },
+  recovery: { hue: "#9A5FD0", fill: { warm: "#9A5FD0", dark: "#9A5FD0" }, ink: { warm: "#7749A1", dark: "#B88FDE" }, label: "Recovery", Icon: Heart },
+  shift:    { hue: "#6E7685", fill: { warm: "#6E7685", dark: "#717988" }, ink: { warm: "#585E6A", dark: "#9AA0AB" }, label: "Shift",    Icon: Clock },
 };
 
 /* muted and faint sit at the 4.5:1 floor for body text: muted against `sunken`
@@ -79,3 +92,9 @@ export const tint = (hex, a) => {
    colour is looked up by value. Anything that is not a domain hue passes through. */
 export const inkOf = (hue, T) =>
   Object.values(DOMAIN).find((d) => d.hue === hue)?.ink[T.key] || hue;
+
+/* The same lookup for the mark. Call sites that draw a hue rather than wash
+   with it — Badge's icon, the chart marks, a selected Choice's border — pass
+   the hue they already hold and get back the value that clears 3:1. */
+export const fillOf = (hue, T) =>
+  Object.values(DOMAIN).find((d) => d.hue === hue)?.fill[T.key] || hue;

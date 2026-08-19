@@ -3,7 +3,7 @@ import {
   ResponsiveContainer, Cell, CartesianGrid,
 } from "recharts";
 import { DAY, fmt, nightAxis, nightTick } from "../time.js";
-import { FONT_DISPLAY, FONT_TEXT, DOMAIN, tint } from "../tokens.js";
+import { FONT_DISPLAY, FONT_TEXT, DOMAIN, tint, fillOf } from "../tokens.js";
 import { RANGES, rangeStats, readPatterns, dayOffsetOf, MIN_TREND } from "../stats.js";
 import { Card, Btn, Display, RangeControl } from "../ui/index.jsx";
 import { Info } from "../icons.jsx";
@@ -33,7 +33,13 @@ const CARD = { borderRadius: 16, marginBottom: 10 };
 
 /* One figure: label, number, optional denominator, one thin meter. The number
    stays ink-coloured and the meter carries the domain hue, so size sets the
-   hierarchy and colour only ever means "which part of the plan". */
+   hierarchy and colour only ever means "which part of the plan".
+
+   Two colours out of one hue: the track is a wash and owes nothing, the bar
+   inside it is a mark and owes 3:1 against that track, so it draws from
+   fillOf. Passing the fill in as the prop instead was rejected — every caller
+   would then have to know the theme, and the tint would have to be recovered
+   from a value that has already moved. */
 function Stat({ T, hue, k, v, of, note, fill, big }) {
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -58,7 +64,7 @@ function Stat({ T, hue, k, v, of, note, fill, big }) {
           height: 5, borderRadius: 3, marginTop: 8, overflow: "hidden",
           background: tint(hue, 0.16),
         }}>
-          <div style={{ width: `${Math.round(fill * 100)}%`, height: "100%", background: hue }} />
+          <div style={{ width: `${Math.round(fill * 100)}%`, height: "100%", background: fillOf(hue, T) }} />
         </div>
       )}
     </div>
@@ -159,7 +165,7 @@ function MiniPlan({ T, plan, status, now, onOpenPlan }) {
               display: "flex", alignItems: "center", gap: 10, padding: "11px 2px",
               borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: 3, background: d.hue, flexShrink: 0 }} />
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: d.fill[T.key], flexShrink: 0 }} />
               <span style={{
                 fontFamily: FONT_TEXT, fontSize: 14, color: T.ink, flex: 1,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -349,7 +355,7 @@ export default function Dashboard({
           duration, so this is exactly "is there a bar to draw" */}
       {sleep.length > 0 && (
       <Panel T={T} title="When you slept" height={158}
-        sub={anyEstimated ? "faded bars are estimated" : "start to wake"}>
+        sub={anyEstimated ? "outlined bars are estimated" : "start to wake"}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={sleep} margin={{ left: -18, right: 8, top: 4, bottom: 0 }}>
             <CartesianGrid stroke={T.hair} vertical={false} />
@@ -358,11 +364,25 @@ export default function Dashboard({
               axisLine={false} tickLine={false} width={38} />
             <Bar dataKey="base" stackId="a" fill="transparent" />
             <Bar dataKey="len" stackId="a" radius={[4, 4, 4, 4]}>
-              {/* keyed by night id, not index: the range changes length as the
-                  user switches windows, and index keys would recolour bars */}
+              {/* Keyed by night id, not index: the range changes length as the
+                  user switches windows, and index keys would recolour bars.
+
+                  The estimated bar is the one mark colour could not settle. A
+                  wash pale enough to read as estimated is 1.64:1 warm and
+                  1.45:1 dark against the card, and the alpha that fixes that is
+                  the alpha where it stops being tellable from a solid bar: at
+                  the 0.35 this shipped with, estimated against slept measured
+                  3.09 warm but 2.53 dark. So the wash came DOWN to 0.16, which
+                  clears 3:1 against both solid bars in both themes, and an
+                  outline in the sleep fill is what makes it a bar at all.
+                  Hollow against filled is the distinction, and it is a shape,
+                  so no theme can wash it out. */}
               {sleep.map((d) => (
-                <Cell key={d.id} fill={d.estimated ? tint(DOMAIN.sleep.hue, 0.35)
-                  : d.hours < 5 ? DOMAIN.food.hue : DOMAIN.sleep.hue} />
+                <Cell key={d.id}
+                  fill={d.estimated ? tint(DOMAIN.sleep.hue, 0.16)
+                    : d.hours < 5 ? DOMAIN.food.fill[T.key] : DOMAIN.sleep.fill[T.key]}
+                  stroke={d.estimated ? DOMAIN.sleep.fill[T.key] : "none"}
+                  strokeWidth={d.estimated ? 1.5 : 0} />
               ))}
             </Bar>
           </BarChart>
@@ -379,11 +399,11 @@ export default function Dashboard({
             <CartesianGrid stroke={T.hair} vertical={false} />
             <XAxis dataKey="day" tick={axis} axisLine={false} tickLine={false} interval={thin} />
             <YAxis tickFormatter={nightTick} tick={axis} axisLine={false} tickLine={false} width={38} />
-            <Line dataKey="cutoff" stroke={DOMAIN.sleep.hue} strokeWidth={1.6}
+            <Line dataKey="cutoff" stroke={DOMAIN.sleep.fill[T.key]} strokeWidth={1.6}
               strokeDasharray="5 5" dot={false} />
             {["c1", "c2", "c3", "c4", "c5"].map((k) => (
               <Line key={k} dataKey={k} stroke="none"
-                dot={{ r: hist.length > 20 ? 2.8 : 4, fill: DOMAIN.caffeine.hue, strokeWidth: 0 }} />
+                dot={{ r: hist.length > 20 ? 2.8 : 4, fill: DOMAIN.caffeine.fill[T.key], strokeWidth: 0 }} />
             ))}
           </ComposedChart>
         </ResponsiveContainer>
@@ -403,8 +423,13 @@ export default function Dashboard({
             display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 0",
             borderTop: k === 0 ? "none" : `1px solid ${T.hair}`,
           }}>
+            {/* A list marker, not a mark: every bullet here is the same colour
+                whatever the line says, so it identifies nothing and 1.4.11
+                exempts it the way it exempts T.hair. Moved to `fill` anyway
+                because recovery's fill is its hue in both themes — the
+                exemption would have bought a divergence and nothing else. */}
             <div style={{
-              width: 5, height: 5, borderRadius: 3, background: DOMAIN.recovery.hue,
+              width: 5, height: 5, borderRadius: 3, background: DOMAIN.recovery.fill[T.key],
               flexShrink: 0, marginTop: 7,
             }} />
             <span style={{ fontFamily: FONT_TEXT, fontSize: 13.5, color: T.ink, lineHeight: 1.45 }}>{nn}</span>

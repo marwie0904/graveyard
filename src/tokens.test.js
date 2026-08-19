@@ -61,10 +61,11 @@ const rowsFor = (T) => {
 };
 
 /* The other floor, 1.4.11: 3:1 for non-text. Every row here is either the
-   boundary that tells you a control is there or the mark that tells you which
-   state it is in — the three rings in the day strip, and the borders that are
-   the only thing drawing an unselected Pill, Choice, Select or quiet Btn on
-   the surface behind them.
+   boundary that tells you a control is there, the mark that tells you which
+   state it is in, or the mark that IS the reading — the three rings in the day
+   strip, the borders that are the only thing drawing an unselected Pill,
+   Choice, Select or quiet Btn on the surface behind them, and every place a
+   domain colour is drawn rather than washed.
 
    Divider hairlines are deliberately absent, and their absence is the point.
    1.4.11 applies to what is "required to identify user interface components
@@ -75,7 +76,7 @@ const rowsFor = (T) => {
    `hair`. */
 const nonTextRowsFor = (T) => {
   const k = T.key;
-  return [
+  const rows = [
     /* DayChip, three states. Empty was `hair` under opacity 0.5 — measured at
        1.08:1 warm and 1.11:1 dark in a browser — and the chip stays tappable
        when empty, so the inactive-control exception does not reach it. */
@@ -95,7 +96,78 @@ const nonTextRowsFor = (T) => {
     [`${k} choice selected dot/card`, ACCENT, T.card],
     /* RangeControl's Trends select once a longer window is picked */
     [`${k} trends select active/bg`, DOMAIN.sleep.hue, T.bg],
-  ].map(([name, fg, bg]) => [name, rgb(fg), rgb(bg), 3]);
+  ];
+
+  /* Every place a domain colour is drawn as a mark rather than washed as a
+     background: the icon inside a Badge, the bar of a Dashboard meter, the dot
+     beside a plan item, a chart bar or dot. `fill` is the value for all of
+     them and this loop is what decides it.
+
+     The surface underneath is not always the card. A Badge icon sits on
+     tint(hue, T.tintA) — the hue's own wash, the nearest colour to it anywhere
+     in the app, and therefore the row that actually binds. Against the raw hue
+     that pair measured 2.09 to 2.95 (light, water, movement and food warm;
+     sleep and shift dark): six real failures of the criterion, in the shipped
+     build, on the exact class of object 1.4.11 names. The table missed all six
+     by holding only the pairs that already passed, and by taking the card for
+     the background of a mark that never touches it. */
+  for (const [key, d] of Object.entries(DOMAIN)) {
+    const f = d.fill[k];
+    for (const s of ["card", "bg", "sunken"]) {
+      rows.push([`${k} ${key} mark/${s}`, f, T[s]]);
+      rows.push([`${k} ${key} badge icon/disc on ${s}`, f, rgb(tint(d.hue, T.tintA), T[s])]);
+    }
+    /* Dashboard's Stat meter, which washes at 0.16 rather than T.tintA: the
+       filled part of the bar against the empty part it runs through. */
+    rows.push([`${k} ${key} meter bar/track`, f, rgb(tint(d.hue, 0.16), T.card)]);
+  }
+
+  /* Dashboard's charts, all of them inside a Panel and so on `card`. These are
+     not indicators of a control's state, they are the reading itself — a bar
+     whose length is the hours slept, a dot whose height is a clock time — so
+     "required to understand the content" needs no argument here. Each pair
+     repeats one the loop above already holds; they are named again so a later
+     recolour of one chart fails as that chart rather than as a token.
+
+     Four things on that screen are deliberately not rows:
+       - CartesianGrid, drawn in T.hair. Same decoration exemption that keeps
+         dividers out of this table; the grid locates nothing the labelled axis
+         does not already state.
+       - The caffeine dot against the cutoff line it crosses, 1.20 warm and
+         1.15 dark. What the chart says is where the dot sits relative to the
+         line, and an 8px filled circle against a 1.6px dash is a difference of
+         shape and size; recolouring one of them to buy 3:1 would break the
+         pairing of hue to domain that the rest of the app reads by.
+       - The short-night bar against a full-length one, 1.22 warm and 1.34
+         dark. The bar's length is what says the night was short; the food hue
+         is a second encoding of a fact the axis has already given.
+       - The bullet before each "what the plan noticed" line is the same colour
+         on every line, identifies nothing, and is exempt for the reason hair
+         is. Dashboard.jsx draws it from `fill` regardless, and says why. */
+  const est = rgb(tint(DOMAIN.sleep.hue, 0.16), T.card);
+  rows.push(
+    [`${k} slept bar/card`, DOMAIN.sleep.fill[k], T.card],
+    [`${k} short-night bar/card`, DOMAIN.food.fill[k], T.card],
+    [`${k} cutoff line/card`, DOMAIN.sleep.fill[k], T.card],
+    [`${k} caffeine dot/card`, DOMAIN.caffeine.fill[k], T.card],
+    /* the MiniPlan dot takes whichever domain the item is; shift is the
+       fallback for an item with none, and the loop holds the other seven */
+    [`${k} plan item dot/card`, DOMAIN.shift.fill[k], T.card],
+    /* The estimated sleep bar is the one mark colour could not settle on its
+       own. A wash pale enough to read as "estimated" is 1.64:1 warm and 1.45:1
+       dark on the card, so an outline in the sleep fill is what identifies it
+       as a bar; hollow against filled is what tells it from a real reading.
+       The wash then came DOWN, 0.35 to 0.16, not up: at 0.35 it measured 3.09
+       against a slept bar warm but 2.53 dark, and every step of alpha that
+       fixes the dark reading walks the estimated bar further into the solid
+       one until the distinction the chart depends on is gone. */
+    [`${k} estimated bar outline/card`, DOMAIN.sleep.fill[k], T.card],
+    [`${k} estimated bar/slept bar`, est, DOMAIN.sleep.fill[k]],
+    [`${k} estimated bar/short-night bar`, est, DOMAIN.food.fill[k]],
+  );
+
+  return rows.map(([name, fg, bg]) =>
+    [name, typeof fg === "string" ? rgb(fg) : fg, typeof bg === "string" ? rgb(bg) : bg, 3]);
 };
 
 describe("non-text contrast", () => {
@@ -121,6 +193,22 @@ describe("non-text contrast", () => {
     // the prose above the ring is free to name what it stopped doing; the style is not
     expect(chip).not.toMatch(/border:[^\n]*T\.hair/);
     expect(chip).not.toMatch(/opacity\s*:/);
+  });
+
+  /* Same reason, one screen over. The table proves the fill values clear 3:1;
+     only the source proves the charts still draw from them, and a chart mark
+     that quietly reverts to `.hue` is the failure this whole table was added
+     for. Two uses of a raw hue survive here and both are legitimate: inside
+     tint(), which is the wash, and as the `hue` prop Stat takes — Stat is
+     where fillOf turns it into the bar. */
+  it("draws every Dashboard mark from fill, and outlines the estimated bar", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("screens/Dashboard.jsx", import.meta.url), "utf8");
+    const marks = src.replace(/tint\([^)]*\)/g, "wash").replace(/hue=\{[^}]*\}/g, "hue=");
+    expect(marks.match(/DOMAIN\.\w+\.hue/g)).toBe(null);
+    expect(src).toContain("background: fillOf(hue, T)");
+    // the pale bar is 1.45:1 on the dark card; the outline is the whole of it
+    expect(src).toMatch(/stroke=\{d\.estimated \? DOMAIN\.sleep\.fill/);
   });
 });
 
