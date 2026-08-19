@@ -52,10 +52,18 @@ const P = (runs, { jc, dbl, b, numbered, ind } = {}) =>
 const chapterHead = (t) => P(run(t.toUpperCase(), { b: true }), { jc: "center", b: true, numbered: true });
 const sectionHead = (t) => P(run(t, { b: true }), { jc: "center", b: true });
 const subHead = (t) => P(run(t, { b: true }), { b: true, dbl: true });
+const subSubHead = (t) => P(run(t, { b: true, i: true }), { b: true, dbl: true });
 const bodyPara = (runs) => P(tabRun() + runs, { dbl: true });
 const flatPara = (runs, o = {}) => P(runs, { dbl: true, ...o });
 const refPara = (runs) => P(runs, { dbl: true, ind: `<w:ind w:firstLine="720"/>` });
 const blank = () => P("", {});
+
+/* Word's own numbering is spent on the chapter heads (numId 2), and a second
+   definition would have to be written into numbering.xml to leave that sequence
+   undisturbed. The markers are written as text instead, with the hanging indent
+   that aligns a wrapped item under its own text rather than under its number. */
+const listItem = (marker, body) => P(run(marker) + tabRun() + body,
+  { dbl: true, ind: `<w:ind w:left="720" w:hanging="360"/>` });
 const pageBreak = () => `<w:p><w:r>${rPr()}<w:br w:type="page"/></w:r></w:p>`;
 
 /* ------------------------- inline HTML -> runs -------------------------- */
@@ -145,7 +153,7 @@ const CENTRED_SECTIONS = new Set(["I", "V"]);
 function convert(html, usableWidth) {
   const out = [];
   let chapter = "";
-  const re = /<h([23])[^>]*>([\s\S]*?)<\/h\1>|<table[^>]*>[\s\S]*?<\/table>|<div class="figure">[\s\S]*?<\/div>|<div class="refs">[\s\S]*?<\/div>|<p([^>]*)>([\s\S]*?)<\/p>/g;
+  const re = /<h([234])[^>]*>([\s\S]*?)<\/h\1>|<table[^>]*>[\s\S]*?<\/table>|<div class="figure">[\s\S]*?<\/div>|<div class="refs">[\s\S]*?<\/div>|<[ou]l[^>]*>[\s\S]*?<\/[ou]l>|<p([^>]*)>([\s\S]*?)<\/p>/g;
   let m;
   while ((m = re.exec(html))) {
     const chunk = m[0];
@@ -156,10 +164,12 @@ function convert(html, usableWidth) {
       if (m[1] === "2") {
         if (num) { chapter = num[1]; out.push(chapterHead(num[2])); }
         else { chapter = ""; out.push(sectionHead(text.toUpperCase())); }
-      } else {
+      } else if (m[1] === "3") {
         /* chapter === "" is the appendix run, which the template centres too */
         out.push(chapter === "" || CENTRED_SECTIONS.has(chapter)
           ? sectionHead(text) : subHead(text));
+      } else {
+        out.push(subSubHead(text));
       }
       continue;
     }
@@ -176,6 +186,15 @@ function convert(html, usableWidth) {
         const img = inner.match(/<img[^>]*src="([^"]+)"/);
         out.push(img ? picture(img[1]) : flatPara(runs(inner), { jc: "center" }));
       }
+      continue;
+    }
+
+    if (/^<[ou]l/.test(chunk)) {
+      let n = 0;
+      const ordered = chunk[1] === "o";
+      for (const [, item] of chunk.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g))
+        out.push(listItem(ordered ? `${++n}.` : "\u2022", runs(item)));
+      out.push(blank());
       continue;
     }
 
