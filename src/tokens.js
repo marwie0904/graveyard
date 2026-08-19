@@ -23,7 +23,15 @@ export const DOMAIN = {
 };
 
 /* muted and faint sit at the 4.5:1 floor for body text: muted against `sunken`
-   and faint against `bg`, the darkest surface each is actually used on. */
+   and faint against `bg`, the darkest surface each is actually used on.
+
+   `hair` and `edge` are both one-pixel lines and that is all they share.
+   `hair` divides rows and cards, which 1.4.11 exempts as decoration, and it is
+   deliberately near-invisible in 43 places. `edge` is the boundary of a
+   control — an unselected Pill, Choice, Select or quiet Btn, and the ring on a
+   night that logged nothing — which owes 3:1 on every surface it lands on.
+   Raising `hair` to cover the second case was rejected: it would repaint every
+   divider in the app to satisfy a rule those dividers are outside of. */
 export const WARM = {
   key: "warm",
   bg: "#F2F0EA",
@@ -33,6 +41,7 @@ export const WARM = {
   muted: "#6A655D",
   faint: "#6F6B63",
   hair: "rgba(0,0,0,0.07)",
+  edge: "#847F76",
   hero: "#191813",
   heroInk: "#F7F5F0",
   heroMuted: "rgba(247,245,240,0.62)",
@@ -48,6 +57,7 @@ export const DARK = {
   muted: "#96939E",
   faint: "#8A8790",
   hair: "rgba(255,255,255,0.09)",
+  edge: "#767283",
   hero: "#2A2A5A",
   heroInk: "#F3F1FA",
   heroMuted: "rgba(243,241,250,0.62)",

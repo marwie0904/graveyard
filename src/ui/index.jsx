@@ -117,7 +117,9 @@ export function Pill({ children, T, hue, active, onClick }) {
     <button onClick={onClick} aria-pressed={active} style={{
       fontFamily: FONT_TEXT, fontSize: 14, fontWeight: 500,
       padding: "9px 15px", borderRadius: 999, cursor: "pointer",
-      border: `1px solid ${active ? "transparent" : T.hair}`,
+      /* unselected, the border is the only thing separating the pill from the
+         card behind it, so it is `edge` and not the divider hairline */
+      border: `1px solid ${active ? "transparent" : T.edge}`,
       background: active ? tint(hue || DOMAIN.shift.hue, T.tintA + 0.06) : T.card,
       color: active ? (hue ? inkOf(hue, T) : T.ink) : T.muted,
       display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap",
@@ -136,7 +138,8 @@ export function Btn({ children, T, kind = "primary", onClick, hue, style, full }
     accent: { background: ACCENT, color: "#FFFFFF" },
     soft: { background: T.sunken, color: T.ink },
     tinted: { background: tint(hue || DOMAIN.shift.hue, T.tintA + 0.04), color: hue ? inkOf(hue, T) : T.ink },
-    quiet: { background: "transparent", color: T.muted, border: `1px solid ${T.hair}` },
+    // quiet has no fill at all: the border is the whole button
+    quiet: { background: "transparent", color: T.muted, border: `1px solid ${T.edge}` },
   };
   return (
     <button onClick={onClick} className="gy-tap" style={{ ...base, ...kinds[kind], ...style }}>
@@ -196,7 +199,11 @@ export function Choice({ T, label, sub, on, onClick, hue = ACCENT }) {
     <button onClick={onClick} aria-pressed={on} className="gy-tap" style={{
       width: "100%", textAlign: "left", cursor: "pointer", borderRadius: 999,
       padding: "13px 14px 13px 20px", display: "flex", alignItems: "center", gap: 12,
-      border: `1.5px solid ${on ? tint(hue, 0.4) : T.hair}`,
+      /* the selected border was tint(hue, 0.4) — 1.77:1 warm, 1.54:1 dark —
+         which drew the row's own outline below the 3:1 floor in the one state
+         it is meant to shout about; the undiluted hue clears it on every
+         surface Choice is used on, and is less code besides */
+      border: `1.5px solid ${on ? hue : T.edge}`,
       background: on ? tint(hue, 0.08) : T.card,
       transition: "background 140ms ease, border-color 140ms ease",
     }}>
@@ -208,9 +215,14 @@ export function Choice({ T, label, sub, on, onClick, hue = ACCENT }) {
           </div>
         )}
       </div>
-      {/* the class only exists while selected, so adding it is what pops it */}
+      {/* the class only exists while selected, so adding it is what pops it.
+          Off, the dot was filled `sunken` — 1.24:1 on the card — so the half
+          of the control that carries the on/off state was invisible until it
+          switched on. It is the same unfilled ring the day strip uses. */}
       <div className={on ? "gy-pop" : undefined} style={{
-        width: 26, height: 26, borderRadius: 13, flexShrink: 0, background: on ? hue : T.sunken,
+        width: 26, height: 26, borderRadius: 13, flexShrink: 0, boxSizing: "border-box",
+        background: on ? hue : "transparent",
+        border: on ? "none" : `1.5px solid ${T.edge}`,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>{on && <Check size={14} color="#FFFFFF" weight="bold" />}</div>
     </button>
@@ -233,7 +245,7 @@ export function Select({ T, label, value, onChange, options, placeholder = "Choo
         style={{
           width: "100%", appearance: "none", fontFamily: FONT_TEXT, fontSize: 15,
           color: value ? T.ink : T.faint, background: T.card,
-          border: `1px solid ${T.hair}`, borderRadius: 14, padding: "12px 14px",
+          border: `1px solid ${T.edge}`, borderRadius: 14, padding: "12px 14px",
         }}
       >
         <option value="">{placeholder}</option>
@@ -265,17 +277,22 @@ function DayChip({ T, label, on, dim, onClick }) {
           still tappable so WCAG's inactive-control exception does not cover it.
           Lowering the label to some middle grey was rejected: anything that
           clears 4.5:1 stops reading as dimmed anyway, so the emptiness moved
-          off text contrast entirely and onto the circle below, which already
-          carries dim in its border and opacity, and onto the aria-label. */}
+          off text contrast entirely and onto the circle below and onto the
+          aria-label. */}
       <span style={{
         fontFamily: FONT_TEXT, fontSize: 11, fontWeight: 500,
         color: on ? T.ink : T.faint,
       }}>{label}</span>
+      {/* Empty then read 1.08:1 warm / 1.11:1 dark: `hair` is a divider colour
+          and the opacity halved it again. Empty is now a dashed `edge` ring —
+          the dash is what says "nothing here", so the colour is free to clear
+          3:1, which the chip owes as a control that is still tappable. Dimming
+          it further with opacity would put it straight back under the floor,
+          which is why there is no opacity here any more. */}
       <span style={{
         width: 28, height: 28, borderRadius: 14, boxSizing: "border-box",
         background: on ? T.ink : "transparent",
-        border: on ? "none" : `1.5px solid ${dim ? T.hair : T.faint}`,
-        opacity: dim && !on ? 0.5 : 1,
+        border: on ? "none" : `1.5px ${dim ? "dashed" : "solid"} ${dim ? T.edge : T.faint}`,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>{on && <Check size={14} color={T.bg} weight="bold" />}</span>
     </button>
@@ -309,7 +326,7 @@ export function RangeControl({ T, value, onChange, have }) {
               appearance: "none", fontFamily: FONT_TEXT, fontSize: 13, fontWeight: 600,
               color: range ? "#FFFFFF" : T.muted,
               background: range ? DOMAIN.sleep.hue : "transparent",
-              border: `1px solid ${range ? DOMAIN.sleep.hue : T.hair}`,
+              border: `1px solid ${range ? DOMAIN.sleep.hue : T.edge}`,
               borderRadius: 999, padding: "6px 25px 6px 12px",
             }}
           >
