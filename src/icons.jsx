@@ -2,7 +2,7 @@ import {
   Moon, Coffee, Sun, Heart, Clock, Check, Plus, Wind, Eye, Bed, Car,
   ArrowRight, ArrowLeft, X, Info, Pencil, User, Bell, Trophy, Target,
   FileText, Palette, Lock, Play, Drop, ForkKnife, CaretRight, CaretDown,
-  Lightning, ArrowCounterClockwise, DownloadSimple, Question,
+  Lightning, ArrowCounterClockwise, DownloadSimple, Question, SpeakerHigh, SpeakerSlash,
   ListChecks as ListChecksBase,
   ChartBar as ChartBarBase,
   Pulse as PulseBase,
@@ -13,7 +13,7 @@ export {
   Moon, Coffee, Sun, Heart, Clock, Check, Plus, Wind, Eye, Bed, Car,
   ArrowRight, ArrowLeft, X, Info, Pencil, User, Bell, Trophy, Target,
   FileText, Palette, Lock, Play, Drop, ForkKnife, CaretRight, CaretDown,
-  Lightning, ArrowCounterClockwise, DownloadSimple, Question,
+  Lightning, ArrowCounterClockwise, DownloadSimple, Question, SpeakerHigh, SpeakerSlash,
 };
 
 /* These four are structurally linear and turn into unreadable blobs at

@@ -4,9 +4,10 @@ import {
   CaretRight, Plus, Wind, Eye, Bed, ArrowRight, ArrowLeft,
   X, ListChecks, Info, Footprints, ArrowCounterClockwise, Pencil,
   User, DownloadSimple, Bell, Target, ChartBar, FileText, Palette,
-  Question, Lock, CaretDown, Play,
+  Question, Lock, CaretDown, Play, SpeakerHigh, SpeakerSlash,
 } from "./icons.jsx";
 import { DAY, toMin, fmt, nextAfter, dur, nightOf, forward, daysBetween } from "./time.js";
+import { sequenceOf, cueFor, DONE_CUE, tone, speak, hush } from "./cues.js";
 import { FONT_DISPLAY, FONT_TEXT, WARM, DARK, DOMAIN, ACCENT, tint } from "./tokens.js";
 import {
   calculateShiftPhases, determineCurrentPhase, calculateCaffeineCutoff,
@@ -103,16 +104,17 @@ function suggestedCare(profile, plan, now, feeling) {
 
 function CarePlayer({ T, activity, onClose, onDone }) {
   const ref = useOverlay(true, onClose);
-  const seq = useMemo(() => {
-    if (!activity.cycle) return activity.steps;
-    const len = activity.cycle.reduce((a, c) => a + c.s, 0);
-    const reps = Math.max(1, Math.round((activity.mins * 60) / len));
-    return Array.from({ length: reps }).flatMap(() => activity.cycle);
-  }, [activity]);
+  const seq = useMemo(() => sequenceOf(activity), [activity]);
 
   const total = seq.reduce((a, x) => a + x.s, 0);
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
+  /* On when the player opens: the spoken step is the guidance, not an
+     ornament, and a user who has to switch it on every time will not.
+     WCAG 1.4.2 allows audio to start on its own provided there is a way to
+     stop it, which is what the control in the header is for.
+     ponytail: the choice is per-session. Move it to the profile if anyone asks. */
+  const [sound, setSound] = useState(true);
   const finished = elapsed >= total;
 
   useEffect(() => {
@@ -131,6 +133,23 @@ function CarePlayer({ T, activity, onClose, onDone }) {
   const hue = DOMAIN[activity.cat].hue;
   const scale = finished ? 0.8 : step.scale !== undefined ? step.scale : 0.86;
 
+  /* One cue per step change and one at the end. The tone marks the boundary for
+     anyone not looking at the ring; the spoken label is the instruction itself,
+     which is the point of having a second channel at all. */
+  useEffect(() => {
+    if (!sound || finished) return;
+    tone();
+    speak(cueFor(seq[idx]));
+  }, [idx, sound, finished, seq]);
+
+  useEffect(() => {
+    if (!sound || !finished) return;
+    tone(660, 240);
+    speak(DONE_CUE);
+  }, [finished, sound]);
+
+  useEffect(() => hush, []); // stop mid-sentence if the sheet closes
+
   return (
     <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={activity.l} style={{
       position: "absolute", inset: 0, background: T.bg, zIndex: 90,
@@ -141,6 +160,17 @@ function CarePlayer({ T, activity, onClose, onDone }) {
           <Eyebrow T={T} color={hue}>Micro-care</Eyebrow>
           <Display T={T} size={26}>{activity.l}</Display>
         </div>
+        <button
+          onClick={() => { if (sound) hush(); setSound(!sound); }}
+          aria-pressed={sound}
+          aria-label={sound ? "Spoken guidance on" : "Spoken guidance off"}
+          style={{
+            width: 38, height: 38, borderRadius: 19, border: "none", marginRight: 8,
+            background: sound ? tint(hue, 0.22) : T.card, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>{sound
+            ? <SpeakerHigh size={17} color={DOMAIN[activity.cat].ink[T.key]} />
+            : <SpeakerSlash size={17} color={T.muted} />}</button>
         <button onClick={onClose} aria-label="Close" style={{
           width: 38, height: 38, borderRadius: 19, border: "none", background: T.card,
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -166,8 +196,10 @@ function CarePlayer({ T, activity, onClose, onDone }) {
           }}>{finished ? "✓" : left}</span>
         </div>
 
-        {/* step changes and completion announce here; the per-second number stays outside the region on purpose */}
-        <div aria-live="polite" style={{ textAlign: "center", minHeight: 54 }}>
+        {/* Step changes and completion announce here; the per-second number stays
+            outside the region on purpose. With spoken guidance on the app says the
+            step itself, so the region goes quiet rather than doubling it. */}
+        <div aria-live={sound ? "off" : "polite"} style={{ textAlign: "center", minHeight: 54 }}>
           <div style={{
             fontFamily: FONT_DISPLAY, fontSize: 23, fontWeight: 700, color: T.ink,
             letterSpacing: "-0.02em",
