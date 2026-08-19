@@ -164,6 +164,15 @@
         box-shadow: 0 0 0 2px #FFFFFF !important;
       }
 
+      /* A guided care session is instruction; the dusk drifting behind it is
+         decoration competing for the same attention. Same selector list as the
+         reduced-motion block below, switched on from App while `playing` holds
+         an activity. The sky only: the sheet and the badge have long settled by
+         then, and the player's own breathing circle is the instruction. */
+      .gy-hushed .gy-sky,
+      .gy-hushed .gy-sky::before,
+      .gy-hushed .gy-sky::after { animation: none !important; }
+
       @media (prefers-reduced-motion: reduce) {
         .gy-sky, .gy-sky::before, .gy-sky::after, .gy-badge, .gy-spin { animation: none !important; }
         .gy-in, .gy-out, .gy-sheet, .gy-hero, .gy-step-out, .gy-pop,
@@ -178,6 +187,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Where the app just took you. It lives out here rather than in the tree
+         because every screen mounts its own, and a live region that arrives
+         together with its text is not reliably announced; App writes into it on
+         every screen and tab change. Clipped, not display:none — a hidden
+         region is not read at all. -->
+    <div id="gy-where" role="status" aria-live="polite"
+         style="position: absolute; width: 1px; height: 1px; overflow: hidden;
+                clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

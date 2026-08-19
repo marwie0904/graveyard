@@ -222,12 +222,23 @@ function CarePlayer({ T, activity, onClose, onDone }) {
       {finished ? (
         <Btn T={T} full onClick={onDone}>Log it and close</Btn>
       ) : (
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => setRunning(!running)}>
-            {running ? "Pause" : "Resume"}
-          </Btn>
-          <Btn T={T} style={{ flex: 1.4 }} onClick={() => setElapsed(total)}>Finish early</Btn>
-        </div>
+        <>
+          {/* The clock was the only thing that could move the sequence on, so
+              anyone reading slower than 30 seconds a step had no way to keep
+              up or move ahead. `acc` is already the start of the current step,
+              so the next one starts one step's length later; on the last step
+              that lands exactly on total, and the min says so out loud.
+              Its own row rather than a third button beside the other two:
+              three of these labels do not fit a 375px phone without wrapping. */}
+          <Btn T={T} kind="soft" full style={{ marginBottom: 10 }}
+            onClick={() => setElapsed(Math.min(acc + step.s, total))}>Next step</Btn>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Btn T={T} kind="quiet" style={{ flex: 1 }} onClick={() => setRunning(!running)}>
+              {running ? "Pause" : "Resume"}
+            </Btn>
+            <Btn T={T} style={{ flex: 1.4 }} onClick={() => setElapsed(total)}>Finish early</Btn>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1122,7 +1133,7 @@ function Section({ T, cat, title, body, items, adjustable, onAdjust }) {
               a button's content model does not allow; font: inherit keeps the
               h3 from resizing the button, which index.html gives font: inherit */}
           <h3 style={{ margin: 0, font: "inherit" }}>
-            <button onClick={() => setOpen(!open)} style={{
+            <button onClick={() => setOpen(!open)} aria-expanded={open} style={{
               background: "none", border: "none", padding: 0, cursor: "pointer",
               display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
             }}>
@@ -1841,23 +1852,29 @@ function LogTab({
             onChange={(note) => setLogDraft({ ...logDraft, note: note || "" })} />
         )}
 
-        <div style={{
+        {/* the clock icon and the colon are the whole label for a sighted user;
+            read aloud the three are just three pop-up buttons in a row, and
+            picking the wrong one writes a wrong time into what the plan is
+            built from. role=group on the row rather than a fieldset: a fieldset
+            brings its own box and margins and would knock the picker off the
+            line it shares with Save. */}
+        <div role="group" aria-label="Time of the new entry" style={{
           display: "flex", alignItems: "center", gap: 7, paddingTop: 14,
           borderTop: `1px solid ${T.hair}`,
         }}>
           <Clock size={16} color={T.faint} />
-          <select value={logDraft.h} style={sel}
+          <select value={logDraft.h} style={sel} aria-label="Hour"
             onChange={(e) => setLogDraft({ ...logDraft, h: Number(e.target.value) })}>
             {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
           </select>
           <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-          <select value={logDraft.m} style={sel}
+          <select value={logDraft.m} style={sel} aria-label="Minute"
             onChange={(e) => setLogDraft({ ...logDraft, m: Number(e.target.value) })}>
             {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
               <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
             ))}
           </select>
-          <select value={logDraft.ap} style={sel}
+          <select value={logDraft.ap} style={sel} aria-label="AM or PM"
             onChange={(e) => setLogDraft({ ...logDraft, ap: e.target.value })}>
             <option value="AM">AM</option><option value="PM">PM</option>
           </select>
@@ -1886,7 +1903,12 @@ function LogTab({
               borderRadius: 16, background: open ? T.card : "transparent",
               padding: open ? 14 : 0, marginBottom: open ? 10 : 0,
             }}>
-              <div onClick={() => setEditingLog(open ? null : l.id)} style={{
+              {/* a button, because correcting a time is the only thing this
+                  screen can do to an entry and a div gets no tab stop and no
+                  Enter. border:none has to sit before borderBottom or the
+                  shorthand wipes the hairline the closed row is drawn with. */}
+              <button onClick={() => setEditingLog(open ? null : l.id)} aria-expanded={open} style={{
+                width: "100%", background: "none", border: "none", textAlign: "left",
                 display: "flex", alignItems: "center", gap: 12, padding: "11px 4px",
                 borderBottom: open ? "none" : `1px solid ${T.hair}`, cursor: "pointer",
               }}>
@@ -1905,20 +1927,21 @@ function LogTab({
                 }}>{fmt(l.t)}</span>
                 <CaretRight size={15} color={T.faint}
                   style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms ease" }} />
-              </div>
+              </button>
 
               {open && (
                 <div style={{ paddingTop: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                  <div role="group" aria-label="Time of this entry"
+                    style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
                     <Clock size={15} color={T.faint} />
-                    <select value={hh} style={sel} onChange={(e) => {
+                    <select value={hh} style={sel} aria-label="Hour" onChange={(e) => {
                       const nt = clockToAbs(Number(e.target.value), m % 60, ap);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
                       {Array.from({ length: 12 }, (_, k) => k + 1).map((h) => <option key={h} value={h}>{h}</option>)}
                     </select>
                     <span style={{ color: T.faint, fontFamily: FONT_DISPLAY, fontSize: 16 }}>:</span>
-                    <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} onChange={(e) => {
+                    <select value={Math.round((m % 60) / 5) * 5 % 60} style={sel} aria-label="Minute" onChange={(e) => {
                       const nt = clockToAbs(hh, Number(e.target.value), ap);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
@@ -1926,7 +1949,7 @@ function LogTab({
                         <option key={mm} value={mm}>{String(mm).padStart(2, "0")}</option>
                       ))}
                     </select>
-                    <select value={ap} style={sel} onChange={(e) => {
+                    <select value={ap} style={sel} aria-label="AM or PM" onChange={(e) => {
                       const nt = clockToAbs(hh, m % 60, e.target.value);
                       setLogs((L) => L.map((x) => (x.id === l.id ? { ...x, t: nt } : x)));
                     }}>
@@ -2014,9 +2037,18 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
         const on = c.k === suggested;
         const hue = DOMAIN[c.cat].hue;
         return (
-          <Card T={T} key={c.k} onClick={() => setPlaying(c.k)} style={{
+          /* A real button, not a Card with an onClick: the row is the only way
+             into the player, and as a div it was unreachable by keyboard or
+             Switch Control — the whole screen offered six stops, none of them
+             here. Card itself stays a div because it is a surface, not a
+             control, everywhere else it is used, so its styling is repeated
+             here instead. */
+          <button key={c.k} onClick={() => setPlaying(c.k)} style={{
+            width: "100%", background: T.card, borderRadius: 22, cursor: "pointer",
+            boxShadow: T.key === "warm" ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
             marginBottom: 10, padding: 14, display: "flex", alignItems: "center", gap: 13,
-            border: on ? `1.5px solid ${tint(hue, 0.45)}` : undefined,
+            textAlign: "left",
+            border: on ? `1.5px solid ${tint(hue, 0.45)}` : "none",
           }}>
             <div style={{
               width: 44, height: 44, borderRadius: 22, flexShrink: 0,
@@ -2045,11 +2077,14 @@ function LiveTab({ T, profile, plan, now, setPlaying }) {
               fontFamily: FONT_TEXT, fontSize: 13.5, fontWeight: 600,
               color: DOMAIN.caffeine.ink[T.key], whiteSpace: "nowrap",
             }}>{c.mins} min</span>
-            <div style={{
+            {/* decorative now that the row itself is the control — a button
+                inside a button is invalid, and a second stop here would only
+                say the same thing twice */}
+            <div aria-hidden style={{
               width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: T.ink,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}><Play size={15} color={T.bg} fill={T.bg} /></div>
-          </Card>
+          </button>
         );
       })}
       <p style={{
@@ -2687,6 +2722,29 @@ const seeded = new URLSearchParams(location.search).has("seed");
    ground truth. Module scope because it closes over nothing. */
 const stored = ({ stretch, ...p }) => p;
 
+/* The four destinations of the tab bar. Module scope so the announcement below
+   can name a tab without a second copy of its label: that effect is declared
+   above the early returns, and a const built after them is still uninitialised
+   on every screen that returned early. */
+const TABS = [
+  { k: "dashboard", l: "Dashboard", Icon: ChartBar },
+  { k: "plan", l: "Plan", Icon: ListChecks },
+  { k: "log", l: "Reflection", Icon: FileText },
+  { k: "live", l: "Care", Icon: Heart },
+];
+
+/* What each screen calls itself on arrival. "generating" is missing on purpose:
+   its four steps flip every 520ms, which no screen reader can follow, so that
+   screen stays silent and the plan landing is what gets announced. */
+const WHERE = {
+  welcome: "Welcome to graveyard.",
+  disclaimer: "Before you start.",
+  quiz: "Setting up your plan.",
+  recommendation: "Your plan is ready.",
+  "recommendation-revisit": "Your plan.",
+  review: "Adjusting your plan.",
+};
+
 export default function App() {
   const [screen, setScreen] = useState(boot.profile ? "app" : "welcome");
   const [tab, setTab] = useState("dashboard");
@@ -2729,6 +2787,21 @@ export default function App() {
   const [editingLog, setEditingLog] = useState(null);
   const [shownScreen, screenAnim] = useScreenSwap(screen);
   const timeEditRef = useOverlay(!!timeEdit, () => setTimeEdit(null));
+
+  /* Says where you just landed. A second live region, not the toast's near the
+     bottom of this file: a destination and a confirmation are different
+     messages, and one region carrying both means whichever arrives second wipes
+     the other mid-sentence. The node sits in index.html rather than in this
+     tree because every screen returns its own Frame — a region that mounts with
+     the screen it announces is exactly the case the toast's comment warns
+     about, while an effect runs on the early-return screens too. `screen`, not
+     `shownScreen`: the announcement should not wait out the 300ms exit. */
+  useEffect(() => {
+    const t = TABS.find((x) => x.k === tab);
+    const where = screen === "app" ? t && t.l : WHERE[screen];
+    const region = document.getElementById("gy-where");
+    if (region && where) region.textContent = where;
+  }, [screen, tab]);
 
   /* nightOf reads the wake boundary out of the profile, so editing your shift
      or sleep times can change which night the current clock belongs to. That is
@@ -3026,15 +3099,13 @@ export default function App() {
   };
 
   /* -------------------------------- chrome -------------------------------- */
-  const TABS = [
-    { k: "dashboard", l: "Dashboard", Icon: ChartBar },
-    { k: "plan", l: "Plan", Icon: ListChecks },
-    { k: "log", l: "Reflection", Icon: FileText },
-    { k: "live", l: "Care", Icon: Heart },
-  ];
 
+  /* gy-hushed rides on the animation class because that is the only className
+     Frame hands the phone body, and the sky has to be a descendant of it: the
+     drifting dusk is decoration, and it does not run under a care session that
+     is telling you when to breathe. */
   return (
-    <Frame T={T} raw anim={screenAnim}>
+    <Frame T={T} raw anim={playing ? `${screenAnim} gy-hushed` : screenAnim}>
       {/* header, pinned */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", padding: "2px 20px 14px",
