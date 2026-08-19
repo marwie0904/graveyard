@@ -70,9 +70,16 @@ const pageBreak = () => `<w:p><w:r>${rPr()}<w:br w:type="page"/></w:r></w:p>`;
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", nbsp: " ", ndash: "–",
   mdash: "—", rsquo: "’", lsquo: "‘", ldquo: "“",
-  rdquo: "”", hellip: "…", times: "×", deg: "°" };
-const decode = (s) => s.replace(/&(\w+);/g, (m, e) => ENTITIES[e] ?? m)
-  .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+  rdquo: "”", hellip: "…", times: "×", deg: "°",
+  iacute: "í", ntilde: "ñ", iuml: "ï", alpha: "α" };
+/* An entity this table does not know used to pass through unchanged, and esc()
+   then wrote its ampersand as &amp;, so the paper printed Clari&ntilde;o where
+   it meant Clariño. Silence is the wrong answer for a document that gets
+   submitted, so an unknown entity stops the build instead. */
+const decode = (s) => s.replace(/&(\w+);/g, (m, e) => {
+  if (!(e in ENTITIES)) throw new Error(`unknown HTML entity &${e}; \u2014 add it to ENTITIES`);
+  return ENTITIES[e];
+}).replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
 
 /* <b>/<strong> and <i>/<em> nest one level at most in this document, which is
    what lets a tag stack this small be correct. */
