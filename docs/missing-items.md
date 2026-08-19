@@ -25,6 +25,7 @@ over the rebuild.
 | **Figure 2** | Was missing entirely from the .docx, not only unfinished: the bar chart is drawn in CSS, so it arrived as nothing and only the caption survived. Now rendered from the paper's own chart and embedded. |
 | **Basis for the conceptual framework** | The section had no citation at all. It now grounds the input–process–output structure in design science research, citing Hevner et al. (2004), Hevner (2007), and Peffers et al. (2007), all three added to the reference list. |
 | **Biographical sketch** | Written from the researcher's own answers and CV: eight years of night shift from 2018, four of them at a contact centre in Rizal, the named progression through it, the current Operations Manager role and its team of thirty-five, and the hair loss and insomnia the study came out of. Third person, per the template convention. Employers are unnamed by request. |
+| **Research Design** | Chapter III now names the paradigm Chapter II cites. Two additions: a paragraph calling the study a design science study (Hevner et al., 2004), drawing the consequence the panel asks about — no independent and dependent variables, because evaluation is artifact-based — and placing the report on the Peffers et al. (2007) process model chapter by chapter; and a replacement for the sentence that offered future expert validation as the only evaluation, which now names the rubric and the verification suite as what actually evaluated the build, keeping expert validation as the future step it is in Chapter V. Domínguez (2017) stays. |
 
 The first six live in the `FIELDS` map in `build-docx.mjs`. Change them there,
 not in the generated file, or the next build overwrites the edit.
@@ -102,20 +103,7 @@ input, a nurse, a physician, an occupational-health officer, name them here,
 because the paper states that no expert panel has been convened yet and an
 acknowledged informant is not the same thing as a panel.
 
-### 4. Research Design does not yet name the paradigm Chapter II now cites
-
-Chapter II grounds the conceptual framework in design science research. Chapter
-III's Research Design still rests on Domínguez (2017) alone and describes the
-study only as "qualitative, design-oriented". The two should agree, or the
-design-science citation reads as bolted onto the framework and unconnected to
-the method that follows it.
-
-This is also where the panel question lands. "Where are your variables?" has a
-real answer under design science — evaluation is artifact-based rather than
-variable-based, which is exactly what the rubric and the traceability check do —
-but only if Chapter III says so. Two or three sentences would close it.
-
-### 5. Contents page numbers are blank
+### 4. Contents page numbers are blank
 
 Deliberate. Word paginates differently from the PDF build, so numbers taken from
 the PDF would contradict the document they sit in. The headings are real
@@ -123,7 +111,7 @@ headings, so **References → Table of Contents** generates a live list with
 correct numbers. Do it last, after any remaining edits, so the numbering is
 settled.
 
-### 6. List of Appendices has no section
+### 5. List of Appendices has no section
 
 The template's contents list names one, but the template never defines the
 section. The two appendices are present in the body and in the contents list.
