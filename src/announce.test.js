@@ -16,8 +16,10 @@ describe("saying where you landed", () => {
     expect(app).toMatch(/role="status" aria-live="polite"/);
   });
 
-  it("stops the ambient sky while a care session is playing", () => {
-    expect(html).toMatch(/\.gy-hushed \.gy-sky,\s*\.gy-hushed \.gy-sky::before,\s*\.gy-hushed \.gy-sky::after \{ animation: none !important; \}/);
-    expect(app).toMatch(/playing \?[^\n]*gy-hushed/);
-  });
+  /* The ambient sky used to be hushed here by a class, and the class was
+     checked by this file. It turned out to suppress nothing — .gy-sky is
+     onboarding-only and never renders under the care player — so both are
+     gone. drive-coherence.mjs measures the property in a browser instead,
+     which is what the coherence criterion asks for and what source text
+     could never have shown. */
 });

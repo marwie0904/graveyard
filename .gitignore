@@ -7,6 +7,7 @@ drive*.mjs
 !drive-plan-state.mjs
 !drive-loop.mjs
 !drive-cite.mjs
+!drive-coherence.mjs
 shot-plan.mjs
 shot-tour.mjs
 check.mjs

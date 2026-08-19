@@ -3107,12 +3107,14 @@ export default function App() {
 
   /* -------------------------------- chrome -------------------------------- */
 
-  /* gy-hushed rides on the animation class because that is the only className
-     Frame hands the phone body, and the sky has to be a descendant of it: the
-     drifting dusk is decoration, and it does not run under a care session that
-     is telling you when to breathe. */
+  /* There was a gy-hushed class here that stopped the drifting dusk while a
+     care session played. It never stopped anything: Arch, and so .gy-sky, is
+     onboarding-only and never renders inside this shell. drive-coherence.mjs
+     measures what it was there to promise — 165 frames across every step of
+     every activity, no keyframe animation running anywhere in the document —
+     which is a check the class could not have passed or failed. */
   return (
-    <Frame T={T} raw anim={playing ? `${screenAnim} gy-hushed` : screenAnim}>
+    <Frame T={T} raw anim={screenAnim}>
       {/* header, pinned */}
       <div style={{
         flexShrink: 0, display: "flex", alignItems: "center", padding: "2px 20px 14px",
