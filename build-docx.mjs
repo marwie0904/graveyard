@@ -408,14 +408,14 @@ const bare = (s) => norm(s).replace(/^[ivx]+\.\s*/, "").replace(/\.$/, "");
 /* Three passes per target, strictest first: a block whose whole text is the
    target, then one that contains it — which is what a table caption needs,
    since "Table 6" and its title are one paragraph — then the bare forms. */
-const placeMarks = (arr, pending) => {
+const placeMarks = (arr, pending, strict) => {
   for (const [key, name] of [...pending]) {
     const want = norm(key), loose = bare(key);
     const free = (x) => !tocRowXml.has(x);
     let at = arr.findIndex((x) => free(x) && norm(textOf(x)) === want);
-    if (at < 0) at = arr.findIndex((x) => free(x) && norm(textOf(x)).includes(want));
-    if (at < 0) at = arr.findIndex((x) => free(x) && bare(textOf(x)) === loose);
-    if (at < 0) at = arr.findIndex((x) => free(x) && bare(textOf(x)).startsWith(loose));
+    if (at < 0 && !strict) at = arr.findIndex((x) => free(x) && norm(textOf(x)).includes(want));
+    if (at < 0 && !strict) at = arr.findIndex((x) => free(x) && bare(textOf(x)) === loose);
+    if (at < 0 && !strict) at = arr.findIndex((x) => free(x) && bare(textOf(x)).startsWith(loose));
     if (at >= 0) { arr[at] = bookmark(arr[at], name); pending.delete(key); }
   }
 };
@@ -530,9 +530,15 @@ const generated = convert(paper.slice(paper.indexOf("<h2>I. Introduction</h2>"))
    Tables" is a heading and a contents row — resolves to the earlier one. Any
    target left unplaced would render as "Error! Bookmark not defined." on the
    page, so the build stops instead. */
+/* Every array gets the exact pass before any array gets a loose one. Without
+   that ordering "Appendices" matched the front matter's "List of Appendices"
+   on the contains pass and never reached its own heading in the body, so the
+   contents row for the appendices pointed at a page in the front matter. */
 const pending = new Map(marks);
-placeMarks(keep, pending);
-placeMarks(generated, pending);
+for (const strict of [true, false]) {
+  placeMarks(keep, pending, strict);
+  placeMarks(generated, pending, strict);
+}
 if (pending.size)
   throw new Error(`contents: no bookmark target for ${[...pending.keys()].join(", ")}`);
 
