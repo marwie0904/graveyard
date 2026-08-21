@@ -14,6 +14,17 @@ describe("saying where you landed", () => {
     expect(html).toMatch(/id="gy-where"[\s\S]{0,80}aria-live="polite"/);
     expect(app).toContain('getElementById("gy-where")');
     expect(app).toMatch(/role="status" aria-live="polite"/);
+
+    /* The other half of the same promise, and the one that was not kept: an
+       item can be answered three ways, and only a skipped movement reset said
+       anything back — done and adjusted wrote a log entry the screen never
+       mentioned. Sliced to the branch that writes the entry, because a say()
+       anywhere else in onAct would answer a whole-file match on its own. */
+    const branch = app.split("const ITEM_STATUS =")[1].split('if (act === "adjust")')[0];
+    expect(branch).toContain('push("item"');
+    expect(branch).toMatch(/\n\s*say\(/);           // reached on every status,
+    expect(branch).not.toMatch(/if \(.*\) say\(/);  // not only on one of them
+    for (const act of ["done", "skip", "movement"]) expect(branch).toContain(`"${act}"`);
   });
 
   /* The ambient sky used to be hushed here by a class, and the class was

@@ -4,6 +4,17 @@ What the BAMS template asks for that the build cannot supply. Everything else in
 `docs/report-template.docx` is filled, either from the template itself or from
 `docs/sample-paper.html`.
 
+**Correction, 20 August 2026.** That second sentence was not true when it was
+written, and this ledger had no entry for either thing it missed.
+`word/footer3.xml` still held the template's literal placeholder `Title… `,
+printing on every page of the body. And the template's page separation — the
+runs of blank paragraphs that push each chapter and each front-matter section
+onto a fresh page — was being consumed by the converter and never replaced, so
+no chapter started on a new page and the front matter ran together. Both are
+fixed and both are entries below. The miss came from reading the template as
+content and not as formatting: this file recorded every field the template asks
+to be filled and nothing about the shape the filled document has to take.
+
 Rebuild after any change here: `node build-docx.mjs`. **Close the file in Word
 first.** Word holds an open document in memory and does not reload it when the
 file changes underneath; saving from a stale window writes the old content back
@@ -16,7 +27,7 @@ over the rebuild.
 | Item | What it holds now |
 |---|---|
 | Author, title page | GABRELLA C. ANG |
-| Submission date, title page and acceptance page | August 20, 2026 |
+| Submission date, title page and acceptance page | August 20, 2026. `docs/sample-paper.html` read 29 December 2025 until 20 August 2026, which put the title page earlier than the assessment it reports and disagreed with the .docx; the HTML now reads 20 August 2026 and the two agree |
 | Title, permission page | INTERACTIVE PLANNER: CIRCADIAN-AWARE PLANNER FOR NIGHT-SHIFT WORKERS: TIMING CAFFEINE, NAPS, AND MICRO-CARE |
 | Author and title, acceptance sentence | Gabrella C. Ang / the title above |
 | Degree, acceptance sentence | Bachelor of Arts in Multimedia Studies — the template read "the degree Course" |
@@ -31,6 +42,12 @@ over the rebuild.
 | **Numbered lists and fourth-level headings** | Neither had a case in the converter's regex, so both were dropped without a warning: the four objectives under "Specifically, it aims to:" arrived as nothing, and thirteen `<h4>` subheadings across Chapters II, III, and IV went with them, which is why those chapters ran together as unbroken text. Lists are now written with their markers and a hanging indent, and fourth-level headings as bold italic, one step below the bold subheadings above them. |
 | **Unknown HTML entities printed raw** | `decode()` carried a hand-written table of thirteen entities and passed anything else through untouched, so `esc()` wrote the ampersand and the paper printed `Clari&ntilde;o`, `Dom&iacute;nguez`, and `&alpha;&nbsp;=&nbsp;.84` in six places, two of them in the reference list. The four entities the paper uses are in the table, and an entity the table does not know now stops the build rather than reaching the page. |
 | **Figure 2 printed at half size** | The figure was shot at the browser's own window width, 1045 px, and placed in a 6.27 in column, so the build scaled it to 0.58 and its 10pt labels printed at under 6pt. `render-figure.mjs` now takes the width of the element rather than of the window and corrects the viewport to hit it, which puts the labels at 9.3pt, the same scale as Figure 1. |
+| **Running head on every body page** — *20 August 2026* | The template leaves `word/footer3.xml` as the literal `Title… `, and `settings.xml` sets no `evenAndOddHeaders`, so the even-page footer is never used and that placeholder printed on every page of the body. It now reads `Interactive Planner`, and the build throws if the string it replaces has moved, so a re-saved template cannot silently ship the placeholder again. Neither this nor the entry below was in this ledger before today. |
+| **Page separation, front matter and chapters** — *20 August 2026* | The regex that tiles the template body put the paired `<w:p …>…</w:p>` branch before the self-closing one, so `[^>]*` ate the attributes on `<w:p w14:paraId="…"/>` and ran on to the next `</w:p>`, merging whole runs of blank paragraphs into single blocks. The replacement then stopped *at* a merged block and the blanks inside it survived: no chapter began on a new page, the Biographical Sketch, Acknowledgement and contents ran together, and roughly 124 stray blank paragraphs — about two and a half blank pages — sat after the contents and the two lists. Measured on the template, the corrected ordering tiles the body into 879 blocks where the old one produced 747. The self-closing branch is now first and accepts attributes, which also closes a dangling `bookmarkStart` on the permission page that Word auto-repaired and stricter readers did not. Breaks are emitted where the paper marks them: eleven in the document, seven of them chapters and appendices carrying `class="pb"`. |
+| **Reference list indentation** — *20 August 2026* | All 45 entries carried `w:firstLine="720"`, the inverse of the hanging indent APA requires and of what `docs/sample-paper.html` specifies for itself. The converter's "read off the template" note had been misled by a single-line specimen, where the two forms are indistinguishable. All 45 now carry `w:left="720" w:hanging="720"`. |
+| **Table columns, header weight and page spans** — *20 August 2026* | Column widths were computed only when every header cell declared one, and the HTML deliberately leaves the last cell unsized to take the remainder, so all 14 tables fell back to uniform columns — Table 6's `23/7/remainder` shipped as three equal columns, the rubric tables as five. Widths now follow the HTML. Header rows carried their bold on the paragraph mark rather than on the runs, so all 14 printed in regular weight; they are bold now, and each table carries `<w:tblHeader/>` on row 0, so the long tables repeat their headers across a page break instead of stranding rows. |
+| **Continuation paragraphs indented** — *20 August 2026* | The converter read a paragraph's inner HTML and discarded its class, so every body paragraph went through the first-line-tab path, including the fifty-seven the paper marks `class="flush"` — the ones that follow a heading or a figure and take no indent. The class is now read. |
+| **Figure captions, appendix headings, `Keywords:`, `Appendices` divider** — *20 August 2026* | Four finishing details the template asks for and the converter dropped. Figure captions sat below the image as one italic line, contradicting the document's own table captions; they are now in APA form above the picture, bold `Figure N` with the title italic beneath. Appendix headings printed as a single title-case line; they now head `APPENDIX A` and `APPENDIX B` in all-caps bold with the title on the line below. `Keywords:` printed italic where the template sets it bold. And the standalone `Appendices` divider page, template para 771, is emitted again. |
 
 The first six live in the `FIELDS` map in `build-docx.mjs`. Change them there,
 not in the generated file, or the next build overwrites the edit.

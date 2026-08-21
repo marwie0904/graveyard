@@ -10,6 +10,8 @@ drive*.mjs
 !drive-loop.mjs
 !drive-cite.mjs
 !drive-coherence.mjs
+!drive-contrast.mjs
+!drive-names.mjs
 shot-plan.mjs
 shot-tour.mjs
 check.mjs

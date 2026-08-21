@@ -56,6 +56,14 @@ const rowsFor = (T) => {
     rows.push([`${k} ${key} ink/bg`, ink, rgb(T.bg), 4.5]);
     // the worst surface an active domain chip actually paints text on
     rows.push([`${k} ${key} ink/chip`, ink, rgb(tint(d.hue, T.tintA + 0.06), under), 4.5]);
+    /* The pair this table was blind to, and a browser was not: `muted` does
+       not only print on card and sunken, it prints on a domain tint — the
+       label of an earned achievement tile and of the Shift/Sleep time rows,
+       both tint(hue, T.tintA) washed over `bg`. Measured on rendered pixels
+       that ran 4.35:1 to 4.44:1 warm across six runs. Held for all eight hues
+       rather than the three currently earned, so a re-hued badge cannot walk
+       back under the floor. */
+    rows.push([`${k} ${key} muted/tinted tile on bg`, rgb(T.muted), rgb(tint(d.hue, T.tintA), T.bg), 4.5]);
   }
   return rows;
 };
@@ -275,7 +283,13 @@ describe("no colour escapes the token table", () => {
     const offenders = files.flatMap((f) =>
       readFileSync(new URL(f, import.meta.url), "utf8").split("\n")
         .map((line, i) => ({ line: line.trim(), at: `${f}:${i + 1}` }))
-        .filter(({ line }) => /color: *"#/.test(line) && !/#FFFFFF|#FFF"/i.test(line))
+        /* `#` only was the hole: `rgba(255,255,255,0.8)` on the onboarding
+           counter walked straight through it and printed at 2.74:1 over the
+           drifting sky. Any literal colour syntax now, not just hex. Kept
+           case-sensitive on purpose — `backgroundColor:` is a surface, not
+           text, and 1.4.3 is about the text. */
+        .filter(({ line }) => /color: *"(#|rgb|hsl|color\()/.test(line)
+          && !/#FFFFFF|#FFF"/i.test(line))
         .map(({ line, at }) => `${at}  ${line}`));
     expect(offenders).toEqual([]);
   });

@@ -41,9 +41,10 @@ const tabRun = () => `<w:r>${rPr()}<w:tab/></w:r>`;
 
 /* pPr children must appear in schema order: pStyle, numPr, spacing, ind, jc,
    rPr. Word rejects the document over a wrong order, not merely ignoring it. */
-const P = (runs, { jc, dbl, b, numbered, ind } = {}) =>
+const P = (runs, { jc, dbl, b, numbered, ind, tabs } = {}) =>
   `<w:p><w:pPr><w:pStyle w:val="11"/>` +
   (numbered ? `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr>` : "") +
+  (tabs ?? "") +
   (dbl ? `<w:spacing w:line="480" w:lineRule="auto"/>` : "") +
   (ind ?? (numbered ? `<w:ind w:left="284" w:hanging="284"/>` : "")) +
   (jc ? `<w:jc w:val="${jc}"/>` : "") +
@@ -55,7 +56,9 @@ const subHead = (t) => P(run(t, { b: true }), { b: true, dbl: true });
 const subSubHead = (t) => P(run(t, { b: true, i: true }), { b: true, dbl: true });
 const bodyPara = (runs) => P(tabRun() + runs, { dbl: true });
 const flatPara = (runs, o = {}) => P(runs, { dbl: true, ...o });
-const refPara = (runs) => P(runs, { dbl: true, ind: `<w:ind w:firstLine="720"/>` });
+/* APA, and docs/sample-paper.html:81 (`text-indent:-0.5in; padding-left:0.5in`),
+   want the hanging indent, not a first line one. */
+const refPara = (runs) => P(runs, { dbl: true, ind: `<w:ind w:left="720" w:hanging="720"/>` });
 const blank = () => P("", {});
 
 /* Word's own numbering is spent on the chapter heads (numId 2), and a second
@@ -79,7 +82,7 @@ const ENTITIES = { amp: "&", lt: "<", gt: ">", nbsp: " ", ndash: "–",
 const decode = (s) => s.replace(/&(\w+);/g, (m, e) => {
   if (!(e in ENTITIES)) throw new Error(`unknown HTML entity &${e}; \u2014 add it to ENTITIES`);
   return ENTITIES[e];
-}).replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+}).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n));
 
 /* <b>/<strong> and <i>/<em> nest one level at most in this document, which is
    what lets a tag stack this small be correct. */
@@ -117,19 +120,26 @@ function table(html, usableWidth) {
       })));
   if (!rows.length) return "";
   const cols = Math.max(...rows.map((r) => r.length));
+  /* Every table in the paper sizes all its header cells but the last, which is
+     meant to take whatever is left; requiring a width on every cell threw the
+     declared ones away and made all fourteen tables uniform. */
   const pcts = rows[0].map((c) => c.pct);
-  const widths = pcts.every(Boolean)
-    ? pcts.map((p) => Math.round((p / 100) * usableWidth))
+  const known = pcts.reduce((s, p) => s + (p ?? 0), 0);
+  const rest = (100 - known) / (pcts.filter((p) => !p).length || 1);
+  const widths = pcts.length === cols && known > 0
+    ? pcts.map((p) => Math.round(((p ?? rest) / 100) * usableWidth))
     : Array.from({ length: cols }, () => Math.round(usableWidth / cols));
 
+  /* b on the paragraph mark bolds the mark, not the text, and no <th> in the
+     HTML carries its own <b>, so the header row has to be wrapped here. */
   const cell = ({ head, cell }, w) =>
     `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/></w:tcPr>` +
-    P(runs(cell), { b: head }) + `</w:tc>`;
+    P(runs(head ? `<b>${cell}</b>` : cell), { b: head }) + `</w:tc>`;
 
   return `<w:tbl><w:tblPr><w:tblW w:w="${usableWidth}" w:type="dxa"/>` +
     `<w:tblBorders>${BORDER}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>` +
     `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>` +
-    rows.map((r) => `<w:tr><w:trPr><w:cantSplit/></w:trPr>` +
+    rows.map((r, i) => `<w:tr><w:trPr><w:cantSplit/>${i ? "" : "<w:tblHeader/>"}</w:trPr>` +
       r.map((c, n) => cell(c, widths[n] ?? widths[0])).join("") + `</w:tr>`).join("") +
     `</w:tbl>`;
 }
@@ -160,20 +170,32 @@ const CENTRED_SECTIONS = new Set(["I", "V"]);
 function convert(html, usableWidth) {
   const out = [];
   let chapter = "";
-  const re = /<h([234])[^>]*>([\s\S]*?)<\/h\1>|<table[^>]*>[\s\S]*?<\/table>|<div class="figure">[\s\S]*?<\/div>|<div class="refs">[\s\S]*?<\/div>|<[ou]l[^>]*>[\s\S]*?<\/[ou]l>|<p([^>]*)>([\s\S]*?)<\/p>/g;
+  /* the heading's attributes are kept: class="pb" is where the HTML says a
+     chapter starts a fresh page, and dropping it dropped all seven breaks */
+  const re = /<h([234])([^>]*)>([\s\S]*?)<\/h\1>|<table[^>]*>[\s\S]*?<\/table>|<div class="figure">[\s\S]*?<\/div>|<div class="refs">[\s\S]*?<\/div>|<[ou]l[^>]*>[\s\S]*?<\/[ou]l>|<p([^>]*)>([\s\S]*?)<\/p>/g;
   let m;
   while ((m = re.exec(html))) {
     const chunk = m[0];
 
     if (m[1]) {                                   // heading
-      const text = plain(m[2]);
+      const text = plain(m[3]);
       const num = text.match(/^(I|II|III|IV|V)\.\s+(.*)$/);
+      if (/\bpb\b/.test(m[2])) out.push(pageBreak());
       if (m[1] === "2") {
         if (num) { chapter = num[1]; out.push(chapterHead(num[2])); }
-        else { chapter = ""; out.push(sectionHead(text.toUpperCase())); }
+        else {
+          chapter = "";
+          out.push(sectionHead(text.toUpperCase()));
+          /* template para 771: Appendices stands alone on a divider page */
+          if (text.toLowerCase() === "appendices") out.push(pageBreak());
+        }
       } else if (m[1] === "3") {
+        /* the template heads an appendix APPENDIX A, its title beneath */
+        const apx = text.match(/^Appendix ([A-Z])\.\s+(.*)$/);
+        if (apx) out.push(sectionHead(`APPENDIX ${apx[1]}`),
+          flatPara(runs(apx[2]), { jc: "center" }));   // the title line is not bold
         /* chapter === "" is the appendix run, which the template centres too */
-        out.push(chapter === "" || CENTRED_SECTIONS.has(chapter)
+        else out.push(chapter === "" || CENTRED_SECTIONS.has(chapter)
           ? sectionHead(text) : subHead(text));
       } else {
         out.push(subSubHead(text));
@@ -188,11 +210,18 @@ function convert(html, usableWidth) {
       continue;
     }
 
+    /* The HTML puts one italic caption line under the image. APA — and the
+       paper's own table captions — want bold "Figure N", the title italic
+       beneath it, and both above the picture. */
     if (chunk.startsWith('<div class="figure"')) {
-      for (const [, , inner] of chunk.matchAll(/<p([^>]*)>([\s\S]*?)<\/p>/g)) {
-        const img = inner.match(/<img[^>]*src="([^"]+)"/);
-        out.push(img ? picture(img[1]) : flatPara(runs(inner), { jc: "center" }));
+      const paras = [...chunk.matchAll(/<p([^>]*)>([\s\S]*?)<\/p>/g)].map((x) => x[2]);
+      for (const cap of paras.filter((p) => !/<img/.test(p))) {
+        const num = cap.match(/^\s*<i>Figure (\d+)\.<\/i>\s*([\s\S]*)$/);
+        if (num) out.push(flatPara(runs(`<b>Figure ${num[1]}</b>`)), flatPara(runs(`<i>${num[2]}</i>`)));
+        else out.push(flatPara(runs(cap), { jc: "center" }));
       }
+      const img = paras.map((p) => p.match(/<img[^>]*src="([^"]+)"/)).find(Boolean);
+      if (img) out.push(picture(img[1]));
       continue;
     }
 
@@ -211,8 +240,10 @@ function convert(html, usableWidth) {
       continue;
     }
 
-    const text = m[4];
-    if (plain(text)) out.push(bodyPara(runs(text)));
+    /* class="flush" is the HTML's mark for a continuation paragraph — one that
+       follows a heading or a figure — and takes no first-line indent */
+    const text = m[5];
+    if (plain(text)) out.push(/flush/.test(m[4]) ? flatPara(runs(text)) : bodyPara(runs(text)));
   }
   return out;
 }
@@ -266,7 +297,12 @@ const picture = (file) => {
 
 const head = doc.slice(0, doc.indexOf("<w:body>") + 8);
 const body = doc.slice(doc.indexOf("<w:body>") + 8, doc.lastIndexOf("</w:body>"));
-const blocks = body.match(/<w:p [^>]*>[\s\S]*?<\/w:p>|<w:p>[\s\S]*?<\/w:p>|<w:p\/>|<w:tbl>[\s\S]*?<\/w:tbl>|<w:sectPr[^>]*>[\s\S]*?<\/w:sectPr>/g);
+/* The self-closing branch has to come first and has to accept attributes:
+   the template writes its blank paragraphs as <w:p w14:paraId="…"/>, and the
+   paired branch's [^>]* ate the attributes and then ran on to the next
+   </w:p>, merging whole runs of paragraphs into one block. The trailing
+   bookmarkEnd branch is what makes the pattern tile the body exactly. */
+const blocks = body.match(/<w:p[^>]*\/>|<w:p [^>]*>[\s\S]*?<\/w:p>|<w:p>[\s\S]*?<\/w:p>|<w:tbl>[\s\S]*?<\/w:tbl>|<w:sectPr[^>]*>[\s\S]*?<\/w:sectPr>|<w:bookmark(?:Start|End)[^>]*\/>/g);
 
 const SECTPR = blocks[blocks.length - 1].startsWith("<w:sectPr") ? blocks[blocks.length - 1] : "";
 
@@ -301,13 +337,12 @@ const replaceAfter = (heading, stop, newBlocks) => {
 /* Title-page and acceptance-page fields the template leaves blank. Each key is
    the full text of one run in the template, which is how they happen to be
    split, so an exact run match is enough and no run has to be re-cut.
-   What is not here is not known: the program chair and the dean are still
-   "NAME". The adviser is filled from the title page, spelled exactly as the
-   title page spells it, including the placement of the suffix. */
+   The three acceptance-page signatories are filled below in SIGNATORIES, not
+   here, because the template gives all three the same run text. */
 const TITLE = "INTERACTIVE PLANNER: CIRCADIAN-AWARE PLANNER FOR NIGHT-SHIFT WORKERS: TIMING CAFFEINE, NAPS, AND MICRO-CARE";
 const FIELDS = {
   "GABRELLA ANG": "GABRELLA C. ANG",
-  "Day Month Year": "August 20, 2026",
+  "Day Month Year": "August 24, 2026",
   "TITLE": TITLE,
   "AUTHOR’S NAME ": "Gabrella C. Ang ",
   "“XXXXXXXXXXXXXX”": `“${TITLE}”`,
@@ -326,16 +361,82 @@ const frontText = (heading) => {
   const next = paper.indexOf("<h2>", first + 5);
   return [...paper.slice(first, next).matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((x) => x[1]);
 };
+/* The template separates these with runs of blank paragraphs — 15 before the
+   Acknowledgement, 40 before the contents — which the replacement above
+   consumes. One explicit break says the same thing and cannot drift. */
 replaceAfter("Biographical Sketch", stopAtRealText,
-  frontText("Biographical Sketch").map((t) => bodyPara(runs(t))).concat(blank()));
+  frontText("Biographical Sketch").map((t) => bodyPara(runs(t))).concat(pageBreak()));
 replaceAfter("Acknowledgement", stopAtRealText,
-  frontText("Acknowledgement").map((t) => bodyPara(runs(t))).concat(blank()));
+  frontText("Acknowledgement").map((t) => bodyPara(runs(t))).concat(pageBreak()));
+
+/* -- contents page numbers ------------------------------------------------
+   Word paginates differently from the PDF build, so any number computed here
+   would contradict the document it sits in. PAGEREF fields let Word compute
+   them itself: every contents row points at a bookmark on its own target, and
+   settings.xml is told to refresh all fields when the file is opened. The
+   number a reader sees is therefore Word's, taken from the page the heading
+   actually landed on. */
+const RIGHT_TAB = `<w:tabs><w:tab w:val="right" w:leader="dot" w:pos="${usable}"/></w:tabs>`;
+const marks = new Map();          // data-toc -> bookmark name
+const markName = (key) => {
+  if (!marks.has(key)) marks.set(key, `gyToc${marks.size}`);
+  return marks.get(key);
+};
+const pageRef = (name) =>
+  `<w:r>${rPr()}<w:fldChar w:fldCharType="begin"/></w:r>` +
+  `<w:r>${rPr()}<w:instrText xml:space="preserve"> PAGEREF ${name} \\h </w:instrText></w:r>` +
+  `<w:r>${rPr()}<w:fldChar w:fldCharType="separate"/></w:r>` +
+  `<w:r>${rPr()}<w:t>1</w:t></w:r>` +
+  `<w:r>${rPr()}<w:fldChar w:fldCharType="end"/></w:r>`;
+
+/* Bookmarks are placed by matching the row's target text against a block's own
+   text. A contents row is never its own target, so the rows generated here are
+   remembered and skipped. Ids start past the two the template already uses. */
+const tocRowXml = new Set();
+let bmId = 100;
+const bookmark = (block, name) => {
+  const id = bmId++;
+  return block.replace(/(<w:p\b[^>]*>(?:<w:pPr>[\s\S]*?<\/w:pPr>)?)/,
+    `$1<w:bookmarkStart w:id="${id}" w:name="${name}"/>`)
+    .replace(/<\/w:p>$/, `<w:bookmarkEnd w:id="${id}"/></w:p>`);
+};
+const norm = (s) => s.replace(/\s+/g, " ").trim().toLowerCase();
+/* A chapter's roman numeral is Word's, from numId 2, so it is in the contents
+   row but never in the heading's own text; a figure row ends in a full stop its
+   caption does not carry. Both are stripped before the loosest comparison. */
+const bare = (s) => norm(s).replace(/^[ivx]+\.\s*/, "").replace(/\.$/, "");
+/* Three passes per target, strictest first: a block whose whole text is the
+   target, then one that contains it — which is what a table caption needs,
+   since "Table 6" and its title are one paragraph — then the bare forms. */
+const placeMarks = (arr, pending) => {
+  for (const [key, name] of [...pending]) {
+    const want = norm(key), loose = bare(key);
+    const free = (x) => !tocRowXml.has(x);
+    let at = arr.findIndex((x) => free(x) && norm(textOf(x)) === want);
+    if (at < 0) at = arr.findIndex((x) => free(x) && norm(textOf(x)).includes(want));
+    if (at < 0) at = arr.findIndex((x) => free(x) && bare(textOf(x)) === loose);
+    if (at < 0) at = arr.findIndex((x) => free(x) && bare(textOf(x)).startsWith(loose));
+    if (at >= 0) { arr[at] = bookmark(arr[at], name); pending.delete(key); }
+  }
+};
 
 /* -- table of contents and the two lists -- */
 const tocRows = (from, to) =>
-  [...between(from, to).matchAll(/<p(?: class="([^"]*)")?><span>([\s\S]*?)<\/span>/g)]
-    .map(([, cls, label]) => flatPara(
-      ((cls ?? "").includes("l2") ? tabRun() : "") + run(plain(label)), { dbl: false }));
+  [...between(from, to).matchAll(
+    /<p(?: class="([^"]*)")?><span>([\s\S]*?)<\/span>[\s\S]*?<span class="pn"[^>]*data-toc="([^"]*)"/g)]
+    .map(([, cls, label, target]) => {
+      /* A sub-entry is indented, not tabbed in. The only tab stop on the row
+         is the right one that carries the dot leader, so a leading tab ran
+         straight to the right margin: the label printed flush right behind a
+         line of dots and pushed its page number onto a line of its own. The
+         0.35in matches docs/sample-paper.html:99. */
+      const row = flatPara(
+        run(plain(label)) + tabRun() + pageRef(markName(decode(target))),
+        { dbl: false, tabs: RIGHT_TAB,
+          ind: (cls ?? "").includes("l2") ? `<w:ind w:left="504"/>` : "" });
+      tocRowXml.add(row);
+      return row;
+    });
 
 replaceAfter("TABLE OF CONTENTS", (b) => isHeading(b),
   tocRows("<h2>Table of Contents</h2>", "<h2>List of Tables</h2>").concat(blank()));
@@ -351,8 +452,10 @@ replaceAfter("List of Figures", (b) => isHeading(b),
     tocRows("<h2>List of Appendices</h2>", "<h2>Abstract</h2>"), blank()));
 
 /* -- abstract, up to the section break that starts the numbered body -- */
+/* the template sets the Keywords label bold, the HTML italic */
 const abstractParas = [...between("<h2>Abstract</h2>", "<h2>I. Introduction")
-  .matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((x) => x[1]);
+  .matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)]
+  .map((x) => x[1].replace("<i>Keywords:</i>", "<b>Keywords:</b>"));
 replaceAfter("Abstract", (b) => b.includes("<w:sectPr"),
   abstractParas.map((t) => bodyPara(runs(t))).concat(blank()));
 
@@ -386,6 +489,13 @@ for (const e of edits.sort((a, b) => b.at - a.at)) blocks.splice(e.at, e.count, 
    as Chapter III and Appendix B both state. */
 const TICKED = ["Rectangle 112", "Rectangle 9", "Rectangle 117", "Rectangle 36"];
 let ticks = 0;
+/* a:solidFill and its siblings are a choice inside CT_ShapeProperties, one fill
+   to a shape. Rectangle 36 already carries a white one, so adding a black fill
+   after </a:prstGeom> left that shape with two, and Word refuses to open the
+   file rather than taking the first. The existing fill is replaced where there
+   is one and only added where there is none. */
+const BLACK = '<a:solidFill><a:srgbClr val="000000"/></a:solidFill>';
+const FILL = /<\/a:prstGeom>(?:<a:(no|solid|grad|blip|patt|grp)Fill(?:\/>|[\s\S]*?<\/a:\1Fill>))?/;
 const tickBox = (b, name) => {
   const at = b.indexOf(`name="${name}"`);
   if (at < 0) return b;
@@ -393,7 +503,7 @@ const tickBox = (b, name) => {
   const end = b.indexOf("</mc:AlternateContent>", at) + "</mc:AlternateContent>".length;
   ticks++;
   return b.slice(0, from) + b.slice(from, end)
-    .replace("</a:prstGeom>", '</a:prstGeom><a:solidFill><a:srgbClr val="000000"/></a:solidFill>')
+    .replace(FILL, `</a:prstGeom>${BLACK}`)
     .replace(/fillcolor="#FFFFFF[^"]*"/, 'fillcolor="#000000"') + b.slice(end);
 };
 
@@ -402,16 +512,51 @@ if (ticks !== TICKED.length)
   throw new Error(`permission page: ticked ${ticks} of ${TICKED.length} boxes; the template's rectangles have been renumbered`);
 
 /* Three signature blocks read "NAME" and are identical, so they are told apart
-   by position: the first is the adviser, and the title page names them. The
-   second and third are the program chair and the dean, and nothing in the
-   template or the paper says who they are. */
-const adviserAt = keep.findIndex((b) => textOf(b) === "NAME");
-if (adviserAt >= 0) keep[adviserAt] = keep[adviserAt]
-  .replace(/(<w:t[^>]*>)NAME(<\/w:t>)/, "$1BENIGNO JR. AGAPITO$2");
+   by position, in the order the acceptance page prints them: adviser, program
+   chair, dean. The adviser is spelled as the title page spells him, suffix and
+   all; the other two are the officeholders named by the Faculty of Information
+   and Communication Studies, and their suffix convention differs from his. */
+const SIGNATORIES = ["BENIGNO JR. AGAPITO", "DIEGO S. MARANAN", "ROBERTO B. FIGUEROA JR."];
+let signed = 0;
+for (let i = 0; i < keep.length && signed < SIGNATORIES.length; i++)
+  if (textOf(keep[i]) === "NAME")
+    keep[i] = keep[i].replace(/(<w:t[^>]*>)NAME(<\/w:t>)/, `$1${SIGNATORIES[signed++]}$2`);
+if (signed !== SIGNATORIES.length)
+  throw new Error(`acceptance page: filled ${signed} of ${SIGNATORIES.length} signature blocks`);
 const tail = "";
 const generated = convert(paper.slice(paper.indexOf("<h2>I. Introduction</h2>")), usable);
 
+/* Front matter first, then the body, so a target named in both — "List of
+   Tables" is a heading and a contents row — resolves to the earlier one. Any
+   target left unplaced would render as "Error! Bookmark not defined." on the
+   page, so the build stops instead. */
+const pending = new Map(marks);
+placeMarks(keep, pending);
+placeMarks(generated, pending);
+if (pending.size)
+  throw new Error(`contents: no bookmark target for ${[...pending.keys()].join(", ")}`);
+
 const out = head + keep.join("") + blank() + generated.join("") + SECTPR + "</w:body></w:document>";
+
+/* The contents rows carry PAGEREF fields, which hold a stale placeholder until
+   something recalculates them. updateFields makes Word do it on open, so the
+   numbers are right the first time the file is read rather than after a manual
+   F9. Word asks once, on open, before it updates. This is the one part of
+   settings.xml that is no longer byte-identical to the template. */
+{
+  const path = "word/settings.xml";
+  const s = await zip.file(path).async("string");
+  if (!/w:updateFields/.test(s)) {
+    /* CT_Settings is a sequence, and Word refuses the file outright on a wrong
+       order rather than ignoring the element. updateFields belongs late: after
+       characterSpacingControl, immediately before hdrShapeDefaults/footnotePr/
+       endnotePr/compat. Anchoring it to the first of those that the template
+       actually has is what keeps it in sequence. */
+    const after = s.match(/<w:(?:hdrShapeDefaults|footnotePr|endnotePr|compat)[ >]/);
+    if (!after) throw new Error("settings.xml: no element found to place updateFields before");
+    zip.file(path, s.slice(0, after.index) + `<w:updateFields w:val="true"/>` + s.slice(after.index));
+  }
+}
 
 /* the figures, their relationships, and the content type that lets Word know
    what a .png part is — the template already declares it for the UP seal, so
@@ -428,6 +573,14 @@ if (added.length) {
     (m) => m).replace(/(<Types[^>]*>)/,
     `$1<Default Extension="png" ContentType="image/png"/>`));
 }
+
+/* The body footer is the running head. The template leaves it as the literal
+   "Title… ", and settings.xml sets no evenAndOddHeaders, so that placeholder
+   prints on every page of the body until it is filled in. */
+const footer = await zip.file("word/footer3.xml").async("string");
+const running = footer.replace(/(<w:t[^>]*>)Title…\s*(<\/w:t>)/, "$1Interactive Planner $2");
+if (running === footer) throw new Error("word/footer3.xml: the Title… placeholder has moved");
+zip.file("word/footer3.xml", running);
 
 zip.file("word/document.xml", out);
 writeFileSync(`${DOCS}sample-paper-draft.docx`,

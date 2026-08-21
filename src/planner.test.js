@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { CITATIONS } from "./citations.js";
 import {
   calculateShiftPhases, calculateCaffeineCutoff, generateTimeline, baseProfile, caffeineHours,
-  deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE, planGate,
+  deriveState, movementInterval, stretchNight, reflectionAdjust, ADJUSTABLE, planGate, ov,
 } from "./planner.js";
 
 const P = {
@@ -206,6 +206,34 @@ describe("the night of the stretch, driven by the counted field", () => {
   it("lets an explicit override beat the derived count", () => {
     expect(caffeineHours({ ...P, stretch: 4, overrides: { caffeineHours: 9 } })).toBe(9);
     expect(movementInterval({ ...P, stretch: 4, overrides: { moveGap: 60 } })).toBe(60);
+
+    /* Beats it, but only inside the slider's own range. `overrides` is a
+       hand-editable blob and ov() is the single place all seventeen keys are
+       read, so the bound belongs there and not at each of the write sites.
+       Unbounded, `moveGap: 0` and `-500` are a movement loop that never
+       advances — the process runs out of memory building plan items — and
+       "banana" or 1e9 empties every reset out of the shift. */
+    for (const [key, spec] of Object.entries(ADJUSTABLE)) {
+      const read = (o) => ov({ ...P, overrides: o }, key, spec.min);
+      expect(read({ [key]: spec.max + 1000 })).toBe(spec.max);
+      expect(read({ [key]: spec.min - 1000 })).toBe(spec.min);
+      expect(read({ [key]: -500 })).toBeGreaterThanOrEqual(spec.min);
+      expect(read({ [key]: 1e9 })).toBeLessThanOrEqual(spec.max);
+      // not a number is not an override: the derived default stands
+      for (const bad of ["banana", null, undefined, NaN, Infinity, {}]) {
+        expect(ov({ ...P, overrides: { [key]: bad } }, key, spec.step)).toBe(spec.step);
+      }
+    }
+    expect(Object.keys(ADJUSTABLE)).toHaveLength(17);
+
+    // and the loop those numbers drive terminates with a sane count either way
+    for (const bad of [0, -500, "banana", 1e9]) {
+      const p = { ...P, overrides: { moveGap: bad } };
+      const { items } = generateTimeline(p, [], calculateShiftPhases(p).start);
+      const moves = items.filter((i) => /^move-/.test(i.id));
+      expect(moves.length).toBeGreaterThan(0);
+      expect(moves.length).toBeLessThan(40);
+    }
   });
 });
 

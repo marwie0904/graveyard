@@ -4,6 +4,8 @@ What `docs/sample-paper.html` asserts or describes that the prototype does not y
 
 **Update, 2026-08-18.** `sample-paper.html` was rewritten as the full manuscript (Chapters I to III in the original's format) and the passages describing the artifact were restated against the current build. Rows below carry a *Paper now* line where that rewrite changed the discrepancy.
 
+**Update, 2026-08-20.** Re-checked against the build at commit `cc70324` plus the day's uncommitted work in `src/`. Three entries changed state: §2.5's five accessibility gaps are all closed, §4's evaluation instrument and traceability report are both produced, and §1.3's Risk line is corrected against its own heading. Two browser drivers exist that did not when this document was written — `drive-contrast.mjs` and `drive-names.mjs` — so where a figure below comes from one of them it is dated and the driver is named. Line references in sections this update does not touch still point at commit `e8db150` and have drifted: `REMINDERS` is now `src/App.jsx:1041`, `exportData` `:3126`, `CARE` `:38`, and the shared `Select` `src/ui/index.jsx:281`. The claims those references support were re-verified on 20 August; the references themselves were not re-taken.
+
 Every row was checked against the source, not inferred. `Declared` means the paper itself names the gap, so it is honest as written and only needs building. `Undeclared` means the paper reads as though the thing exists — those are the ones that can be contradicted in a defense.
 
 ---
@@ -14,7 +16,7 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 
 - **Paper**: Ch. II, *Aesthetic grounding*. Heinrich's "aural landscape" (p. 752) is retained "as a stated design direction and not as a description of the implemented prototype."
 - **Build**: no audio of any kind. `grep -rn "Audio\|speechSynthesis\|AudioContext" src/` returns nothing. `CarePlayer` (`src/App.jsx:103`) is a silent scaling circle, countdown, step label, and progress bar.
-- **Closed**: `src/cues.js` speaks each step through `speechSynthesis` and marks boundaries with a synthesised Web Audio tone. Off on open, its own control, and the player's live region drops to `aria-live="off"` while speech runs so a screen-reader user is not told the step twice. No audio file, so no licence to track. `src/cues.test.js` asserts every step of every activity has a cue.
+- **Closed**: `src/cues.js` speaks each step through `speechSynthesis` and marks boundaries with a synthesised Web Audio tone. On when the player opens (`src/App.jsx:116`, `useState(true)`), with its own control in the player header so it can be silenced without stopping the exercise, and the player's live region drops to `aria-live="off"` while speech runs so a screen-reader user is not told the step twice. WCAG 1.4.2 permits audio that starts on its own provided a mechanism to stop it exists, which is what that control is. No audio file, so no licence to track. `src/cues.test.js` asserts every step of every activity has a cue.
 - **Paper now**: Ch. II and Ch. III describe the audio channel; Ch. IV re-scores C4 Modality from 0 to 2; Appendix B Table 9 records the provenance.
 
 ### 1.2 Movement videos — **claim withdrawn, feature still absent**
@@ -27,7 +29,7 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 
 - **Paper**: Ch. II, *Content architecture* — an item "can be rendered as a timeline entry, a reminder, or an exported record." `docs/research-summary.md` goes further and lists "a notification and reminder component" as an MVP component.
 - **Build**: no `Notification`, no service worker, no scheduling. `REMINDERS` (`src/App.jsx:914`) is a list of **labels** used to describe the plan in copy — it delivers nothing.
-- **Risk**: this is the largest undeclared gap. A night-shift tool whose whole premise is timing, that cannot interrupt the user at the right moment, invites the question directly.
+- **Risk**: this is the largest gap in the build, and a declared one — an earlier draft of this line called it undeclared, contradicting the heading above it. A night-shift tool whose whole premise is timing, that cannot interrupt the user at the right moment, invites the question directly.
 - **To close**: build it. The claim side is closed.
 - **Paper now**: declared. Ch. III, *Prototype development* — four of the five MVP components are present and "the notification and reminder component is not… the component is recorded as specified and unbuilt."
 
@@ -42,8 +44,8 @@ Every row was checked against the source, not inferred. `Declared` means the pap
 ## 2. Accessibility
 
 This section was re-checked against the source on 2026-08-18, after the
-accessibility work described in `docs/accessibility.md`. The rest of the
-document still reflects commit `e8db150`.
+accessibility work described in `docs/accessibility.md`, and again on
+2026-08-20 after the day's fixes landed.
 
 Three of these were, for four days, discrepancies in the safer direction: the
 build did the thing and the paper still said it did not. The 2026-08-18 rewrite
@@ -63,6 +65,7 @@ because the audit section of Ch. III is written from them.
 | `DARK.muted` | `#96939E` | unchanged | card `#1E1E26` | 5.49 |
 
 - **Correction to the earlier draft of this section**: it named `bg` as `WARM.muted`'s worst ground at 4.13:1. The real floor is `sunken` at 3.81:1 — the token also prints the logged-count badge (`src/App.jsx:1497`) and two intro paragraphs on `T.sunken`. Fixed against that.
+- **Both `muted` values moved again on 2026-08-20**, so the table's `Now` column is the 18 August state and no longer the current one. `drive-contrast.mjs` found `muted` printing on a domain tint — the earned-achievement tiles and the Shift/Sleep time rows wash `tint(hue, T.tintA)` over `bg` — at **4.35:1 to 4.44:1** warm, a pairing the token table could not see because no row named it. `WARM.muted` is now `#67625B` and `DARK.muted` `#9A97A1`, one step each. Against the binding surfaces in the table that reads 4.89 warm on `sunken` and 5.77 dark on `card`. This is the same blind spot 2.3 records, found the same way.
 - **Guarded**: `src/tokens.test.js` asserts the full table in both themes, so the palette cannot regress silently.
 - **Paper now**: rewritten as remediated, with the post-fix figures (2.20:1 and 3.17:1 before, 4.65:1 and 4.69:1 after) and the guard named.
 
@@ -86,23 +89,23 @@ because the audit section of Ch. III is written from them.
 
 - **Paper**: Ch. III now describes a preliminary review followed by a structured WCAG-EM evaluation "recorded in its report format."
 - **Build**: no report exists. The contrast numbers above were computed for this document; nothing is stored in the repo.
-- **Status**: unchanged, but the reason to defer has expired. The argument was that auditing against a long list of known failures would only document them a second time. That list is now five items, three of them two-line fixes (see 2.5).
-- **To close**: fix 2.5's items 1 to 3, then run the WCAG-EM Report Tool over the implemented screens and put the output in an appendix. The scope statement must name only the four built screens.
+- **Status**: still no stored report, and the reason to defer has now fully expired. The argument was that auditing against a long list of known failures would only document them a second time. That list is empty: 2.5's five items are all closed. `drive-contrast.mjs` and `drive-names.mjs` produce, as of 2026-08-20, most of the measurement a WCAG-EM report would cite; nothing gathers their output into the report format.
+- **To close**: run the WCAG-EM Report Tool over the implemented screens and put the output in an appendix. The scope statement must name only the four built screens. This entry's stated precondition — fix 2.5's items 1 to 3 first — is satisfied.
 
-### 2.5 Remaining AA gaps — **declared, not fixed**
+### 2.5 Remaining AA gaps — **all five closed in the build, verified 2026-08-20**
 
-Five open items, listed in full with priorities and rationale in `docs/accessibility.md`. Summarised here because the paper asserts a WCAG 2.2 AA target and these are what stands between the build and that claim. **Paper now**: declared — all five appear in Ch. III as Table 2, with criteria and levels, alongside two items declared rather than claimed (fixed type sizes, and the WCAG-EM artifact).
+Five open items, listed in full with priorities and rationale in `docs/accessibility.md`. Summarised here because the paper asserts a WCAG 2.2 AA target and these are what stood between the build and that claim. All five are now closed. The table is kept rather than deleted, with the closing evidence in place of the old line references, because a finding removed from the record cannot be checked. **Paper now**: Ch. III states all five as closed against the assessed build, and Table 2 is down to the two open non-text findings — the reminder toggle's knob at 2.30:1 on its lit track, and the active pill's transparent boundary at 1.28:1 — alongside the two items declared rather than claimed (fixed type sizes, and the WCAG-EM artifact).
 
-| # | Gap | Criterion | Where |
+| # | Gap | Criterion | Closed by, verified 2026-08-20 |
 |---|---|---|---|
-| 1 | Whole Care screen is keyboard-dead: 6 focusables, none of them its 5 activity rows or play controls | 2.1.1 **A** | `src/App.jsx:1932`, `:1804` |
-| 2 | Six raw `<select>` time controls have no label | 3.3.2 / 4.1.2 **A** | `src/App.jsx:1764`–`:1775`, `:1829`–`:1844` |
-| 3 | `Pill` lacks `aria-pressed`; `Section`'s disclosure lacks `aria-expanded` | 4.1.2 **A** | `src/ui/index.jsx:115`, `src/App.jsx:1029` |
-| 4 | No announcement on screen change | 4.1.3 **AA** | route level; worst at `src/App.jsx:1201` |
-| 5 | Empty-night labels in the day strip print at ~1.08:1 | 1.4.3 **AA** | `DayChip`, `src/ui/index.jsx` |
+| 1 | Whole Care screen is keyboard-dead: 6 focusables, none of them its 5 activity rows or play controls | 2.1.1 **A** | The activity row is a real `<button>` (`src/App.jsx:2065`). The circular play control stayed a `div aria-hidden`: it is decorative now that the row is the control, because a button inside a button is invalid. `src/care-a11y.test.js` holds it |
+| 2 | Six raw `<select>` time controls have no label | 3.3.2 / 4.1.2 **A** | Each carries `aria-label`, and each row a named `role="group"` (`src/App.jsx:1885`, `:1890`, `:1896`, `:1956`, `:1963`, `:1971`). They are still raw selects — the failure was closed by naming the call sites, not by moving them onto the shared `Select` |
+| 3 | `Pill` lacks `aria-pressed`; `Section`'s disclosure lacks `aria-expanded` | 4.1.2 **A** | `Pill` (`src/ui/index.jsx:121`) and `Disclosure` (`:180`). `drive-names.mjs`, run 2026-08-20, reads both out of Chrome's accessibility tree rather than off the attribute: `pressed` carried on 123 of 123 declared, `expanded` on 78 of 78, plus 14 more carrying `expanded` implicitly from the native element |
+| 4 | No announcement on screen change | 4.1.3 **AA** | A second live region, `#gy-where`, deliberately held outside the toast so neither message wipes the other. `src/announce.test.js` |
+| 5 | Empty-night labels in the day strip print at ~1.08:1 | 1.4.3 **AA** | The emptiness moved onto the chip's circle and its `aria-label`; the label now prints `faint` on `bg` and is asserted at 4.5:1 as a row of its own in `src/tokens.test.js` |
 
-- **The sharpest of these is item 1**, and it measured worse than it reads. The Care screen exposes six focusable elements — the profile button and the five tab-bar buttons. Its five activity rows are not focusable and neither are the five circular play controls inside them, which look like buttons and are not. A keyboard or Switch Control user who lands on the screen that is the paper's central design contribution can do one thing: leave it.
-- **Items 1 to 3 are all Level A**, and all three are places where a shared component already does the right thing and a hand-rolled call site does not. Small diffs.
+- **Item 1 measured worse than it read**, which is why it was the sharpest of the five. The Care screen exposed six focusable elements — the profile button and the five tab-bar buttons. Its five activity rows were not focusable and neither were the five circular play controls inside them, which looked like buttons and were not. A keyboard or Switch Control user who landed on the screen that is the paper's central design contribution could do one thing: leave it.
+- **Two limits survive the closures**, and the paper states both rather than claiming past them: no human has delivered the key presses, and no assistive technology has heard the state attributes. `drive-names.mjs` confirms name, role and state as *Chrome computes them* for assistive technology, which is the same computation a screen reader consumes and is not the same thing as a screen reader consuming it.
 
 ---
 
@@ -120,14 +123,14 @@ Five open items, listed in full with priorities and rationale in `docs/accessibi
 
 ## 4. Assessment activities described but not performed
 
-These are methodology, not code. All are written in the future-neutral present tense, which is standard, but none has been executed.
+These are methodology, not code. All are written in the future-neutral present tense, which is standard. Two of the four have since been done; the two still outstanding are the two that need a second person.
 
-| Activity | Paper location | Status |
+| Activity | Paper location | Status, 2026-08-20 |
 |---|---|---|
 | Expert heuristic review | Ch. III, *Verification and Validation* | not conducted |
 | Scenario-based testing | Ch. III, *Verification and Validation* | no artifact in repo |
-| Evaluation instrument (adapted Goli-Cruz rubric) | Ch. III, *Verification and Validation* | not written |
-| Traceability report output | Ch. III | test passes; no report is produced for the appendix |
+| Evaluation instrument (adapted Goli-Cruz rubric) | Ch. III, *Verification and Validation* | **written**. The full instrument is Appendix A: twenty criteria across five domains, each with a descriptor for all four bands, and band 3 requiring confirmation independent of the researcher |
+| Traceability report output | Ch. III | **produced**. Table 7 reports the eight properties checked, and the Appendix B traceability paragraph reports the same result in prose. Both match `src/planner.test.js:385-470`: 25 construction sites, 25 cited, 0 uncited items across the eight-profile matrix, 13 resting on a study, 10 marked design judgment, 2 navigational |
 
 Verification that **is** real: `planner.test.js`, `stats.test.js`, `time.test.js`, `storage.test.js`, `mockNights.test.js`, `share.test.js` — the paper's claim of "automated unit tests over the scheduling, statistics, and time-arithmetic modules" is accurate.
 
@@ -143,7 +146,7 @@ Verification that **is** real: `planner.test.js`, `stats.test.js`, `time.test.js
 
 ## 6. Citation hygiene
 
-- **Esteves year.** Cited as `(2025)`. The guide is labelled 3rd Trimester A.Y. 2025-2026 but its schedule runs 15 June – 5 September **2026**. Confirm before the reference list is final; it appears in `sample-paper.html` four times and in `reference-integration.md`.
+- **Esteves year.** Cited as `(2025)`. The guide is labelled 3rd Trimester A.Y. 2025-2026 but its schedule runs 15 June – 5 September **2026**. Confirm before the reference list is final; it appears in `sample-paper.html` five times as of 2026-08-20 and in `reference-integration.md`.
 - **MMS 149 module authorship** unresolved — the five module PDFs carry no author line; cited as anonymous corporate works. `reference-integration.md` §5.3.
 - **DeRose pagination** — the available copy is a reprint with its own numbering; journal pages are 3–26. Section headings are used as locators instead, which is safe.
 - **Course materials in the reference list** — flagged in Comment 2; confirm the panel accepts unpublished course materials.
@@ -158,11 +161,10 @@ Verification that **is** real: `planner.test.js`, `stats.test.js`, `time.test.js
 
 ## Priority
 
-1. **2.5 items 1–3** — three Level A failures, all small diffs, and the last thing standing between the build and a clean audit. Item 1 is the one to fix first: it locks keyboard users out of the care player entirely.
-2. **1.3 reminders** — now declared rather than implied, so the paper is safe either way. Still the largest thing the build does not do, and the premise of the thesis is timing.
-3. **2.4** — run the WCAG-EM tool once 1 lands, and the procedure the paper describes becomes a procedure that was followed.
-4. **3.1** — `src`/`why` on `CARE` is a small diff and removes the only place where a recommendation escapes the traceability claim.
-5. **5** — the functional requirement list is mostly written across Ch. II and Ch. III and only needs gathering into one table; the use-case diagram and creative brief are still absent.
-6. **6** — the Esteves year is a two-minute check that a panelist can catch in one.
+1. **2.4** — run the WCAG-EM tool and the procedure the paper describes becomes a procedure that was followed. It is now the cheapest item on this list as well as the top one: 2.5 is closed, so the audit has nothing to re-document, and `drive-contrast.mjs` and `drive-names.mjs` already produce most of what the report would cite.
+2. **1.3 reminders** — declared rather than implied, so the paper is safe either way. Still the largest thing the build does not do, and the premise of the thesis is timing.
+3. **3.1** — `src`/`why` on `CARE` is a small diff and removes the only place where a recommendation escapes the traceability claim.
+4. **5** — the functional requirement list is mostly written across Ch. II and Ch. III and only needs gathering into one table; the use-case diagram and creative brief are still absent.
+5. **6** — the Esteves year is a two-minute check that a panelist can catch in one.
 
-Closed since this document was written: **2.1**, **2.2** and **2.3** in the build, then in the paper's audit section on 2026-08-18.
+Closed since this document was written: **2.1**, **2.2** and **2.3** in the build, then in the paper's audit section on 2026-08-18; **2.5**'s five gaps in the build on 2026-08-20; and **§4**'s evaluation instrument and traceability report in the paper, as Appendix A and Table 7.

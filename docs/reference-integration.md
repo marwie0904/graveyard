@@ -11,7 +11,7 @@ Your thesis methodology already promises this:
 > "a **traceability check** will be performed to ensure that each application feature corresponds to at least one supporting study."
 > — *Interactive Planner* thesis, Methodology → Validation of the Application
 
-Right now that promise is only pointed at the **circadian literature** (Burke, Oriyama, Dall'Ora, etc.), which justifies *what the app recommends*. It does not justify *how the app was built or how it looks* — and a Multimedia Studies panel will ask exactly that. Your six prior courses cover that second half:
+Right now that promise is only pointed at the **circadian literature** (Burke, Oriyama, Albulescu, etc.), which justifies *what the app recommends*. It does not justify *how the app was built or how it looks* — and a Multimedia Studies panel will ask exactly that. Your six prior courses cover that second half:
 
 | Question a panelist will ask | Course that answers it |
 |---|---|
@@ -232,6 +232,8 @@ This sits well beside your existing Circadian Rhythm Theory: both say the same s
 
 **Why it's relevant:** your thesis currently calls its method "qualitative, design-oriented" and cites Domínguez (2017). That describes the *research* stance but not the *engineering* one, and a panelist can reasonably ask "what SDLC did you follow?" This answers it in the vocabulary the question will be asked in.
 
+⚠ *Correction, 20 Aug 2026.* The Domínguez citation itself does not hold. The thesis cites it to justify a design that "draws on existing knowledge rather than on the collection of new data," but Domínguez defines design-based research as designing innovations and **testing them in naturalistic settings** — inherently data-collecting. That is the citation holding up the whole no-user-testing stance, so the Module 1 material below is not a supplement to it, it is the replacement for it: the prototype model is the honest description of what was done. See the audit of 20 August 2026, §2.6.
+
 **Quotable material — model selection is contingent:**
 
 > "Considering that each of the aforementioned SDLC models offers unique processes that best suit the adversity of Software Development challenges, **finding the right one greatly depends on the circumstances and factors including but not limited to the scope of the project, size of the team, budget, and client preferences.**"
@@ -433,10 +435,12 @@ And from the objectives:
 
 > "Critically evaluate arguments about **accessibility as a civil rights issue**"
 
-**Why it's relevant — and this is not a box-ticking section.** Your users are, by definition, **fatigued, at 3 AM, on a screen, with degraded attention and working memory** — your own literature review says so, citing Wickwire et al. (2021). That is a *situational* impairment, and it is exactly what accessible design is engineered for. Accessibility is not an add-on to Graveyard; it is the same problem your thesis is already about, arriving from a different discipline.
+**Why it's relevant — and this is not a box-ticking section.** Your users are, by definition, **fatigued, at 3 AM, on a screen, with degraded attention and working memory** — your own literature review says so, citing Vlasak et al. (2022) and Folkard & Tucker (2003). That is a *situational* impairment, and it is exactly what accessible design is engineered for. Accessibility is not an add-on to Graveyard; it is the same problem your thesis is already about, arriving from a different discipline.
+
+⚠ *Correction, 20 Aug 2026.* This entry originally attributed the cognitive claim to "Wickwire et al. (2021)". No such publication exists — Wickwire's 2021 record is obstructive sleep apnoea and sleep-economics work, and the source is in neither the thesis reference list nor this ledger's §6. The claim's real sources, both already in the thesis, are Vlasak et al. (2022) for the cross-sectional deficits and Folkard & Tucker (2003) for the decline across successive shifts. Verified against Crossref author records on 20 August 2026.
 
 **Drop-in paragraph — use this one, it is the strongest single argument available to you:**
-> Accessible design is conventionally justified by permanent disability, but the same techniques address situational and temporary impairment. Night-shift workers experience measurable declines in attention, working memory, and response inhibition across consecutive shifts (Wickwire et al., 2021); an interface used under those conditions faces constraints functionally similar to those accessibility standards are designed to accommodate. Designing to WCAG 2.2 (W3C, 2023) is therefore not an ancillary compliance activity in this study but a direct response to the cognitive profile of the target user, consistent with the principle that producing accessible digital products is a designer's responsibility rather than an optional enhancement (Esteves, 2025).
+> Accessible design is conventionally justified by permanent disability, but the same techniques address situational and temporary impairment. Night-shift workers show measurable declines in cognitive control, working memory, psychomotor vigilance, visual attention, and processing speed relative to non-shift workers (Vlasak et al., 2022), and safety declines further across successive night shifts (Folkard & Tucker, 2003); an interface used under those conditions faces constraints functionally similar to those accessibility standards are designed to accommodate. Designing to WCAG 2.2 (W3C, 2023) is therefore not an ancillary compliance activity in this study but a direct response to the cognitive profile of the target user, consistent with the principle that producing accessible digital products is a designer's responsibility rather than an optional enhancement (Esteves, 2025).
 
 **The standards themselves** — cite these, not just the course guide:
 
@@ -494,6 +498,7 @@ Worth naming in Limitations before a panelist names them for you.
 3. **MMS 149 module authorship is unresolved.** Confirm with UPOU FICS before the reference list is final.
 4. **The two MMS 150 audio lectures are unmined.** They are 9–10 minutes each and are the only UI/UX source you have with actual argument in it, as opposed to a syllabus. Listen and pull quotes.
 5. **No creative brief exists.** MMS 174 Module 4 says one should precede production. Writing it now, retrospectively, is normal practice and closes the loop.
+6. **This ledger only ever covered half the reference list, and the half it skipped is where the fabricated citation got in.** Its remit is the course materials — the *how it was built and how it looks* half named in §0 — so the circadian and methodology literature was never logged anywhere. Of the 45 entries in the thesis reference list, 14 have an entry here; the other 31 have none, and "Kervezee et al. (2022)" reached Chapter II twice without a single line recording what it was supposed to support. §8 below opens that half of the ledger with the one entry that had to be fixed rather than merely added. The remaining 30 still need logging before the traceability claim in §0 is true of the whole paper rather than of its design chapters.
 
 ---
 
@@ -573,3 +578,29 @@ Copy into Chapter references; ⚠ marks entries needing confirmation before subm
 4. **Split Verification from Validation in Chapter 3** using Boehm's two questions (§2.4).
 5. **Listen to the two MMS 150 lectures** and pull timestamped quotes (§1.1).
 6. **Confirm MMS 149 module authorship** with UPOU FICS (§5.3).
+
+---
+
+## 8. Health literature logged after the fact
+
+Added 20 August 2026. The circadian and occupational-health sources were outside this ledger's original remit (§0), and §5.6 records what that cost. This section opens that half. It currently holds one entry, the one the audit of 20 August 2026 found had reached Chapter II under an author who never wrote it.
+
+### 8.1 Boini et al. (2022) — *the metabolic and cardiovascular risk figures in Chapter II*
+
+**APA**
+> Boini, S., Bourgkard, E., Ferrières, J., & Esquirol, Y. (2022). What do we know about the effect of night-shift work on cardiovascular risk factors? An umbrella review. *Frontiers in Public Health, 10*, Article 1034195. https://doi.org/10.3389/fpubh.2022.1034195
+
+**Why this entry exists at all.** Chapter II cited these figures twice to `Kervezee, L., Shechter, A., & Boivin, D. B. (2022). Impact of shift work on the metabolic syndrome and diabetes`. No such publication exists — the DOI carried in the reference list resolves to the Boini umbrella review, a different paper by four different authors. Because this ledger stopped at the course materials, nothing here recorded the citation and nothing caught it. Re-attribute every instance to Boini et al.
+
+**What it actually supports** (resolved through Crossref and the Frontiers full text, 20 August 2026)
+
+| Chapter II claim | What Boini reports | Verdict |
+|---|---|---|
+| ~10% increase in diabetes risk | "An excess risk estimated at around 10% of developing diabetes among shift workers compared to day workers"; night shift OR = 1.09 (1.04–1.14) | Supported |
+| ~30% higher hypertension risk | "An excess risk of hypertension… estimated at around 30% when considering the broad definition of shift work and when night periods were included in rotating shifts" | Supported |
+| 25–38% greater likelihood of **obesity** | The 1.25–1.32 range and the 38% night-shift figure are for **overweight**. Obesity is a separate estimate: "5% for night-shift workers and… 18% for rotating shift workers" | **Wrong outcome variable.** Say overweight, or use 5% / 18% and say obesity |
+| Higher cortisol and poorer immune function than day workers | The review presents no cortisol or immune-marker data. Immune dysregulation appears in the discussion as mechanism, not as a measured result | **Not in source.** Cut the sentence or find a source that measured it |
+
+**Where it lands in the paper.** Chapter II, Health Risks (the four risk figures) and Comparison with Day Shift Office Workers (the cortisol/immune sentence, which this source cannot carry). Nowhere in the repo — these figures justify the problem, not a feature, so no `src:` key points at them.
+
+**Note on scope.** Boini is a cardiovascular-risk-factor umbrella review. It is the right source for the metabolic and blood-pressure numbers and the wrong source for anything endocrine or immunological. The audit of 20 August 2026, §2.1 to §2.4, is the record of how far that mismatch had already travelled.

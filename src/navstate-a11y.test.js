@@ -29,6 +29,19 @@ describe("a control that is one of a set says which one it is", () => {
     const row = app.split("REMINDERS.map((r, k) =>")[1].split("\n      </Card>")[0];
     expect(row).toContain("aria-pressed={on}");
     expect(row).toContain("aria-label={r.l}");
+
+    /* The same shape twice more, and the reason the count that cleared 4.1.2
+       was wrong: it counted selects. The adjust sheet's range sits under a
+       sibling div holding spec.l — two of them per card, moveGap above
+       moveLength, told apart by order alone — and the export textarea under
+       the ProfileRow that names it. A sibling is not a label. Every raw one in
+       the file, so a third cannot be added without a name. */
+    const tagsOf = (tag) => app.split(tag).slice(1).map((s) => s.slice(0, s.indexOf("/>")));
+    expect(tagsOf("<input type=\"range\"").length).toBe(1);
+    expect(tagsOf("<textarea").length).toBe(1);
+    for (const t of [...tagsOf("<input type=\"range\""), ...tagsOf("<textarea")]) {
+      expect(t).toMatch(/aria-label=/);
+    }
   });
 
   /* It also shipped without a caret, which is what moved it onto the shared

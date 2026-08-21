@@ -1,5 +1,8 @@
 # Traceability (Phase 6) Implementation Plan
 
+
+> **Correction, 20 August 2026.** This document names `kervezee2022` as a source. That citation was fabricated: no such publication exists, and the DOI it carried (`10.3389/fpubh.2022.1034195`) belongs to Boini, Bourgkard, Ferrieres & Esquirol (2022), *What do we know about the effect of night-shift work on cardiovascular risk factors? An umbrella review.* The key is now `boini2022` in `src/citations.js` and the four rules in `src/planner.js` that cited it. The metabolic figures it carries were also wrong: the 25-38% range is for **overweight**, not obesity. This record is left as written; the reasoning it documents still holds under the corrected attribution.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A sentence in Chapter III becomes true of the running system — every one of the 25 plan items `planner.js` can emit records citation identifiers beside its user-facing rationale, the keys resolve against a file, and seven assertions — the spec's four plus three one-line guards on holes those four leave open — fail the build when an item is constructed without one or quietly relabels itself evidence-free.

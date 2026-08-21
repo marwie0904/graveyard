@@ -10,7 +10,7 @@
 export const CITATIONS = {
   mchill2014: "McHill et al. (2014): caffeine reliably boosts short-term alertness, but is a stimulant, not a circadian regulator.",
   burke2015: "Burke et al. (2015): evening caffeine doses delay melatonin secretion and phase-delay the clock.",
-  ruggiero2013: "Ruggiero & Redeker (2013): naps reduce sleepiness and improve vigilance despite transient sleep inertia.",
+  ruggiero2014: "Ruggiero & Redeker (2014): naps reduce sleepiness and improve vigilance despite transient sleep inertia.",
   geigerbrown2016: "Geiger-Brown et al. (2016): nap benefit, in the same finding.",
   oriyama2018: "Oriyama & Miyakoshi (2018): nap benefit varies by timing and duration.",
   albulescu2022: "Albulescu et al. (2022): micro-breaks reliably raise vigor and reduce fatigue. The performance effect is not significant overall, grows with break length, and varies by task.",
@@ -18,8 +18,8 @@ export const CITATIONS = {
   cho2015: "Cho et al. (2015), Artificial Light Theory: blue-spectrum night light suppresses melatonin and shifts phase.",
   baron2015: "Baron & Reid (2015), Circadian Rhythm Theory: chronodisruption drives sleep, metabolic and cardiovascular risk.",
   owen2010: "Owen et al. (2010), Sedentary Work Hypothesis: prolonged sitting compounds those effects.",
-  boivin2014: "Boivin & Boudreau (2014): Shift Work Sleep Disorder affects nearly 40% of night workers, and tracks with anxiety, depression and chronic fatigue.",
-  kervezee2022: "Kervezee et al. (2022): 10% higher diabetes risk, 25–38% greater obesity likelihood, roughly 30% higher hypertension risk versus day workers.",
+  boivin2014: "Boivin & Boudreau (2014): Shift Work Sleep Disorder is found in 2–5% of workers by the ICSD criteria.",
+  boini2022: "Boini et al. (2022), umbrella review: roughly 10% higher diabetes risk, 25–38% greater likelihood of being overweight, roughly 30% higher hypertension risk versus day workers.",
   vlasak2022: "Vlasak et al. (2022): shift workers score below non-shift workers on cognitive control, working memory, psychomotor vigilance, visual attention and processing speed.",
   folkard2003: "Folkard & Tucker (2003): safety declines over successive night shifts, with hours on duty, and between rest breaks.",
 

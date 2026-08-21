@@ -110,10 +110,19 @@ export const ADJUSTABLE = {
   eyeBreakSecs:  { l: "Eye break", unit: "seconds", min: 10, max: 60, step: 5 },
 };
 
-/** Read an override if the user set one, otherwise use the derived default. */
+/** Read an override if the user set one, otherwise use the derived default.
+    Bounded here and not at the write sites, because this is the one place all
+    seventeen keys are read: `overrides` comes off a hand-editable blob, and a
+    value the sliders can never produce still reaches the planner as a plan
+    number. `moveGap: 0` or `-500` is a movement loop that never advances;
+    `"banana"` or `1e9` is a whole shift with no resets in it. Anything that is
+    not a finite number is not an override, and anything outside the key's own
+    slider range is clamped to it. */
 export const ov = (profile, key, fallback) => {
   const v = (profile.overrides || {})[key];
-  return v === undefined || v === null ? fallback : v;
+  const b = ADJUSTABLE[key];
+  if (!Number.isFinite(v)) return fallback;
+  return b ? Math.min(b.max, Math.max(b.min, v)) : v;
 };
 
 /** Same profile with overrides stripped, so a control can compute the value
@@ -161,10 +170,10 @@ export function reflectionAdjust(profile, answer) {
   /* Only an existing NUMERIC override holds the floor. Not the derived default:
      that would need restLength's per-item defaults (25, 20 or 15) to collapse
      into one number, and there is no honest one. Not `cur ?? -Infinity` either:
-     `overrides` comes off a hand-editable blob, Math.max("x", 150) is NaN, ov()
-     hands NaN to the planner as a real value, and a NaN reset gap emits zero
-     movement resets for the whole shift. A floor that is not a number is not a
-     floor.
+     `overrides` comes off a hand-editable blob and Math.max("x", 150) is NaN,
+     which would write NaN back onto the profile as the user's own setting. A
+     floor that is not a number is not a floor. ov() bounds the read path, so
+     this one only has to keep the write path from storing rubbish.
      One Math.max covers all three keys because all three ask for a LARGER
      number — stop caffeine earlier, wait longer between resets, rest longer. An
      answer that asked for a smaller one would silently no-op here. */
@@ -291,7 +300,7 @@ export function generateTimeline(profile, logs, now) {
       title: "Pre-shift meal",
       msg: "Eat your main meal now.",
       why: "Digestion slows overnight, so your largest meal sits better before the shift than during it.",
-      src: ["kervezee2022", "judgement"],
+      src: ["boini2022", "judgement"],
       actions: ["done", "skip", "adjust"],
     });
   } else {
@@ -313,7 +322,7 @@ export function generateTimeline(profile, logs, now) {
       title: s.napFailed ? "Quiet rest before shift" : "Pre-shift nap",
       msg: `${ov(profile, "restLength", 25)} minutes, ${s.napFailed ? "dim room, no screen, eyes closed" : "alarm set"}.`,
       why: "Under about six hours before a night shift starts you in deficit, and a short nap now takes pressure off the deep-night hours.",
-      src: ["ruggiero2013", "geigerbrown2016", "oriyama2018"],
+      src: ["ruggiero2014", "geigerbrown2016", "oriyama2018"],
       changed: s.wokeEarly
         ? "Added because you woke earlier than planned, so sleep may have been short."
         : s.napFailed
@@ -442,7 +451,7 @@ export function generateTimeline(profile, logs, now) {
       ? "Water and light movement first. Food later."
       : "Something small and planned. Protein plus fruit is enough.",
     why: "Grazing through the night usually means eating more, later, and heavier than you meant to, so deciding in advance is the point.",
-    src: ["kervezee2022", "judgement"],
+    src: ["boini2022", "judgement"],
     changed: s.heavyMeal
       ? "Pushed later because you logged a heavy meal during the night."
       : s.mealSkipped
@@ -456,7 +465,7 @@ export function generateTimeline(profile, logs, now) {
     title: "Keep late food light",
     msg: "If you are hungry, keep it small.",
     why: "A heavy meal shortly before sleep keeps digestion working while you are trying to rest, and tends to make the sleep you do get lighter.",
-    src: ["kervezee2022", "judgement"],
+    src: ["boini2022", "judgement"],
     actions: ["done", "skip"],
   });
 
@@ -479,7 +488,7 @@ export function generateTimeline(profile, logs, now) {
         ? `${ov(profile, "restLength", s.napGroggy ? 15 : 20)} minutes, alarm set.`
         : "Sit back, close your eyes, slow your breathing for five minutes.",
       why: "Rest is kept short on purpose, because past roughly half an hour you risk waking from deeper sleep and feeling groggier than before.",
-      src: ["oriyama2018", "ruggiero2013", "geigerbrown2016"],
+      src: ["oriyama2018", "ruggiero2014", "geigerbrown2016"],
       changed: s.napGroggy
         ? "Shortened because you reported grogginess after a previous rest."
         : s.napFailed
@@ -495,7 +504,7 @@ export function generateTimeline(profile, logs, now) {
         title: "Wake-up buffer",
         msg: "Water and gentle movement before anything that needs focus.",
         why: "Grogginess right after waking is normal and brief, and a buffer keeps you from deciding anything during the part you will not notice.",
-        src: ["ruggiero2013"],
+        src: ["ruggiero2014"],
         changed: "Added after the rest you logged.",
         actions: ["done", "skip"],
       });
@@ -584,7 +593,7 @@ export function generateTimeline(profile, logs, now) {
     title: `Sleep until ${fmt(ph.sleepEnd)}`,
     msg: `${dur(profile.sleepGoalHours * 60)} protected.`,
     why: "This window is the anchor the whole plan is built backward from, and everything tonight was timed to get you here able to use it.",
-    src: ["boivin2014", "kervezee2022"],
+    src: ["boivin2014", "boini2022"],
     actions: ["sleepStart"],
   });
 

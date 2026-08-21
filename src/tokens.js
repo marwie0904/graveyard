@@ -35,8 +35,13 @@ export const DOMAIN = {
   shift:    { hue: "#6E7685", fill: { warm: "#6E7685", dark: "#717988" }, ink: { warm: "#585E6A", dark: "#9AA0AB" }, label: "Shift",    Icon: Clock },
 };
 
-/* muted and faint sit at the 4.5:1 floor for body text: muted against `sunken`
-   and faint against `bg`, the darkest surface each is actually used on.
+/* muted and faint sit at the 4.5:1 floor for body text. faint is pinned by
+   `bg`, the darkest surface it is used on. muted is pinned by something the
+   token table could not see until a browser read the pixels: it also prints on
+   a domain tint — the earned-achievement tiles and the Shift/Sleep time rows,
+   which wash tint(hue, T.tintA) over `bg`. Measured on rendered pixels that
+   pair ran 4.35:1 to 4.44:1 warm, so both values moved one step (warm darker,
+   dark lighter) until the worst of the eight hues clears 4.5:1.
 
    `hair` and `edge` are both one-pixel lines and that is all they share.
    `hair` divides rows and cards, which 1.4.11 exempts as decoration, and it is
@@ -51,7 +56,7 @@ export const WARM = {
   card: "#FFFFFF",
   sunken: "#EAE7DF",
   ink: "#16150F",
-  muted: "#6A655D",
+  muted: "#67625B",
   faint: "#6F6B63",
   hair: "rgba(0,0,0,0.07)",
   edge: "#847F76",
@@ -67,7 +72,7 @@ export const DARK = {
   card: "#1E1E26",
   sunken: "#191921",
   ink: "#EFEDE8",
-  muted: "#96939E",
+  muted: "#9A97A1",
   faint: "#8A8790",
   hair: "rgba(255,255,255,0.09)",
   edge: "#767283",

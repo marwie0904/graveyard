@@ -1,19 +1,101 @@
 # Accessibility test plan
 
 Manual verification for the work committed in `45b1390`, which closed the six
-open items in `docs/accessibility.md`. None of it was checked in a browser or
-against a real screen reader — the automated suite covers the token contrast
-table and the focus trap's arithmetic, and nothing else here can be asserted
-from a test file.
+open items in `docs/accessibility.md`.
+
+This plan used to open by saying none of it had been checked in a browser or
+against a real screen reader. Half of that is no longer true and half of it is
+still exactly true, so the two halves are now stated apart.
+
+**Checked in a browser, 20 August 2026.** Two drivers measure what the test
+suite structurally cannot. `drive-contrast.mjs` reads contrast off the pixels
+Chrome painted: it suppresses the glyphs with `-webkit-text-fill-color`,
+screenshots the viewport at 1x, and samples every text run's line boxes out of
+the decoded frame, so a gradient, a screen-blended bloom, a translucent scrim
+or an inline `rgba()` literal is measured as painted rather than as intended.
+`drive-names.mjs` resolves every rendered control through CDP's
+`Accessibility.getPartialAXTree`, so the name, role and state it reports are
+the ones Chrome computed for assistive technology, not the ones grepped off an
+attribute. Both cover the four assessed screens in both themes, and report
+separately on the screens outside that scope — ten for the contrast driver,
+eleven for the names driver, which also reaches the profile sheet's export
+fallback.
+
+**Not checked against a screen reader, and that has not changed.** No assistive
+technology has been run against this build — not VoiceOver, not TalkBack, not
+Narrator, not a braille display. A name in Chrome's accessibility tree is a
+name a screen reader is *able* to read. It is not a name anyone has heard, and
+nothing below turns one into the other.
 
 Tick through this once per release. Expected failures are marked; they are open
 items, not regressions, and filing them again wastes a pass.
 
-Sections 1, 2, 4 and 6 were run in a desktop browser on 2026-08-18 and passed,
-so the value left in this plan is mostly the parts a browser cannot reach:
-section 3 needs a real screen reader to confirm the announcements are *spoken*
-rather than merely present in the DOM, section 4's visual half needs eyes, and
-none of it has been near an actual phone.
+Sections 1, 2, 4 and 6 were run in a desktop browser on 2026-08-18 and passed.
+Section 6 is now largely superseded by `drive-contrast.mjs`, which measures
+more combinations than a human pass reaches. What is left in this plan is the
+parts neither a browser nor a driver reaches: sections 3 and 5 need a real
+screen reader to confirm the announcements and labels are *spoken* rather than
+merely present in the tree, section 4's visual half needs eyes, and none of it
+has been near an actual phone.
+
+---
+
+## What the drivers measured, and what they could not
+
+Dated 20 August 2026, both drivers re-run against the dev server at commit
+`cc70324` plus that day's uncommitted work in `src/`. Re-run them rather than
+quoting these figures once the source moves.
+
+**Text contrast, 1.4.3 — `drive-contrast.mjs`.** On the four assessed screens,
+floor **4.65:1 warm** across 253 text runs and **4.69:1 dark** across 243, with
+**zero** runs below their own computed threshold. The ten screens outside the
+assessed four also returned zero below threshold, across fifteen
+screen-and-theme passes. Thresholds are computed
+per element from the rendered style — 4.5:1, or 3:1 where the computed size is
+at least 24px, or 18.66px at weight 700 or above — with no blanket exemption
+for headings. Where `.gy-sky` is mounted the driver freezes the animation and
+steps one shared timeline across 27 frames of a 104s window, keeping the worst
+frame per run.
+
+**Name, role and state, 4.1.2 — `drive-names.mjs`.** **402 distinct rendered
+controls, 0 with no accessible name**; 0 dropped from the tree as ignored, 0
+inside an `aria-hidden` subtree. 82 of the 402 are on the assessed four.
+`aria-pressed` is carried into the tree as `pressed` on **123 of 123**
+declared, `aria-expanded` as `expanded` on **78 of 78**, with 14 further
+controls carrying `expanded` implicitly from the native element. Only 101 of
+the 402 names come from an attribute, so a source lint over `aria-label` would
+have seen a quarter of them.
+
+**Non-text contrast, 1.4.11 — `drive-contrast.mjs`.** 150 control boundaries,
+66 painted elements inside controls and 148 icons measured against the pixels
+of the surface each sits on, both themes. **Eleven rows under 3:1 that the
+driver scores as material** remain open: nine state-bearing toggles and pills,
+and two back-arrow glyphs on the onboarding sky at 2.98:1 and 2.99:1. A further
+95 rows under 3:1 are printed with their ratios and explicitly not scored,
+because a labelled control's faint edge and a wash behind an icon are not what
+the criterion names.
+
+### What the drivers declare they cannot reach
+
+Named here because a measurement that does not state its own edges is worse
+than one that is never taken.
+
+- **15 form controls.** A `<select>`'s chosen option and an `<input>`'s value
+  or placeholder are drawn by the browser into shadow content with no DOM text
+  node, so no `Range` can bound them and the pixel method cannot sample them.
+  Chiefly the Reflection selects. Their colours are `T.ink` / `T.faint` on
+  `T.card`, which `src/tokens.test.js` asserts from the token table — that is
+  arithmetic about intent, not a confirmation on pixels.
+- **`aria-current`.** Declared on 11 controls, all of them `page`. CDP's
+  accessibility property set has no entry for `current` at all, so the driver
+  reads the attribute off the element and cannot confirm it reached the tree.
+  That is a limit of the protocol, not a finding about the app, and the driver
+  reports it as neither a pass nor a failure.
+- **Which signal carries a state.** The contrast driver measures one state of a
+  control and does not toggle it. Where a control changes its glyph or its
+  label as well as its fill, the eleven material rows above need eyes to say
+  which signal is doing the work.
+- **Anything spoken.** Sections 3 and 5 below, entirely.
 
 ---
 
@@ -122,17 +204,25 @@ Both closing at once means the overlay stack is broken.
 
 ### Expected failures — do not file
 
-- **The care player cannot be reached by keyboard at all.** The entire Care
-  screen offers six focusable elements — the profile button and the five tab-bar
-  buttons. Neither the activity rows nor the circular play controls inside them
-  are buttons (open item 1). Open it with a mouse click, then test the trap from
-  there.
-- **Closing the care player drops focus to `body`**, because the row that opened
-  it cannot hold focus. This resolves when item 1 lands; it is not a fault in the
-  overlay hook.
 - **The quick-log sheet drops focus when its content swaps** from the pick list
   to the result view. The next Tab recovers and Escape still works. Recorded as
   a known ceiling.
+
+### Closed since this plan was written — test these, do not skip them
+
+The first two entries here used to be expected failures. They are not any more,
+so a failure now is a regression and should be filed.
+
+- **The care player is reachable by keyboard.** The activity row is a real
+  `<button>` (`src/App.jsx:2065`), and `drive-names.mjs` counts 11 named
+  controls on the Care screen where there were six. The circular play control
+  inside the row is deliberately still not focusable: it is `aria-hidden` and
+  decorative, because a button inside a button is invalid. Five stops on that
+  screen is the intended result, not ten.
+- **Closing the care player should return focus to the row that opened it.**
+  The mechanism that made it drop to `body` is gone — the opener is now
+  focusable and `useOverlay` restores to it (`src/ui/index.jsx:43`, `:62`). No
+  one has pressed the keys to confirm that, which is what this line is for.
 
 ---
 
@@ -223,11 +313,12 @@ the profile sheet.
 The last one is the regression risk in the other direction: the fix split each
 domain colour into a fill and a text value, and only text was meant to move.
 
-### Expected failure — do not file
+### Closed since this plan was written — test it, do not skip it
 
-**Empty-night labels in the day strip** print at roughly 1.08:1. Open item 5,
-and the honest fix is a redesign of the strip's empty state rather than a token
-change.
+**Empty-night labels in the day strip** printed at roughly 1.08:1. Closed: the
+emptiness moved onto the chip's circle and its `aria-label`, so the label now
+prints `faint` on `bg` and is asserted at 4.5:1 as a row of its own in
+`src/tokens.test.js`. A failure here is now a regression.
 
 ---
 
@@ -253,5 +344,15 @@ That last one matters: reduce-motion must stop the animation, not the timer.
 - **Switch Control and Full Keyboard Access.** The focus trap follows Tab and
   Shift-Tab only; `aria-modal` is what covers tree-walking assistive tech. That
   ceiling is recorded in `docs/accessibility.md`.
-- **The five open items** in `docs/accessibility.md`. Three of them are Level A.
-  Testing against them will produce failures; they are known.
+- **A real screen reader, on anything.** Repeated from the top because it is
+  the one limit the drivers do not touch: `drive-names.mjs` confirms what Chrome
+  computed, and no assistive technology has consumed it.
+- **The five open items** in `docs/accessibility.md` are all closed as of
+  20 August 2026, three of them Level A. Testing against them should now pass;
+  a failure is a regression. Non-text contrast is what remains open, and it is
+  recorded in two places that do not line up: the paper's Table 2 carries the
+  reminder toggle's knob at 2.30:1 and an active pill at 1.28:1, both taken by
+  hand, while `drive-contrast.mjs` scores eleven material rows of its own and
+  reproduces neither of those two figures anywhere in its output. The two
+  records have not been reconciled. That is unfinished work, not a
+  disagreement anyone has resolved.

@@ -367,11 +367,17 @@ const useStepSwap = (v) => useSwap(v, STEP_OUT_MS, "gy-step", "gy-step-out");
 
 /* --------------------------------- onboarding ----------------------------- */
 
-/* A round back button that reads on the hero wash rather than on the sheet. */
+/* A round back button that reads on the hero wash rather than on the sheet.
+   The disc was a white wash, which at the sky's brightest sweep composited to
+   rgb(142,139,235) and took the white arrow on it to 2.98:1 — a 1.4.11 failure
+   only a measurement stepped across the animation could find, since every
+   other frame of the same button passes. Scrimming down instead of washing up
+   moves with the sky rather than against it: the darker the disc gets under a
+   bright bloom, the further the white glyph clears. */
 function HeroBack({ onClick }) {
   return (
     <button onClick={onClick} aria-label="Back" style={{
-      background: "rgba(255,255,255,0.18)", border: "none", width: 42, height: 42, borderRadius: 21,
+      background: "rgba(0,0,0,0.22)", border: "none", width: 42, height: 42, borderRadius: 21,
       cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
     }}><ArrowLeft size={18} color="#FFFFFF" /></button>
   );
@@ -649,8 +655,18 @@ function Quiz({ onDone, onBack }) {
       }}>
         <div style={{ width: `${pct * 100}%`, height: "100%", background: "#FFFFFF", transition: "width 300ms ease" }} />
       </div>
+      {/* The only text that sits on .gy-sky, and the sky is not a colour: it is
+          DUSK painted at 100% 200% and drifted through its whole range by
+          gy-drift, so the pixels under this counter sweep from rgb(75,73,180)
+          to rgb(125,109,184), lightened again by the two screen-blended blooms
+          to rgb(149,130,194). At 0.8 alpha this read 2.74:1 at the warm end of
+          that sweep. No flat colour clears 4.5:1 across it — white tops out at
+          3.36:1 — so the scrim is what makes the ratio the text's own rather
+          than the animation's: opaque white on a 32% black pill is 6.37:1 at
+          the lightest the sky gets and 11.21:1 at the darkest. */}
       <span style={{
-        fontFamily: FONT_TEXT, fontSize: 13, color: "rgba(255,255,255,0.8)", fontVariantNumeric: "tabular-nums",
+        fontFamily: FONT_TEXT, fontSize: 13, color: "#FFFFFF", fontVariantNumeric: "tabular-nums",
+        background: "rgba(0,0,0,0.32)", padding: "3px 9px", borderRadius: 999,
       }}>{i + 1}/{QUESTIONS.length}</span>
     </div>
   );
@@ -2363,9 +2379,16 @@ function ProfileSheet({
                 background: on ? DOMAIN[r.cat].fill[T.key] : T.hair, position: "relative",
                 transition: "background 160ms ease",
               }}>
+                {/* The knob is white and the track is the domain colour, so on
+                    the pale hues the knob had nothing to sit against: 2.30:1 on
+                    light and 2.99:1 on water, measured in the dark theme. The
+                    ring is what carries it — the knob's own boundary rather
+                    than its fill — and it also answers the off state, where a
+                    white knob on the warm theme's hairline track read 1.09:1. */}
                 <span style={{
                   position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20,
                   borderRadius: 10, background: "#fff", transition: "left 160ms ease",
+                  border: "1px solid rgba(0,0,0,0.8)",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                 }} />
               </button>
@@ -2415,7 +2438,7 @@ function ProfileSheet({
           location.reload();
         }} />
       {exportText && (
-        <textarea readOnly value={exportText} style={{
+        <textarea readOnly value={exportText} aria-label="Exported data" style={{
           width: "100%", height: 150, borderRadius: 14, padding: 12, marginBottom: 8,
           fontFamily: "ui-monospace, monospace", fontSize: 11, background: T.card,
           color: T.muted, border: `1px solid ${T.hair}`, resize: "vertical",
@@ -2649,7 +2672,7 @@ function AdjustSheet({
                   fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 500, color: T.ink, lineHeight: 1,
                 }}>+</button>
               </div>
-              <input type="range" min={spec.min} max={spec.max} step={spec.step} value={val}
+              <input type="range" aria-label={spec.l} min={spec.min} max={spec.max} step={spec.step} value={val}
                 onChange={(e) => setAdjustDraft({ ...adjustDraft, [a.key]: Number(e.target.value) })}
                 style={{ width: "100%", marginTop: 12, accentColor: d.fill[T.key] }} />
               {!isDefault && (
@@ -2982,7 +3005,18 @@ export default function App() {
     const ITEM_STATUS = { done: "done", skip: "skipped", adjusted: "adjusted" };
     if (ITEM_STATUS[act]) {
       push("item", { id: item.id, status: ITEM_STATUS[act], category: item.category, title: item.title });
-      if (act === "skip" && item.category === "movement") say("Skipped breaks happen. The next reset will be shorter.");
+      /* Every one of the three, not only the movement skip: the entry is
+         written either way, and an entry the app made no statement about is
+         one the user has no way of noticing it made. The adjust sheet says
+         something more specific after this and wins the toast, which is the
+         point — this is the floor, not the ceiling. */
+      say(act === "done"
+        ? `${item.title} logged as done.`
+        : act === "skip"
+        ? (item.category === "movement"
+          ? "Skipped breaks happen. The next reset will be shorter."
+          : `${item.title} skipped. The rest of the plan is unchanged.`)
+        : `${item.title} adjusted.`);
       return;
     }
     if (act === "adjust") {
